@@ -6,6 +6,9 @@
 <title>VESTEX — Luxury Stock Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400;1,6..96,700&family=Barlow+Condensed:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Firebase v9 Compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <style>
 :root {
   --red: #CC0000;
@@ -413,9 +416,232 @@ canvas{max-height:300px;}
   .banner-title{ font-size:20px; }
   .ov-item{ min-width:100px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   LOGIN SCREEN
+   ═══════════════════════════════════════════════════════════ */
+#auth-screen{
+  position:fixed;inset:0;z-index:999;
+  display:flex;align-items:stretch;
+  background:var(--dark2);
+}
+
+/* Left panel — branding */
+.auth-left{
+  width:45%;background:var(--dark2);
+  display:flex;flex-direction:column;justify-content:center;
+  padding:60px 48px;position:relative;overflow:hidden;
+  border-right:3px solid var(--red);
+}
+.auth-left::before{
+  content:'VX VX VX\A VX VX VX\A VX VX VX\A VX VX VX\A VX VX VX\A VX VX VX';
+  white-space:pre;
+  position:absolute;inset:0;
+  font-family:'Bodoni Moda',serif;font-size:80px;font-weight:900;
+  color:var(--red);opacity:.04;line-height:1.1;
+  padding:20px;letter-spacing:10px;
+}
+.auth-left::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--gold),var(--red),var(--gold));
+}
+.auth-logo{
+  font-family:'Bodoni Moda',serif;font-size:52px;font-weight:900;
+  color:#fff;letter-spacing:8px;line-height:1;
+}
+.auth-logo span{color:var(--red);}
+.auth-logo-sub{font-size:10px;letter-spacing:5px;color:var(--gold);text-transform:uppercase;margin-top:8px;}
+.auth-gold-bar{width:60px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:28px 0;}
+.auth-tagline{
+  font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:500;
+  color:rgba(255,255,255,.35);letter-spacing:2px;line-height:1.7;
+}
+.auth-tagline strong{color:rgba(255,255,255,.7);font-weight:700;}
+.auth-features{margin-top:32px;display:flex;flex-direction:column;gap:12px;}
+.auth-feat{display:flex;align-items:center;gap:12px;font-size:12px;letter-spacing:1px;color:rgba(255,255,255,.4);}
+.auth-feat-icon{color:var(--gold);font-size:14px;flex-shrink:0;}
+
+/* Right panel — form */
+.auth-right{
+  flex:1;background:var(--white);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:48px 40px;
+  position:relative;overflow:hidden;
+}
+.auth-right::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--red),var(--gold));
+}
+.auth-form-wrap{width:100%;max-width:360px;}
+.auth-form-title{
+  font-family:'Bodoni Moda',serif;font-size:32px;font-weight:900;
+  color:var(--dark);letter-spacing:1px;margin-bottom:4px;
+}
+.auth-form-title span{color:var(--red);}
+.auth-form-sub{font-size:11px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;margin-bottom:32px;}
+
+.auth-label{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;display:block;margin-bottom:6px;margin-top:16px;font-weight:700;}
+.auth-input{
+  width:100%;padding:13px 16px;
+  border:1px solid var(--border);background:var(--off);
+  font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:500;
+  color:var(--dark);outline:none;transition:border .2s;letter-spacing:.5px;
+}
+.auth-input:focus{border-color:var(--red);background:var(--white);}
+.auth-input::placeholder{color:#bbb;}
+
+.auth-btn{
+  width:100%;margin-top:24px;padding:14px;
+  background:var(--red);color:#fff;border:none;
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;cursor:pointer;
+  transition:background .2s;
+}
+.auth-btn:hover{background:var(--red-dark);}
+.auth-btn:disabled{background:#ccc;cursor:not-allowed;}
+
+.auth-divider{
+  display:flex;align-items:center;gap:12px;margin:20px 0;
+}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.auth-divider span{font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;}
+
+.auth-google{
+  width:100%;padding:12px;
+  background:var(--white);border:1px solid var(--border);
+  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--dark);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:border-color .2s;
+}
+.auth-google:hover{border-color:var(--red);}
+.auth-google img{width:18px;height:18px;}
+
+.auth-toggle{
+  text-align:center;margin-top:24px;font-size:11px;letter-spacing:1px;color:var(--gray);
+}
+.auth-toggle a{color:var(--red);cursor:pointer;font-weight:700;text-decoration:none;}
+.auth-toggle a:hover{text-decoration:underline;}
+
+.auth-error{
+  background:rgba(204,0,0,.08);border:1px solid var(--red);
+  color:var(--red);font-size:11px;letter-spacing:.5px;
+  padding:10px 14px;margin-top:14px;display:none;line-height:1.5;
+}
+.auth-error.show{display:block;}
+
+.auth-forgot{
+  text-align:right;margin-top:6px;font-size:10px;letter-spacing:1px;
+  color:var(--gray);cursor:pointer;
+}
+.auth-forgot:hover{color:var(--red);}
+
+/* Logout button in topbar */
+.logout-btn{
+  font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:700;
+  color:var(--gray);background:transparent;border:1px solid var(--border);
+  padding:5px 12px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+  transition:all .2s;
+}
+.logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* User name in topbar */
+.user-name{font-size:10px;letter-spacing:1px;color:var(--gray);font-weight:600;}
+
+/* Mobile auth */
+@media(max-width:768px){
+  .auth-left{display:none;}
+  .auth-right{padding:40px 24px;}
+  .auth-form-wrap{max-width:100%;}
+}
 </style>
 </head>
 <body>
+
+<!-- ═══════ AUTH SCREEN ═══════ -->
+<div id="auth-screen">
+  <!-- Left branding panel -->
+  <div class="auth-left">
+    <div class="auth-logo">VE<span>S</span>TEX</div>
+    <div class="auth-logo-sub">Luxury Stock Intelligence</div>
+    <div class="auth-gold-bar"></div>
+    <div class="auth-tagline">
+      <strong>Real-time market data.</strong><br>
+      Track your portfolio.<br>
+      Predict price movements.<br>
+      Built for the serious investor.
+    </div>
+    <div class="auth-features">
+      <div class="auth-feat"><span class="auth-feat-icon">◆</span> Live stock prices via Stooq</div>
+      <div class="auth-feat"><span class="auth-feat-icon">◆</span> AI-powered price predictions</div>
+      <div class="auth-feat"><span class="auth-feat-icon">◆</span> Personal portfolio tracker</div>
+      <div class="auth-feat"><span class="auth-feat-icon">◆</span> Market news sentiment</div>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+
+      <!-- SIGN IN FORM -->
+      <div id="signin-form">
+        <div class="auth-form-title">Welcome <span>Back</span></div>
+        <div class="auth-form-sub">◆ Sign in to your account</div>
+
+        <label class="auth-label">Email Address</label>
+        <input class="auth-input" id="si-email" type="email" placeholder="you@example.com" autocomplete="email">
+
+        <label class="auth-label">Password</label>
+        <input class="auth-input" id="si-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+        <div class="auth-forgot" onclick="forgotPassword()">Forgot password?</div>
+
+        <div class="auth-error" id="si-error"></div>
+        <button class="auth-btn" id="si-btn" onclick="signIn()">◆ Sign In</button>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <button class="auth-google" onclick="signInGoogle()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+          Continue with Google
+        </button>
+
+        <div class="auth-toggle">
+          Don't have an account? <a onclick="showSignup()">Create one</a>
+        </div>
+      </div>
+
+      <!-- SIGN UP FORM -->
+      <div id="signup-form" style="display:none;">
+        <div class="auth-form-title">Create <span>Account</span></div>
+        <div class="auth-form-sub">◆ Join VESTEX today — it's free</div>
+
+        <label class="auth-label">Full Name</label>
+        <input class="auth-input" id="su-name" type="text" placeholder="Your name" autocomplete="name">
+
+        <label class="auth-label">Email Address</label>
+        <input class="auth-input" id="su-email" type="email" placeholder="you@example.com" autocomplete="email">
+
+        <label class="auth-label">Password</label>
+        <input class="auth-input" id="su-pass" type="password" placeholder="Min 6 characters" autocomplete="new-password">
+
+        <div class="auth-error" id="su-error"></div>
+        <button class="auth-btn" id="su-btn" onclick="signUp()">◆ Create Account</button>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <button class="auth-google" onclick="signInGoogle()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+          Continue with Google
+        </button>
+
+        <div class="auth-toggle">
+          Already have an account? <a onclick="showSignin()">Sign in</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <!-- ═══════ SIDEBAR ═══════ -->
 <aside class="sidebar">
@@ -452,7 +678,9 @@ canvas{max-height:300px;}
     <div class="tb-right">
       <div id="live-status" style="font-size:9px;letter-spacing:2px;font-weight:700;color:var(--gold);">● CONNECTING...</div>
       <div class="tb-date" id="tb-date"></div>
-      <div class="av">VX</div>
+      <div class="user-name" id="user-name"></div>
+      <button class="logout-btn" onclick="signOut()" style="display:none;" id="logout-btn">Sign Out</button>
+      <div class="av" id="user-av">VX</div>
     </div>
   </div>
 
@@ -627,6 +855,120 @@ canvas{max-height:300px;}
 </nav>
 
 <script>
+// ═══════════════════════════════════════════════════════════
+//  FIREBASE CONFIG — paste your config from Firebase Console
+//  Console → Project Settings → Your Apps → SDK setup
+// ═══════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "PASTE_YOUR_API_KEY",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN",
+  projectId:         "PASTE_YOUR_PROJECT_ID",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId:             "PASTE_YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+// ── Auth state listener ──
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // Logged in — hide auth screen, show app
+    document.getElementById('auth-screen').style.display = 'none';
+    const name = user.displayName || user.email.split('@')[0];
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-av').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('logout-btn').style.display = 'block';
+  } else {
+    // Not logged in — show auth screen
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('logout-btn').style.display = 'none';
+    document.getElementById('user-name').textContent = '';
+    document.getElementById('user-av').textContent = 'VX';
+  }
+});
+
+// ── Sign In (email/password) ──
+function signIn() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass  = document.getElementById('si-pass').value;
+  const err   = document.getElementById('si-error');
+  const btn   = document.getElementById('si-btn');
+  if (!email || !pass) { showErr(err, 'Please enter your email and password.'); return; }
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(e => { showErr(err, friendlyError(e.code)); btn.disabled=false; btn.textContent='◆ Sign In'; });
+}
+
+// ── Sign Up (email/password) ──
+function signUp() {
+  const name  = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass  = document.getElementById('su-pass').value;
+  const err   = document.getElementById('su-error');
+  const btn   = document.getElementById('su-btn');
+  if (!name || !email || !pass) { showErr(err, 'Please fill in all fields.'); return; }
+  if (pass.length < 6) { showErr(err, 'Password must be at least 6 characters.'); return; }
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  auth.createUserWithEmailAndPassword(email, pass)
+    .then(r => r.user.updateProfile({ displayName: name }))
+    .catch(e => { showErr(err, friendlyError(e.code)); btn.disabled=false; btn.textContent='◆ Create Account'; });
+}
+
+// ── Google Sign In ──
+function signInGoogle() {
+  auth.signInWithPopup(googleProvider)
+    .catch(e => {
+      const err = document.getElementById('si-error');
+      showErr(err, friendlyError(e.code));
+    });
+}
+
+// ── Sign Out ──
+function signOut() {
+  auth.signOut();
+}
+
+// ── Forgot Password ──
+function forgotPassword() {
+  const email = document.getElementById('si-email').value.trim();
+  if (!email) { showErr(document.getElementById('si-error'), 'Enter your email above first.'); return; }
+  auth.sendPasswordResetEmail(email)
+    .then(() => showErr(document.getElementById('si-error'), '✓ Reset email sent — check your inbox.'))
+    .catch(e => showErr(document.getElementById('si-error'), friendlyError(e.code)));
+}
+
+// ── Toggle forms ──
+function showSignup() { document.getElementById('signin-form').style.display='none'; document.getElementById('signup-form').style.display='block'; }
+function showSignin()  { document.getElementById('signup-form').style.display='none'; document.getElementById('signin-form').style.display='block'; }
+
+// ── Helpers ──
+function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+
+function friendlyError(code) {
+  const map = {
+    'auth/user-not-found':        'No account found with that email.',
+    'auth/wrong-password':        'Incorrect password. Try again.',
+    'auth/invalid-email':         'Please enter a valid email address.',
+    'auth/email-already-in-use':  'An account with this email already exists.',
+    'auth/weak-password':         'Password must be at least 6 characters.',
+    'auth/too-many-requests':     'Too many attempts. Please wait and try again.',
+    'auth/popup-closed-by-user':  'Google sign-in was cancelled.',
+    'auth/network-request-failed':'Network error. Check your connection.',
+    'auth/invalid-credential':    'Incorrect email or password.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('signup-form').style.display !== 'none') signUp();
+  else signIn();
+});
+
 // ═══════════════════════════════════════════════════════════
 //  DATA
 // ═══════════════════════════════════════════════════════════
