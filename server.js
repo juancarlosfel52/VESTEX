@@ -120,6 +120,24 @@ app.post('/api/pipeline/run', async (req, res) => {
   runPipeline().catch(console.error);
 });
 
+// ── API: FRED proxy — hides API key server-side ──
+app.get('/api/fred/:series', async (req, res) => {
+  const key = process.env.FRED_API_KEY;
+  if (!key) return res.json({ ok: false, error: 'FRED_API_KEY not configured' });
+  try {
+    const axios = require('axios');
+    const resp  = await axios.get('https://api.stlouisfed.org/fred/series/observations', {
+      params: { series_id: req.params.series.toUpperCase(), sort_order: 'desc', limit: 3, file_type: 'json', api_key: key },
+      timeout: 8000
+    });
+    const obs    = (resp.data.observations || []);
+    const latest = obs.find(o => o.value !== '.' && o.value !== '');
+    res.json({ ok: true, value: latest ? parseFloat(latest.value) : null, date: latest ? latest.date : null });
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // ── Serve frontend ──
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
