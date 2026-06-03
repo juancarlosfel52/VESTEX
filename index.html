@@ -2115,10 +2115,39 @@ async function fetchQuotes() {
   setLiveStatus(true);
 }
 
-// Historical: generate realistic mock anchored to real current price
-// (Stooq historical requires API key; chart still uses real price as endpoint)
+// Historical price data from Stooq (free, no API key)
+// Endpoint: https://stooq.com/q/d/l/?s=aapl.us&d1=YYYYMMDD&d2=YYYYMMDD&i=d
 async function fetchHistory(sym, per) {
-  throw new Error('use mock'); // always use mock for history — real price is endpoint
+  const days = PERIODS[per];
+  const now  = new Date();
+  const from = new Date(now);
+  from.setDate(from.getDate() - days);
+
+  const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
+  const url  = `https://stooq.com/q/d/l/?s=${sym.toLowerCase()}.us&d1=${fmt(from)}&d2=${fmt(now)}&i=d`;
+  const res  = await fetch(PROXY + encodeURIComponent(url));
+  const text = await res.text();
+
+  const rows = text.trim().split('\n').slice(1).filter(r => r && !r.includes('No data'));
+  if (rows.length < 2) throw new Error('no history');
+
+  const prices = [];
+  const labels = [];
+  rows.forEach(row => {
+    const cols  = row.split(',');
+    const date  = cols[0];   // YYYY-MM-DD
+    const close = parseFloat(cols[4]);
+    if (!date || isNaN(close)) return;
+    const d = new Date(date);
+    const lbl = days <= 7
+      ? d.toLocaleDateString('en-US', { weekday:'short' })
+      : d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    labels.push(lbl);
+    prices.push(+close.toFixed(2));
+  });
+
+  if (prices.length < 2) throw new Error('no history');
+  return { prices, labels };
 }
 
 function setLiveStatus(ok) {
@@ -2282,7 +2311,7 @@ async function init() {
   updateDashKPIs();
   renderPortfolio();
 
-  // Dashboard chart (tries live historical, falls back to mock)
+  // Dashboard chart
   const ctx = document.getElementById('dashChart').getContext('2d');
   dashChart = await buildChart(ctx, dashSym, dashPer, null);
 
