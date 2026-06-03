@@ -554,9 +554,183 @@ canvas{max-height:300px;}
   .auth-right{padding:40px 24px;}
   .auth-form-wrap{max-width:100%;}
 }
+
+/* ── BETA POPUP ── */
+#beta-overlay{
+  position:fixed;inset:0;z-index:998;
+  background:rgba(0,0,0,0.75);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  animation:fadeIn .3s ease;
+}
+.beta-modal{
+  background:var(--white);max-width:600px;width:100%;
+  position:relative;overflow:hidden;
+  max-height:90vh;overflow-y:auto;
+}
+.beta-modal::before{
+  content:'';position:sticky;top:0;left:0;right:0;height:5px;display:block;
+  background:linear-gradient(90deg,var(--red),var(--gold),var(--red));
+}
+.beta-top{
+  background:var(--dark2);padding:28px 28px 20px;position:relative;overflow:hidden;
+}
+.beta-top::after{
+  content:'β';position:absolute;right:-10px;top:-20px;
+  font-family:'Bodoni Moda',serif;font-size:160px;font-weight:900;
+  color:#fff;opacity:.04;
+}
+.beta-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--red);color:#fff;
+  font-size:9px;letter-spacing:3px;font-weight:700;
+  padding:5px 14px;margin-bottom:14px;text-transform:uppercase;
+}
+.beta-title{
+  font-family:'Bodoni Moda',serif;font-size:26px;font-weight:900;
+  color:#fff;line-height:1.2;
+}
+.beta-title em{color:var(--gold);font-style:italic;}
+.beta-sub{font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.35);margin-top:6px;text-transform:uppercase;}
+
+.beta-body{padding:24px 28px;}
+
+.beta-section{margin-bottom:22px;}
+.beta-section-title{
+  font-size:9px;letter-spacing:3px;font-weight:700;text-transform:uppercase;
+  color:var(--red);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;
+}
+.beta-section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.beta-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.beta-list li{
+  display:flex;align-items:start;gap:10px;
+  font-size:12px;color:var(--dark);line-height:1.5;
+}
+.beta-list li::before{content:'◆';color:var(--gold);font-size:10px;margin-top:2px;flex-shrink:0;}
+.beta-list li.soon::before{content:'◇';color:var(--gray);}
+.beta-list li.soon{color:var(--gray);}
+
+.beta-disclaimer{
+  background:rgba(204,0,0,.05);border:1px solid rgba(204,0,0,.2);
+  padding:14px 16px;margin-bottom:22px;
+}
+.beta-disclaimer-title{
+  font-size:9px;letter-spacing:2px;font-weight:700;color:var(--red);
+  text-transform:uppercase;margin-bottom:7px;
+}
+.beta-disclaimer p{font-size:11px;color:var(--gray);line-height:1.7;}
+.beta-disclaimer strong{color:var(--dark);}
+
+.beta-fake-money{
+  background:linear-gradient(135deg,var(--dark2),#2D0000);
+  padding:18px;margin-bottom:22px;display:flex;align-items:center;gap:16px;
+}
+.beta-money-icon{font-size:32px;}
+.beta-money-title{font-family:'Bodoni Moda',serif;font-size:20px;color:#fff;font-weight:700;}
+.beta-money-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;line-height:1.5;}
+
+.beta-agree{
+  display:flex;align-items:start;gap:10px;margin-bottom:20px;cursor:pointer;
+}
+.beta-agree input{margin-top:3px;accent-color:var(--red);cursor:pointer;}
+.beta-agree-txt{font-size:11px;color:var(--gray);line-height:1.6;}
+
+.beta-btn{
+  width:100%;padding:14px;background:var(--red);color:#fff;border:none;
+  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;cursor:pointer;
+  transition:background .2s;opacity:.5;pointer-events:none;
+}
+.beta-btn.ready{opacity:1;pointer-events:all;}
+.beta-btn.ready:hover{background:var(--red-dark);}
+
+.beta-version{
+  text-align:center;margin-top:14px;
+  font-size:9px;letter-spacing:2px;color:#bbb;text-transform:uppercase;
+}
+
+@media(max-width:768px){
+  .beta-modal{max-height:95vh;}
+  .beta-top{padding:20px 20px 16px;}
+  .beta-body{padding:18px 20px;}
+  .beta-title{font-size:20px;}
+}
 </style>
 </head>
 <body>
+
+<!-- ═══════ BETA POPUP ═══════ -->
+<div id="beta-overlay" style="display:none;">
+  <div class="beta-modal">
+    <div class="beta-top">
+      <div class="beta-badge">◆ Beta Version 0.1</div>
+      <div class="beta-title">Welcome to <em>VESTEX</em></div>
+      <div class="beta-sub">◆ Read this before you start ◆</div>
+    </div>
+
+    <div class="beta-body">
+
+      <!-- FAKE MONEY CALLOUT -->
+      <div class="beta-fake-money">
+        <div class="beta-money-icon">💰</div>
+        <div>
+          <div class="beta-money-title">$100,000 in Practice Money</div>
+          <div class="beta-money-sub">Coming soon — paper trading mode gives you $100K in fake money to practice buying and selling stocks with zero real risk. Learn how the market works before using real money.</div>
+        </div>
+      </div>
+
+      <!-- WHAT WORKS NOW -->
+      <div class="beta-section">
+        <div class="beta-section-title">What You Can Do Right Now</div>
+        <ul class="beta-list">
+          <li>See real live stock prices — updated every 60 seconds from real markets</li>
+          <li>Track your personal portfolio — add stocks, see your profit or loss instantly</li>
+          <li>View price charts with 1 week, 1 month, 3 month, and 1 year history</li>
+          <li>Read beginner-friendly predictions — we tell you if a stock looks like it's heading up or down</li>
+          <li>Check market news — labeled Good, Bad, or Neutral in plain English</li>
+          <li>Works on your phone — full mobile version included</li>
+        </ul>
+      </div>
+
+      <!-- COMING SOON -->
+      <div class="beta-section">
+        <div class="beta-section-title">Coming in the Next Few Weeks</div>
+        <ul class="beta-list">
+          <li class="soon">Paper trading — buy and sell with $100K fake money, no real risk</li>
+          <li class="soon">AI-powered news sentiment — Claude reads headlines and explains what they mean for your stocks</li>
+          <li class="soon">Prediction accuracy tracker — see how often our model is right week over week</li>
+          <li class="soon">Community leaderboard — compete with other users on who makes the best predictions</li>
+          <li class="soon">Smarter price predictions — our model improves every week as it collects more data</li>
+          <li class="soon">Stock alerts — get notified when a stock moves significantly</li>
+        </ul>
+      </div>
+
+      <!-- DISCLAIMER -->
+      <div class="beta-disclaimer">
+        <div class="beta-disclaimer-title">⚠ Important — Please Read</div>
+        <p>
+          <strong>VESTEX is a Beta application currently in testing.</strong> This app contains real live market data for educational and informational purposes only. It is not financial advice.
+          <br><br>
+          <strong>Any money you invest in real stocks is entirely your own responsibility.</strong> VESTEX, its creators, and its developers are not responsible for any financial losses you may experience as a result of investment decisions made using this app.
+          <br><br>
+          This platform is still being developed and may contain bugs, errors, or inaccurate predictions. Always do your own research before investing real money.
+        </p>
+      </div>
+
+      <!-- AGREE CHECKBOX -->
+      <label class="beta-agree" onclick="betaCheckToggle()">
+        <input type="checkbox" id="beta-check">
+        <span class="beta-agree-txt">I understand this is a Beta app. I accept full responsibility for any real investment decisions I make. I will not hold VESTEX responsible for any financial losses.</span>
+      </label>
+
+      <button class="beta-btn" id="beta-btn" onclick="closeBeta()">◆ I Understand — Take Me In</button>
+      <div class="beta-version">VESTEX Beta v0.1 · Built June 2026 · More coming soon</div>
+
+    </div>
+  </div>
+</div>
 
 <!-- ═══════ AUTH SCREEN ═══════ -->
 <div id="auth-screen">
@@ -876,15 +1050,20 @@ const googleProvider = new firebase.auth.GoogleAuthProvider();
 // ── Auth state listener ──
 auth.onAuthStateChanged(user => {
   if (user) {
-    // Logged in — hide auth screen, show app
     document.getElementById('auth-screen').style.display = 'none';
     const name = user.displayName || user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
     document.getElementById('user-av').textContent = name.charAt(0).toUpperCase();
     document.getElementById('logout-btn').style.display = 'block';
+    // Show beta popup once per user (stored in localStorage)
+    const key = 'vestex_beta_accepted_' + user.uid;
+    if (!localStorage.getItem(key)) {
+      document.getElementById('beta-overlay').style.display = 'flex';
+      window._betaKey = key;
+    }
   } else {
-    // Not logged in — show auth screen
     document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('beta-overlay').style.display = 'none';
     document.getElementById('logout-btn').style.display = 'none';
     document.getElementById('user-name').textContent = '';
     document.getElementById('user-av').textContent = 'VX';
@@ -961,6 +1140,19 @@ function friendlyError(code) {
     'auth/invalid-credential':    'Incorrect email or password.',
   };
   return map[code] || 'Something went wrong. Please try again.';
+}
+
+// ── Beta popup ──
+function betaCheckToggle() {
+  const checked = document.getElementById('beta-check').checked;
+  const btn     = document.getElementById('beta-btn');
+  // checkbox fires before state updates — so flip it
+  if (!checked) btn.classList.add('ready');
+  else          btn.classList.remove('ready');
+}
+function closeBeta() {
+  if (window._betaKey) localStorage.setItem(window._betaKey, '1');
+  document.getElementById('beta-overlay').style.display = 'none';
 }
 
 // Enter key support
