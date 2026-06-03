@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VESTEX — Luxury Stock Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400;1,6..96,700&family=Barlow+Condensed:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --red: #CC0000;
+  --red-dark: #900000;
+  --gold: #C9A84C;
+  --gold-light: #E8C97A;
+  --white: #FFFFFF;
+  --off: #FAF8F5;
+  --cream: #F3EDE3;
+  --dark: #0D0D0D;
+  --dark2: #1A1A1A;
+  --gray: #777;
+  --border: #E2D9CE;
+  --green: #1A6E45;
+  --green2: #22A05A;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:16px;}
+body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--off);color:var(--dark);display:flex;min-height:100vh;overflow-x:hidden;}
+
+/* ── GREEK KEY PATTERN (CSS only) ── */
+.gk {
+  height:8px;
+  background-image:repeating-linear-gradient(
+    90deg,
+    var(--red) 0px, var(--red) 2px,
+    transparent 2px, transparent 6px,
+    var(--red) 6px, var(--red) 8px,
+    transparent 8px, transparent 12px
+  ),
+  repeating-linear-gradient(
+    0deg,
+    var(--red) 0px, var(--red) 2px,
+    transparent 2px, transparent 6px
+  );
+  background-size: 16px 8px, 8px 8px;
+  opacity:.5;
+}
+
+/* ── LV-STYLE MONOGRAM WATERMARK ── */
+.mono-bg {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Ctext x='4' y='44' font-family='Georgia' font-size='30' font-weight='bold' fill='%23CC0000' opacity='0.035'%3EVX%3C/text%3E%3Ctext x='42' y='68' font-family='Georgia' font-size='12' fill='%23C9A84C' opacity='0.04'%3E◆%3C/text%3E%3C/svg%3E");
+}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:240px;min-height:100vh;background:var(--dark2);
+  display:flex;flex-direction:column;position:fixed;
+  left:0;top:0;bottom:0;z-index:100;
+}
+.sidebar::after{
+  content:'';position:absolute;right:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(to bottom,var(--gold),var(--red) 50%,var(--gold));
+}
+.logo-wrap{padding:28px 24px 20px;border-bottom:1px solid #2A2A2A;}
+.logo{font-family:'Bodoni Moda',serif;font-size:30px;font-weight:900;color:#fff;letter-spacing:6px;}
+.logo span{color:var(--red);}
+.logo-sub{font-size:8px;letter-spacing:4px;color:var(--gold);text-transform:uppercase;margin-top:3px;}
+.gk-gold{height:6px;margin-top:14px;background-image:repeating-linear-gradient(90deg,var(--gold) 0,var(--gold) 2px,transparent 2px,transparent 8px);opacity:.4;}
+
+.nav-lbl{font-size:8px;letter-spacing:3px;color:#444;text-transform:uppercase;padding:20px 24px 6px;}
+.nav-item{
+  display:flex;align-items:center;gap:12px;padding:11px 24px;
+  cursor:pointer;border-left:3px solid transparent;
+  color:#666;font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  transition:all .2s;
+}
+.nav-item:hover{color:#fff;background:rgba(204,0,0,.09);border-left-color:var(--red);}
+.nav-item.active{color:#fff;background:rgba(204,0,0,.14);border-left-color:var(--red);}
+.nav-item.active .ni{color:var(--red);}
+.ni{width:18px;text-align:center;font-size:15px;}
+
+.idx-block{padding:10px 24px;}
+.idx-lbl{font-size:9px;letter-spacing:2px;color:#444;text-transform:uppercase;margin-bottom:2px;}
+.idx-val{font-family:'Bodoni Moda',serif;font-size:18px;color:#fff;}
+.idx-chg{font-size:10px;margin-top:1px;}
+
+.sb-bot{padding:18px 24px;border-top:1px solid #222;margin-top:auto;}
+.mkt-status{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:2px;color:#666;text-transform:uppercase;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green2);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── MAIN ── */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:var(--white);border-bottom:1px solid var(--border);
+  height:60px;padding:0 28px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:50;
+}
+.ticker{display:flex;gap:22px;overflow:hidden;}
+.ti{display:flex;align-items:center;gap:7px;white-space:nowrap;}
+.ti-sym{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--dark);}
+.ti-price{font-size:11px;color:var(--gray);}
+.ti-chg{font-size:10px;padding:2px 6px;}
+.up{color:var(--green);background:rgba(26,110,69,.08);}
+.dn{color:var(--red);background:rgba(204,0,0,.08);}
+.tb-right{display:flex;align-items:center;gap:14px;}
+.tb-date{font-size:10px;letter-spacing:1px;color:var(--gray);}
+.av{width:34px;height:34px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;letter-spacing:1px;}
+
+/* ── CONTENT ── */
+.content{padding:28px;flex:1;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── WELCOME BANNER ── */
+.banner{
+  background:linear-gradient(135deg,#0D0D0D 0%,#2D0000 100%);
+  padding:28px 32px;margin-bottom:24px;position:relative;overflow:hidden;
+}
+.banner::before{
+  content:'◆ VESTEX ◆ LUXURY STOCK INTELLIGENCE ◆ VESTEX ◆ LUXURY STOCK INTELLIGENCE ◆ VESTEX ◆';
+  position:absolute;bottom:8px;left:0;right:0;
+  font-size:7px;letter-spacing:5px;color:var(--gold);opacity:.15;white-space:nowrap;
+}
+.banner::after{
+  content:'VX';position:absolute;right:-10px;top:-20px;
+  font-family:'Bodoni Moda',serif;font-size:150px;font-weight:900;
+  color:#fff;opacity:.03;letter-spacing:-8px;
+}
+.banner-title{font-family:'Bodoni Moda',serif;font-size:34px;font-weight:700;color:#fff;letter-spacing:1px;}
+.banner-title em{color:var(--gold);font-style:italic;}
+.banner-sub{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.35);text-transform:uppercase;margin-top:6px;}
+.gold-bar{width:50px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:14px 0;}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.kpi{background:var(--white);border:1px solid var(--border);padding:20px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--gold));}
+.kpi-lbl{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;}
+.kpi-val{font-family:'Bodoni Moda',serif;font-size:28px;font-weight:700;color:var(--dark);line-height:1;}
+.kpi-note{font-size:10px;margin-top:7px;letter-spacing:.5px;}
+
+/* ── STOCK OVERVIEW BAR ── */
+.ov-bar{display:flex;border:1px solid var(--border);background:var(--white);margin-bottom:22px;}
+.ov-item{flex:1;padding:14px 18px;border-right:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative;}
+.ov-item:last-child{border-right:none;}
+.ov-item:hover{background:var(--off);}
+.ov-item.sel{background:var(--cream);}
+.ov-item.sel::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--red);}
+.ov-sym{font-size:10px;font-weight:700;letter-spacing:3px;color:var(--dark);}
+.ov-price{font-family:'Bodoni Moda',serif;font-size:19px;color:var(--dark);margin:3px 0;}
+.ov-chg{font-size:10px;letter-spacing:.5px;}
+
+/* ── PANEL ── */
+.panel{background:var(--white);border:1px solid var(--border);margin-bottom:20px;position:relative;overflow:hidden;}
+.panel::after{content:'VX';position:absolute;bottom:10px;right:20px;font-family:'Bodoni Moda',serif;font-size:100px;font-weight:900;color:var(--red);opacity:.02;pointer-events:none;}
+.ph{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.ph-title{font-family:'Bodoni Moda',serif;font-size:15px;font-weight:600;color:var(--dark);letter-spacing:.5px;}
+.ph-sub{font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;margin-top:2px;}
+.pb{padding:22px;}
+
+/* ── PERIOD TABS ── */
+.period-tabs{display:flex;gap:2px;}
+.ptab{padding:4px 10px;font-size:10px;letter-spacing:1px;cursor:pointer;border:none;background:transparent;color:var(--gray);font-family:'Barlow Condensed',sans-serif;transition:all .2s;}
+.ptab.active{color:var(--red);font-weight:700;}
+
+/* ── STOCK TABS ── */
+.stabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;}
+.stab{padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--gray);font-family:'Barlow Condensed',sans-serif;transition:all .2s;}
+.stab:hover{border-color:var(--red);color:var(--red);}
+.stab.active{background:var(--red);border-color:var(--red);color:#fff;}
+
+/* ── CHART INFO ── */
+.chart-info{display:flex;gap:28px;margin-bottom:18px;align-items:flex-end;}
+.ci-sym{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:4px;}
+.ci-price{font-family:'Bodoni Moda',serif;font-size:38px;font-weight:700;color:var(--dark);}
+.ci-chg{font-size:13px;margin-top:4px;}
+
+/* ── TWO COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+
+/* ── PREDICTIONS ── */
+.pred-item{padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.pred-item:last-child{border-bottom:none;}
+.pred-badge{width:34px;height:34px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--red);}
+.pred-name{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--dark);}
+.pred-company{font-size:10px;color:var(--gray);margin-top:1px;}
+.dir{font-size:11px;letter-spacing:.5px;font-weight:700;padding:4px 10px;}
+.dir.bull{color:var(--green);background:rgba(26,110,69,.08);}
+.dir.bear{color:var(--red);background:rgba(204,0,0,.08);}
+.dir.flat{color:var(--gold);background:rgba(201,168,76,.1);}
+.conf-bar{height:3px;background:var(--border);margin-top:6px;width:90px;}
+.conf-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--gold));}
+.pred-target{font-size:10px;color:var(--gray);margin-top:3px;}
+
+/* ── NEWS ── */
+.news-item{padding:14px 22px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:4px 1fr auto;gap:14px;align-items:start;}
+.news-item:last-child{border-bottom:none;}
+.sbar{border-radius:2px;align-self:stretch;min-height:36px;}
+.sbar.pos{background:var(--green2);}
+.sbar.neg{background:var(--red);}
+.sbar.neu{background:var(--gold);}
+.news-hl{font-size:12px;color:var(--dark);line-height:1.5;margin-bottom:3px;}
+.news-meta{font-size:10px;color:var(--gray);letter-spacing:.5px;}
+.spill{font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:4px 8px;font-weight:700;white-space:nowrap;border:1px solid;}
+.spill.pos{color:var(--green);border-color:var(--green);}
+.spill.neg{color:var(--red);border-color:var(--red);}
+.spill.neu{color:var(--gold);border-color:var(--gold);}
+
+/* ── PORTFOLIO TABLE ── */
+.pt-head{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 36px;padding:10px 22px;background:var(--cream);border-bottom:1px solid var(--border);}
+.pt-hc{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);font-weight:600;}
+.pt-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 36px;padding:14px 22px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s;}
+.pt-row:hover{background:var(--off);}
+.pt-row:last-child{border-bottom:none;}
+.pt-sym{font-size:10px;letter-spacing:2px;font-weight:700;color:var(--dark);}
+.pt-co{font-size:10px;color:var(--gray);margin-top:1px;}
+.pt-c{font-size:12px;color:var(--dark);}
+.pt-c.win{color:var(--green);font-weight:600;}
+.pt-c.lose{color:var(--red);font-weight:600;}
+.pt-rm{width:28px;height:28px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--gray);font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.pt-rm:hover{border-color:var(--red);color:var(--red);}
+
+/* ── ADD BAR ── */
+.add-bar{padding:14px 22px;background:var(--cream);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;}
+.add-sel,.add-inp{padding:9px 12px;border:1px solid var(--border);background:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;color:var(--dark);outline:none;}
+.add-sel:focus,.add-inp:focus{border-color:var(--red);}
+.add-sel{flex:1;}
+.add-inp{width:130px;}
+.btn-add{padding:9px 22px;background:var(--red);color:#fff;border:none;font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:background .2s;white-space:nowrap;}
+.btn-add:hover{background:var(--red-dark);}
+
+/* ── INFO BOX ── */
+.info-box{background:var(--cream);border:1px solid var(--border);padding:14px 20px;margin-bottom:20px;display:flex;gap:12px;align-items:start;}
+.info-icon{font-size:18px;color:var(--gold);flex-shrink:0;}
+.info-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dark);margin-bottom:3px;}
+.info-body{font-size:12px;color:var(--gray);line-height:1.6;}
+
+/* ── SECTION HEADER ── */
+.sec-hdr{margin-bottom:22px;}
+.sec-title{font-family:'Bodoni Moda',serif;font-size:26px;font-weight:700;color:var(--dark);}
+.sec-title span{color:var(--red);}
+.sec-sub{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-top:3px;}
+
+/* ── MINI KPIS ── */
+.kpi-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
+
+/* ── FOOTER ── */
+.footer{padding:20px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.foot-brand{font-family:'Bodoni Moda',serif;font-size:13px;letter-spacing:4px;color:var(--gray);}
+.foot-note{font-size:10px;letter-spacing:.5px;color:#bbb;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:var(--off);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--red);}
+
+canvas{max-height:300px;}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.fade{animation:fadeIn .35s ease forwards;}
+
+/* ── EMPTY STATE ── */
+.empty{padding:40px;text-align:center;font-size:11px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE / iOS RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+
+/* Bottom nav bar — mobile only */
+.mob-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--dark2);
+  border-top:2px solid var(--red);
+  height:64px;
+  padding-bottom:env(safe-area-inset-bottom);
+  z-index:200;
+  flex-direction:row;
+  align-items:stretch;
+}
+.mob-nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;color:#666;font-size:8px;letter-spacing:2px;text-transform:uppercase;
+  font-family:'Barlow Condensed',sans-serif;font-weight:600;
+  border-left:1px solid #222;transition:all .2s;
+  padding:8px 4px;
+}
+.mob-nav-item:first-child{border-left:none;}
+.mob-nav-item.active{color:var(--red);}
+.mob-nav-item.active .mob-icon{color:var(--red);}
+.mob-icon{font-size:18px;color:#555;}
+
+@media (max-width: 768px) {
+  /* Hide desktop sidebar */
+  .sidebar{ display:none !important; }
+
+  /* Main takes full width */
+  .main{ margin-left:0; }
+
+  /* Show bottom nav */
+  .mob-nav{ display:flex; }
+
+  /* Topbar — compact */
+  .topbar{
+    height:52px;
+    padding:0 16px;
+    position:fixed;top:0;left:0;right:0;z-index:150;
+  }
+  .ticker{ display:none; }
+  .tb-right{ gap:10px; }
+  .tb-date{ display:none; }
+
+  /* Content padding — account for fixed topbar + bottom nav */
+  .content{
+    padding:16px;
+    padding-top:68px;
+    padding-bottom:80px;
+  }
+
+  /* Banner */
+  .banner{ padding:20px 16px; margin-bottom:16px; }
+  .banner-title{ font-size:24px; }
+  .banner-sub{ font-size:8px; letter-spacing:2px; }
+  .banner::after{ font-size:90px; }
+
+  /* KPI grid — 2 columns on mobile */
+  .kpi-grid{ grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .kpi{ padding:14px; }
+  .kpi-val{ font-size:20px; }
+  .kpi-lbl{ font-size:8px; letter-spacing:1px; margin-bottom:6px; }
+
+  /* Overview bar — scrollable row */
+  .ov-bar{
+    display:flex;overflow-x:auto;margin-bottom:14px;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .ov-bar::-webkit-scrollbar{ display:none; }
+  .ov-item{ min-width:120px; flex-shrink:0; padding:12px 14px; }
+  .ov-price{ font-size:16px; }
+  .ov-chg{ font-size:9px; }
+
+  /* Chart panel */
+  .panel{ margin-bottom:14px; }
+  .ph{ padding:14px 16px; flex-wrap:wrap; gap:8px; }
+  .pb{ padding:14px 16px; }
+  .ci-price{ font-size:28px; }
+  canvas{ max-height:220px !important; }
+
+  /* Two col → single col */
+  .two-col{ grid-template-columns:1fr; gap:14px; }
+
+  /* 3 KPI cols → stack */
+  .kpi-3{ grid-template-columns:1fr; gap:10px; }
+
+  /* Portfolio table — horizontal scroll */
+  .pt-head,.pt-row{
+    grid-template-columns:2fr 1fr 1fr 1fr;
+    font-size:11px;
+  }
+  /* Hide less critical columns on mobile */
+  .pt-head .pt-hc:nth-child(3),
+  .pt-head .pt-hc:nth-child(5),
+  .pt-head .pt-hc:nth-child(7),
+  .pt-row .pt-c:nth-child(3),
+  .pt-row .pt-c:nth-child(5),
+  .pt-row button{
+    display:none;
+  }
+  .pt-head{ padding:10px 16px; }
+  .pt-row{ padding:12px 16px; }
+
+  /* Add bar stack */
+  .add-bar{ flex-wrap:wrap; padding:12px 16px; gap:8px; }
+  .add-sel{ width:100%; }
+  .add-inp{ flex:1; min-width:0; }
+  .btn-add{ width:100%; text-align:center; }
+
+  /* Section headers */
+  .sec-hdr{ margin-bottom:14px; }
+  .sec-title{ font-size:20px; }
+
+  /* Predictions — 2 stats on mobile instead of 4 */
+  .panel .pb[style*="grid-template-columns:repeat(4"]{
+    grid-template-columns:1fr 1fr !important;
+    gap:14px !important;
+  }
+
+  /* News items */
+  .news-item{ padding:12px 16px; gap:10px; }
+  .news-hl{ font-size:12px; }
+
+  /* Info box */
+  .info-box{ padding:12px 14px; }
+  .info-body{ font-size:11px; }
+
+  /* Footer */
+  .footer{ flex-direction:column; gap:6px; text-align:center; padding:16px; }
+
+  /* Period tabs larger touch targets */
+  .ptab{ padding:8px 12px; font-size:12px; }
+  .stab{ padding:8px 14px; font-size:11px; }
+
+  /* Prediction confidence bar */
+  .conf-bar{ width:100% !important; }
+}
+
+@media (max-width: 400px) {
+  .kpi-grid{ grid-template-columns:1fr; }
+  .banner-title{ font-size:20px; }
+  .ov-item{ min-width:100px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<aside class="sidebar">
+  <div class="logo-wrap">
+    <div class="logo">VE<span>S</span>TEX</div>
+    <div class="logo-sub">Luxury Stock Intelligence</div>
+    <div class="gk-gold"></div>
+  </div>
+
+  <div class="nav-lbl">Navigation</div>
+  <div class="nav-item active" data-page="dashboard" onclick="nav(this,'dashboard')"><span class="ni">◈</span> Dashboard</div>
+  <div class="nav-item" data-page="charts" onclick="nav(this,'charts')"><span class="ni">◉</span> Price Charts</div>
+  <div class="nav-item" data-page="predictions" onclick="nav(this,'predictions')"><span class="ni">◇</span> Predictions</div>
+  <div class="nav-item" data-page="portfolio" onclick="nav(this,'portfolio')"><span class="ni">◈</span> My Portfolio</div>
+  <div class="nav-item" data-page="news" onclick="nav(this,'news')"><span class="ni">◉</span> Market News</div>
+
+  <div class="nav-lbl" style="margin-top:16px;">Market Index</div>
+  <div class="idx-block"><div class="idx-lbl">S&P 500</div><div class="idx-val">5,248.80</div><div class="idx-chg up">▲ +0.43%</div></div>
+  <div class="idx-block"><div class="idx-lbl">NASDAQ</div><div class="idx-val">18,421.30</div><div class="idx-chg up">▲ +0.61%</div></div>
+  <div class="idx-block"><div class="idx-lbl">DOW JONES</div><div class="idx-val">38,790.45</div><div class="idx-chg dn">▼ −0.12%</div></div>
+
+  <div class="sb-bot">
+    <div class="mkt-status"><div class="dot"></div> Market Open</div>
+    <div style="font-size:9px;color:#333;margin-top:5px;letter-spacing:1px;">NYSE · NASDAQ · LIVE</div>
+  </div>
+</aside>
+
+<!-- ═══════ MAIN ═══════ -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="ticker" id="ticker-tape"></div>
+    <div class="tb-right">
+      <div id="live-status" style="font-size:9px;letter-spacing:2px;font-weight:700;color:var(--gold);">● CONNECTING...</div>
+      <div class="tb-date" id="tb-date"></div>
+      <div class="av">VX</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="banner">
+        <div class="banner-title">Good morning, <em>Investor</em></div>
+        <div class="banner-sub">◆ Your Wealth Dashboard ◆ <span id="banner-date"></span></div>
+        <div class="gold-bar"></div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-lbl">Total Value of Your Stocks</div><div class="kpi-val" id="kpi-total">$0.00</div><div class="kpi-note" style="color:var(--gray);">Across your portfolio</div></div>
+        <div class="kpi"><div class="kpi-lbl">Money Made Today</div><div class="kpi-val" id="kpi-today">+$0.00</div><div class="kpi-note" style="color:var(--gray);">Since market opened</div></div>
+        <div class="kpi"><div class="kpi-lbl">Best Stock Today</div><div class="kpi-val" id="kpi-best" style="font-size:22px;">AMZN</div><div class="kpi-note up">▲ +3.1% today</div></div>
+        <div class="kpi"><div class="kpi-lbl">Stocks You Own</div><div class="kpi-val" id="kpi-count">0</div><div class="kpi-note" style="color:var(--gray);">In your portfolio</div></div>
+      </div>
+
+      <div class="ov-bar" id="ov-bar"></div>
+
+      <div class="panel">
+        <div class="ph">
+          <div><div class="ph-title">Price History</div><div class="ph-sub">How the price has moved over time</div></div>
+          <div style="display:flex;gap:16px;align-items:center;">
+            <div class="period-tabs" id="dash-ptabs">
+              <button class="ptab active" onclick="dashPeriod('1W',this)">1W</button>
+              <button class="ptab" onclick="dashPeriod('1M',this)">1M</button>
+              <button class="ptab" onclick="dashPeriod('3M',this)">3M</button>
+              <button class="ptab" onclick="dashPeriod('1Y',this)">1Y</button>
+            </div>
+          </div>
+        </div>
+        <div class="pb">
+          <div class="chart-info">
+            <div>
+              <div class="ci-sym" id="d-sym-lbl">AAPL — APPLE INC.</div>
+              <div class="ci-price" id="d-price">$185.50</div>
+              <div class="ci-chg up" id="d-chg">▲ +$4.15 today (+2.3%)</div>
+            </div>
+          </div>
+          <canvas id="dashChart"></canvas>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="ph"><div><div class="ph-title">Price Predictions</div><div class="ph-sub">Where we think prices are heading</div></div></div>
+          <div id="d-preds"></div>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="ph"><div><div class="ph-title">Market News</div><div class="ph-sub">Good or bad news for your stocks</div></div></div>
+          <div id="d-news"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CHARTS PAGE ═══ -->
+    <div class="page" id="page-charts">
+      <div class="sec-hdr"><div class="sec-title">Price <span>Charts</span></div><div class="sec-sub">◆ See how each stock's price has moved over time</div></div>
+      <div class="stabs" id="chart-stabs"></div>
+      <div class="panel">
+        <div class="ph">
+          <div><div class="ph-title" id="cp-sym">AAPL — Apple Inc.</div><div class="ph-sub">Price over time — higher bars mean the price went up</div></div>
+          <div class="period-tabs" id="chart-ptabs">
+            <button class="ptab active" onclick="chartPeriod('1W',this)">1W</button>
+            <button class="ptab" onclick="chartPeriod('1M',this)">1M</button>
+            <button class="ptab" onclick="chartPeriod('3M',this)">3M</button>
+            <button class="ptab" onclick="chartPeriod('1Y',this)">1Y</button>
+          </div>
+        </div>
+        <div class="pb"><canvas id="chartPageCanvas"></canvas></div>
+      </div>
+      <div class="two-col" style="margin-bottom:0;">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="ph"><div class="ph-title">What Does This Mean?</div></div>
+          <div class="pb" style="display:flex;flex-direction:column;gap:16px;">
+            <div><div style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:3px;">Price Going Up ▲</div><div style="font-size:12px;color:var(--gray);line-height:1.6;">More people want to buy than sell. Your investment is worth more!</div></div>
+            <div><div style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:3px;">Price Going Down ▼</div><div style="font-size:12px;color:var(--gray);line-height:1.6;">More people are selling. This can be temporary — prices often recover.</div></div>
+            <div><div style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:3px;">Flat Price ◆</div><div style="font-size:12px;color:var(--gray);line-height:1.6;">Equal buyers and sellers. The market is waiting for new information.</div></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="ph"><div class="ph-title">Key Numbers Explained</div></div>
+          <div class="pb" id="chart-stats"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PREDICTIONS PAGE ═══ -->
+    <div class="page" id="page-predictions">
+      <div class="sec-hdr"><div class="sec-title">Price <span>Predictions</span></div><div class="sec-sub">◆ Our best guess at where prices are heading</div></div>
+      <div class="info-box">
+        <div class="info-icon">◈</div>
+        <div><div class="info-title">How Do We Predict?</div><div class="info-body">We analyze how the price has moved over recent weeks and detect patterns. Think of it like weather forecasting — very helpful as a guide, but not guaranteed. Always invest only what you can afford.</div></div>
+      </div>
+      <div id="pred-full"></div>
+    </div>
+
+    <!-- ═══ PORTFOLIO PAGE ═══ -->
+    <div class="page" id="page-portfolio">
+      <div class="sec-hdr"><div class="sec-title">My <span>Portfolio</span></div><div class="sec-sub">◆ All the stocks you own in one place</div></div>
+      <div class="kpi-3">
+        <div class="kpi"><div class="kpi-lbl">Total Money Invested</div><div class="kpi-val" id="p-invested">$0.00</div></div>
+        <div class="kpi"><div class="kpi-lbl">Current Value</div><div class="kpi-val" id="p-current">$0.00</div></div>
+        <div class="kpi"><div class="kpi-lbl">Total Profit / Loss</div><div class="kpi-val" id="p-pnl">$0.00</div><div class="kpi-note" id="p-pnl-pct"></div></div>
+      </div>
+      <div class="panel" style="margin-bottom:8px;">
+        <div class="pt-head">
+          <div class="pt-hc">Stock</div>
+          <div class="pt-hc">Shares</div>
+          <div class="pt-hc">Price Paid</div>
+          <div class="pt-hc">Price Now</div>
+          <div class="pt-hc">Invested</div>
+          <div class="pt-hc">Profit / Loss</div>
+          <div class="pt-hc"></div>
+        </div>
+        <div id="port-rows"></div>
+        <div class="add-bar">
+          <select class="add-sel" id="add-sym">
+            <option value="">Choose a stock...</option>
+            <option value="AAPL">AAPL — Apple Inc.</option>
+            <option value="TSLA">TSLA — Tesla Inc.</option>
+            <option value="GOOGL">GOOGL — Alphabet Inc.</option>
+            <option value="MSFT">MSFT — Microsoft Corp.</option>
+            <option value="AMZN">AMZN — Amazon.com Inc.</option>
+          </select>
+          <input class="add-inp" id="add-shares" type="number" placeholder="Shares (e.g. 10)" min="0.01" step="0.01">
+          <input class="add-inp" id="add-price" type="number" placeholder="Price you paid ($)">
+          <button class="btn-add" onclick="addStock()">◆ Add Stock</button>
+        </div>
+      </div>
+      <div style="font-size:10px;letter-spacing:.5px;color:var(--gray);">◆ Enter the price per share you originally paid to track your real profit or loss.</div>
+    </div>
+
+    <!-- ═══ NEWS PAGE ═══ -->
+    <div class="page" id="page-news">
+      <div class="sec-hdr"><div class="sec-title">Market <span>News</span></div><div class="sec-sub">◆ Latest headlines and how they affect your stocks</div></div>
+      <div class="info-box">
+        <div class="info-icon">◉</div>
+        <div><div class="info-title">Understanding News Sentiment</div><div class="info-body"><strong style="color:var(--green);">Good News</strong> makes investors feel confident — prices often go up. <strong style="color:var(--gold);">Neutral</strong> has no major impact. <strong style="color:var(--red);">Bad News</strong> may cause concern and push prices down.</div></div>
+      </div>
+      <div id="news-full"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <div class="footer">
+    <div class="foot-brand">VESTEX ◆ LUXURY STOCK INTELLIGENCE</div>
+    <div class="foot-note">Educational purposes only · Mock data · Not financial advice · No real trades executed</div>
+  </div>
+</main>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mob-nav" id="mob-nav">
+  <div class="mob-nav-item active" onclick="mobNav(this,'dashboard')">
+    <span class="mob-icon">◈</span>Home
+  </div>
+  <div class="mob-nav-item" onclick="mobNav(this,'charts')">
+    <span class="mob-icon">◉</span>Charts
+  </div>
+  <div class="mob-nav-item" onclick="mobNav(this,'predictions')">
+    <span class="mob-icon">◇</span>Predict
+  </div>
+  <div class="mob-nav-item" onclick="mobNav(this,'portfolio')">
+    <span class="mob-icon">◈</span>Portfolio
+  </div>
+  <div class="mob-nav-item" onclick="mobNav(this,'news')">
+    <span class="mob-icon">◉</span>News
+  </div>
+</nav>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════════
+const STOCKS = {
+  AAPL:  { name:'Apple Inc.',      price:185.50, chg:2.3,  desc:'Makes iPhones, Macs, and the App Store.' },
+  TSLA:  { name:'Tesla Inc.',      price:174.90, chg:-1.8, desc:'Makes electric cars, solar panels, and energy storage.' },
+  GOOGL: { name:'Alphabet Inc.',   price:141.20, chg:0.9,  desc:'Owns Google Search, YouTube, and Google Maps.' },
+  MSFT:  { name:'Microsoft Corp.', price:378.85, chg:1.4,  desc:'Makes Windows, Office 365, Xbox, and Azure cloud.' },
+  AMZN:  { name:'Amazon.com Inc.', price:186.40, chg:3.1,  desc:"Runs the world's largest online store and AWS cloud." },
+};
+
+const NEWS = [
+  { sym:'AAPL', s:'pos', hl:'Apple reports record iPhone sales in Asia — strong quarter expected',          src:'Bloomberg',   t:'2h ago', why:'More sales = more profit = stock price likely goes up' },
+  { sym:'TSLA', s:'neg', hl:'Tesla faces increased competition from BYD in European markets',                src:'Reuters',     t:'4h ago', why:'More competition can reduce Tesla\'s sales and profits' },
+  { sym:'GOOGL',s:'pos', hl:'Google AI drives YouTube ad revenue to all-time high',                         src:'CNBC',        t:'5h ago', why:'Higher ad revenue means more money for the company' },
+  { sym:'MSFT', s:'pos', hl:'Microsoft Azure cloud grows 29% — beats Wall Street expectations',             src:'WSJ',         t:'6h ago', why:'Cloud growth is Microsoft\'s biggest money maker right now' },
+  { sym:'AMZN', s:'pos', hl:'Amazon Prime hits 250 million subscribers worldwide',                          src:'FT',          t:'8h ago', why:'More Prime members = more spending on Amazon' },
+  { sym:'TSLA', s:'neu', hl:'Tesla announces new Gigafactory location — details pending',                   src:'TechCrunch',  t:'10h ago',why:'New factory means future growth but also high costs today' },
+  { sym:'AAPL', s:'neu', hl:'Apple Vision Pro gets mixed reviews from enterprise customers',                 src:'Wired',       t:'12h ago',why:'Too early to tell if Vision Pro will become a big product' },
+  { sym:'MSFT', s:'pos', hl:'Microsoft Copilot AI adopted by 65% of Fortune 500 companies',                src:'Forbes',      t:'1d ago', why:'Massive AI adoption = big recurring revenue for Microsoft' },
+  { sym:'AMZN', s:'neg', hl:'Amazon faces antitrust inquiry in UK over marketplace practices',              src:'Guardian',    t:'1d ago', why:'Legal issues can slow business and cost the company money' },
+  { sym:'GOOGL',s:'neu', hl:'FTC reviews Google\'s AI search changes for consumer impact',                  src:'Axios',       t:'1d ago', why:'Government review could lead to fines or required changes' },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let dashSym    = 'AAPL';
+let dashPer    = '1W';
+let chartSym   = 'AAPL';
+let chartPer   = '1W';
+let dashChart  = null;
+let cpChart    = null;
+let portfolio  = [
+  { sym:'AAPL', shares:10, buy:172.00 },
+  { sym:'MSFT', shares:5,  buy:350.00 },
+  { sym:'AMZN', shares:8,  buy:178.00 },
+];
+
+const PERIODS = { '1W':7, '1M':30, '3M':90, '1Y':365 };
+
+// ═══════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════
+function genPrices(base, chgPct, days) {
+  const out = [];
+  let p = base * (1 - (chgPct / 100) * (days / 6));
+  for (let i = 0; i < days; i++) {
+    const v = (Math.random() - 0.46) * base * 0.013;
+    const t = (chgPct / 100) * base / days;
+    p = Math.max(p + v + t, base * 0.4);
+    out.push(+p.toFixed(2));
+  }
+  return out;
+}
+
+function genLabels(days) {
+  const out = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    if (days <= 7) out.push(d.toLocaleDateString('en-US',{weekday:'short'}));
+    else           out.push(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  }
+  return out;
+}
+
+function lineColor(chg) { return chg >= 0 ? '#1A6E45' : '#CC0000'; }
+function fillColor(chg) { return chg >= 0 ? 'rgba(26,110,69,0.07)' : 'rgba(204,0,0,0.07)'; }
+
+async function buildChart(ctx, sym, per, old) {
+  if (old) old.destroy();
+  const st = STOCKS[sym];
+  let prices, labels;
+  try {
+    const d = await fetchHistory(sym, per);
+    prices = d.prices; labels = d.labels;
+  } catch(e) {
+    const days = PERIODS[per];
+    prices = genPrices(st.price, st.chg, days);
+    labels = genLabels(days);
+  }
+  return new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data: prices,
+        borderColor: lineColor(st.chg),
+        backgroundColor: fillColor(st.chg),
+        borderWidth:2,fill:true,tension:0.4,
+        pointRadius:0,pointHoverRadius:5,
+        pointHoverBackgroundColor: lineColor(st.chg),
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' $'+c.parsed.y.toFixed(2)}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.03)'},ticks:{font:{family:'Barlow Condensed',size:10},color:'#aaa',maxTicksLimit:8}},
+        y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{family:'Barlow Condensed',size:10},color:'#aaa',callback:v=>'$'+v.toFixed(0)}}
+      }
+    }
+  });
+}
+
+function fmt$(n){ return '$'+Math.abs(n).toFixed(2); }
+function fmtPct(n){ return (n>=0?'+':'')+n.toFixed(1)+'%'; }
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function nav(el, id) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('page-'+id).classList.add('active');
+  if (id==='charts')      renderChartPage();
+  if (id==='predictions') renderPredsFull();
+  if (id==='portfolio')   renderPortfolio();
+  if (id==='news')        renderNewsFull();
+}
+
+function mobNav(el, id) {
+  document.querySelectorAll('.mob-nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('page-'+id).classList.add('active');
+  window.scrollTo(0,0);
+  if (id==='charts')      renderChartPage();
+  if (id==='predictions') renderPredsFull();
+  if (id==='portfolio')   renderPortfolio();
+  if (id==='news')        renderNewsFull();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TICKER TAPE
+// ═══════════════════════════════════════════════════════════
+function renderTicker() {
+  document.getElementById('ticker-tape').innerHTML = Object.entries(STOCKS).map(([s,st])=>`
+    <div class="ti">
+      <span class="ti-sym">${s}</span>
+      <span class="ti-price">$${st.price.toFixed(2)}</span>
+      <span class="ti-chg ${st.chg>=0?'up':'dn'}">${st.chg>=0?'▲':'▼'} ${Math.abs(st.chg)}%</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  OVERVIEW BAR (Dashboard)
+// ═══════════════════════════════════════════════════════════
+function renderOvBar() {
+  document.getElementById('ov-bar').innerHTML = Object.entries(STOCKS).map(([s,st],i)=>`
+    <div class="ov-item ${i===0?'sel':''}" onclick="selectDashStock('${s}',this)">
+      <div class="ov-sym">${s}</div>
+      <div class="ov-price">$${st.price.toFixed(2)}</div>
+      <div class="ov-chg ${st.chg>=0?'up':'dn'}">${st.chg>=0?'▲':'▼'} ${Math.abs(st.chg)}% today</div>
+    </div>`).join('');
+}
+
+async function selectDashStock(sym, el) {
+  document.querySelectorAll('.ov-item').forEach(i=>i.classList.remove('sel'));
+  el.classList.add('sel');
+  dashSym = sym;
+  const st = STOCKS[sym];
+  document.getElementById('d-sym-lbl').textContent = sym+' — '+st.name.toUpperCase();
+  document.getElementById('d-price').textContent = '$'+st.price.toFixed(2);
+  const dc = (st.price * st.chg / 100).toFixed(2);
+  document.getElementById('d-chg').textContent = (st.chg>=0?'▲ +$':'▼ −$')+Math.abs(dc)+' today ('+fmtPct(st.chg)+')';
+  document.getElementById('d-chg').className = 'ci-chg '+(st.chg>=0?'up':'dn');
+  const ctx = document.getElementById('dashChart').getContext('2d');
+  dashChart = await buildChart(ctx, sym, dashPer, dashChart);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD CHART PERIODS
+// ═══════════════════════════════════════════════════════════
+async function dashPeriod(p, el) {
+  dashPer = p;
+  document.querySelectorAll('#dash-ptabs .ptab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const ctx = document.getElementById('dashChart').getContext('2d');
+  dashChart = await buildChart(ctx, dashSym, dashPer, dashChart);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD PREDICTIONS (mini)
+// ═══════════════════════════════════════════════════════════
+function calcPred(sym) {
+  const st = STOCKS[sym];
+  const dir = st.chg > 1 ? 'Going Up' : st.chg < -0.5 ? 'Going Down' : 'Staying Flat';
+  const cls = st.chg > 0.5 ? 'bull' : st.chg < -0.5 ? 'bear' : 'flat';
+  const conf = Math.min(94, Math.round(50 + Math.abs(st.chg) * 9));
+  const t7  = (st.price * (1 + st.chg * 0.7 / 100)).toFixed(2);
+  const t30 = (st.price * (1 + st.chg * 3   / 100)).toFixed(2);
+  return { dir, cls, conf, t7, t30 };
+}
+
+function renderDashPreds() {
+  document.getElementById('d-preds').innerHTML = Object.entries(STOCKS).slice(0,4).map(([s,st])=>{
+    const p = calcPred(s);
+    return `<div class="pred-item">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="pred-badge">${s}</div>
+        <div><div class="pred-name">${s}</div><div class="pred-company">${st.name}</div></div>
+      </div>
+      <div style="text-align:right;">
+        <div class="dir ${p.cls}">${p.dir}</div>
+        <div class="pred-target">7-day target: $${p.t7}</div>
+        <div class="conf-bar"><div class="conf-fill" style="width:${p.conf}%"></div></div>
+        <div style="font-size:9px;letter-spacing:1px;color:var(--gray);margin-top:2px;">${p.conf}% confidence</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD NEWS (mini)
+// ═══════════════════════════════════════════════════════════
+function renderDashNews() {
+  document.getElementById('d-news').innerHTML = NEWS.slice(0,5).map(n=>`
+    <div class="news-item">
+      <div class="sbar ${n.s}"></div>
+      <div>
+        <div class="news-hl">${n.hl}</div>
+        <div class="news-meta">${n.sym} ◆ ${n.src} ◆ ${n.t}</div>
+      </div>
+      <div class="spill ${n.s}">${n.s==='pos'?'Good':n.s==='neg'?'Bad':'Neutral'}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD KPIs
+// ═══════════════════════════════════════════════════════════
+function updateDashKPIs() {
+  let total=0, todayGain=0;
+  portfolio.forEach(p=>{
+    const val = p.shares * STOCKS[p.sym].price;
+    total     += val;
+    todayGain += val * (STOCKS[p.sym].chg / 100);
+  });
+  document.getElementById('kpi-total').textContent = '$'+total.toFixed(2);
+  document.getElementById('kpi-today').textContent = (todayGain>=0?'+$':'-$')+Math.abs(todayGain).toFixed(2);
+  document.getElementById('kpi-today').style.color = todayGain>=0?'var(--green)':'var(--red)';
+  document.getElementById('kpi-count').textContent = portfolio.length;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHARTS PAGE
+// ═══════════════════════════════════════════════════════════
+async function renderChartPage() {
+  document.getElementById('chart-stabs').innerHTML = Object.keys(STOCKS).map(s=>`
+    <button class="stab ${s===chartSym?'active':''}" onclick="selectChartSym('${s}',this)">${s}</button>`).join('');
+  document.getElementById('cp-sym').textContent = chartSym+' — '+STOCKS[chartSym].name;
+  updateChartStats();
+  const ctx = document.getElementById('chartPageCanvas').getContext('2d');
+  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart);
+}
+
+async function selectChartSym(sym, el) {
+  chartSym = sym;
+  document.querySelectorAll('#chart-stabs .stab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cp-sym').textContent = sym+' — '+STOCKS[sym].name;
+  updateChartStats();
+  const ctx = document.getElementById('chartPageCanvas').getContext('2d');
+  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart);
+}
+
+async function chartPeriod(p, el) {
+  chartPer = p;
+  document.querySelectorAll('#chart-ptabs .ptab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const ctx = document.getElementById('chartPageCanvas').getContext('2d');
+  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart);
+}
+
+function updateChartStats() {
+  const st  = STOCKS[chartSym];
+  const hi  = st.high  ? '$'+st.high.toFixed(2)  : '$'+(st.price*1.04).toFixed(2);
+  const lo  = st.low   ? '$'+st.low.toFixed(2)   : '$'+(st.price*0.97).toFixed(2);
+  const vol = st.vol   ? (st.vol/1e6).toFixed(1)+'M shares' : '—';
+  document.getElementById('chart-stats').innerHTML = `
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">$${st.price.toFixed(2)}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Change Today</div><div style="font-size:16px;color:${st.chg>=0?'var(--green)':'var(--red)'};">${st.chg>=0?'▲ +':'▼ '}${Math.abs(st.chg)}%</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's High Price</div><div style="font-size:16px;">${hi}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's Low Price</div><div style="font-size:16px;">${lo}</div></div>
+    <div><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Shares Traded Today</div><div style="font-size:16px;">${vol}</div><div style="font-size:10px;color:var(--gray);">High volume = big news happening</div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PREDICTIONS PAGE (full)
+// ═══════════════════════════════════════════════════════════
+function renderPredsFull() {
+  document.getElementById('pred-full').innerHTML = Object.entries(STOCKS).map(([s,st])=>{
+    const p = calcPred(s);
+    return `<div class="panel" style="margin-bottom:14px;">
+      <div class="ph">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:1px;color:var(--red);">${s}</div>
+          <div><div class="ph-title">${st.name}</div><div class="ph-sub">${st.desc}</div></div>
+        </div>
+        <div class="dir ${p.cls}" style="font-size:13px;padding:7px 16px;">${p.dir}</div>
+      </div>
+      <div class="pb" style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;">
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">$${st.price.toFixed(2)}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 7 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${st.chg>=0?'var(--green)':'var(--red)'};">$${p.t7}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 30 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${st.chg>=0?'var(--green)':'var(--red)'};">$${p.t30}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Confidence Level</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${p.conf}%</div><div class="conf-bar" style="width:100%;margin-top:8px;"><div class="conf-fill" style="width:${p.conf}%"></div></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NEWS PAGE (full)
+// ═══════════════════════════════════════════════════════════
+function renderNewsFull() {
+  document.getElementById('news-full').innerHTML = NEWS.map(n=>`
+    <div class="panel" style="margin-bottom:12px;">
+      <div style="padding:18px 22px;display:grid;grid-template-columns:4px 1fr auto;gap:16px;align-items:start;">
+        <div class="sbar ${n.s}" style="min-height:60px;"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+            <div style="font-size:8px;font-weight:700;letter-spacing:2px;color:var(--red);border:1px solid var(--red);padding:2px 8px;">${n.sym}</div>
+            <div class="news-meta">${n.src} ◆ ${n.t}</div>
+          </div>
+          <div style="font-size:13px;color:var(--dark);margin-bottom:9px;line-height:1.55;">${n.hl}</div>
+          <div style="font-size:11px;color:var(--gray);line-height:1.6;background:var(--off);padding:9px 13px;border-left:3px solid var(--gold);">
+            <strong style="color:var(--dark);">What this means for you:</strong> ${n.why}
+          </div>
+        </div>
+        <div class="spill ${n.s}" style="font-size:9px;padding:6px 10px;">${n.s==='pos'?'▲ Good News':n.s==='neg'?'▼ Bad News':'◆ Neutral'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PORTFOLIO
+// ═══════════════════════════════════════════════════════════
+function renderPortfolio() {
+  let inv=0, cur=0;
+  portfolio.forEach(p=>{ inv += p.shares*p.buy; cur += p.shares*STOCKS[p.sym].price; });
+  const pnl = cur - inv;
+  const pct = inv > 0 ? (pnl/inv*100).toFixed(1) : 0;
+
+  document.getElementById('p-invested').textContent = '$'+inv.toFixed(2);
+  document.getElementById('p-current').textContent  = '$'+cur.toFixed(2);
+  document.getElementById('p-pnl').textContent      = (pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);
+  document.getElementById('p-pnl').style.color      = pnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('p-pnl-pct').textContent  = (pnl>=0?'▲ +':'▼ ')+pct+'% overall return';
+  document.getElementById('p-pnl-pct').className    = 'kpi-note '+(pnl>=0?'up':'dn');
+
+  if (!portfolio.length) {
+    document.getElementById('port-rows').innerHTML = '<div class="empty">No stocks yet — add one below</div>';
+    return;
+  }
+
+  document.getElementById('port-rows').innerHTML = portfolio.map((p,i)=>{
+    const st   = STOCKS[p.sym];
+    const pinv = p.shares * p.buy;
+    const pcur = p.shares * st.price;
+    const ppnl = pcur - pinv;
+    const ppct = (ppnl/pinv*100).toFixed(1);
+    return `<div class="pt-row">
+      <div><div class="pt-sym">${p.sym}</div><div class="pt-co">${st.name}</div></div>
+      <div class="pt-c">${p.shares} shares</div>
+      <div class="pt-c">$${p.buy.toFixed(2)}</div>
+      <div class="pt-c">$${st.price.toFixed(2)}</div>
+      <div class="pt-c">$${pinv.toFixed(2)}</div>
+      <div class="pt-c ${ppnl>=0?'win':'lose'}">${ppnl>=0?'+':'-'}$${Math.abs(ppnl).toFixed(2)}<br><span style="font-size:10px;">(${ppnl>=0?'+':''}${ppct}%)</span></div>
+      <button class="pt-rm" onclick="removeStock(${i})">×</button>
+    </div>`;
+  }).join('');
+
+  updateDashKPIs();
+}
+
+function addStock() {
+  const sym    = document.getElementById('add-sym').value;
+  const shares = parseFloat(document.getElementById('add-shares').value);
+  const price  = parseFloat(document.getElementById('add-price').value);
+  if (!sym || !shares || !price || shares<=0 || price<=0) { alert('Please fill in all fields.'); return; }
+  portfolio.push({ sym, shares, buy:price });
+  document.getElementById('add-sym').value = '';
+  document.getElementById('add-shares').value = '';
+  document.getElementById('add-price').value = '';
+  renderPortfolio();
+}
+
+function removeStock(i) {
+  portfolio.splice(i,1);
+  renderPortfolio();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  REAL-TIME DATA — STOOQ (free, no API key)
+//  CSV format: Symbol,Date,Time,Open,High,Low,Close,Volume
+// ═══════════════════════════════════════════════════════════
+const PROXY = 'https://corsproxy.io/?';
+
+async function fetchOneQuote(sym) {
+  const url = `https://stooq.com/q/l/?s=${sym.toLowerCase()}.us&f=sd2t2ohlcv&h&e=csv`;
+  const res  = await fetch(PROXY + encodeURIComponent(url));
+  const text = await res.text();
+  // Parse CSV — skip header line
+  const row  = text.trim().split('\n')[1];
+  if (!row || row.includes('N/D')) throw new Error('no data');
+  const cols = row.split(',');
+  // cols: 0=Symbol 1=Date 2=Time 3=Open 4=High 5=Low 6=Close 7=Volume
+  const open  = parseFloat(cols[3]);
+  const close = parseFloat(cols[6]);
+  const high  = parseFloat(cols[4]);
+  const low   = parseFloat(cols[5]);
+  const vol   = parseInt(cols[7]);
+  const chg   = +((close - open) / open * 100).toFixed(2);
+  return { price: +close.toFixed(2), chg, open, high, low, vol };
+}
+
+async function fetchQuotes() {
+  const syms = Object.keys(STOCKS);
+  const results = await Promise.all(syms.map(s => fetchOneQuote(s)));
+  syms.forEach((s, i) => {
+    const r = results[i];
+    STOCKS[s].price = r.price;
+    STOCKS[s].chg   = r.chg;
+    STOCKS[s].open  = r.open;
+    STOCKS[s].high  = r.high;
+    STOCKS[s].low   = r.low;
+    STOCKS[s].vol   = r.vol;
+  });
+  setLiveStatus(true);
+}
+
+// Historical: generate realistic mock anchored to real current price
+// (Stooq historical requires API key; chart still uses real price as endpoint)
+async function fetchHistory(sym, per) {
+  throw new Error('use mock'); // always use mock for history — real price is endpoint
+}
+
+function setLiveStatus(ok) {
+  const el = document.getElementById('live-status');
+  if (!el) return;
+  el.textContent = ok ? '● LIVE DATA' : '● MOCK DATA';
+  el.style.color = ok ? 'var(--green2)' : 'var(--gold)';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+async function init() {
+  const now = new Date();
+  document.getElementById('tb-date').textContent = now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('banner-date').textContent = now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+  // Fetch live quotes — fall back to mock if blocked
+  try { await fetchQuotes(); } catch(e) { setLiveStatus(false); }
+
+  renderTicker();
+  renderOvBar();
+  renderDashPreds();
+  renderDashNews();
+  updateDashKPIs();
+  renderPortfolio();
+
+  // Dashboard chart (tries live historical, falls back to mock)
+  const ctx = document.getElementById('dashChart').getContext('2d');
+  dashChart = await buildChart(ctx, dashSym, dashPer, null);
+
+  // Auto-refresh quotes every 60 seconds
+  setInterval(async () => {
+    try {
+      await fetchQuotes();
+      renderTicker();
+      renderOvBar();
+      updateDashKPIs();
+      renderPortfolio();
+    } catch(e) {}
+  }, 60000);
+}
+
+init();
+</script>
+</body>
+</html>
