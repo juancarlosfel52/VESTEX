@@ -90,26 +90,49 @@ app.get('/api/accuracy', async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// ── API: Get sentiment ──
-app.get('/api/sentiment', async (req, res) => {
-  if (!pipelineReady) return notReady(res);
+// ── In-memory sentiment cache (no Firebase needed) ──
+let sentimentCache = {};
+let sentimentLastRun = null;
+
+async function refreshSentimentCache() {
+  if (!process.env.CLAUDE_API_KEY) return;
   try {
-    const snap = await admin.firestore().collection('sentiment').get();
-    const out  = {};
-    snap.forEach(doc => { out[doc.id] = doc.data(); });
-    res.json({ ok: true, data: out });
-  } catch (e) { res.json({ ok: false, error: e.message }); }
+    const results = await runSentimentAnalysis();
+    sentimentCache  = results;
+    sentimentLastRun = new Date().toISOString();
+    console.log('[SENTIMENT] Cache refreshed —', Object.keys(results).length, 'symbols');
+    // Also persist to Firestore if pipeline is ready
+    if (pipelineReady) storeSentiment(admin, results).catch(console.error);
+  } catch(e) {
+    console.error('[SENTIMENT] Refresh failed:', e.message);
+  }
+}
+
+// ── API: Get sentiment — memory first, Firestore fallback ──
+app.get('/api/sentiment', async (req, res) => {
+  // Return memory cache if available
+  if (Object.keys(sentimentCache).length) {
+    return res.json({ ok: true, data: sentimentCache, source: 'cache' });
+  }
+  // Firestore fallback if pipeline ready
+  if (pipelineReady) {
+    try {
+      const snap = await admin.firestore().collection('sentiment').get();
+      const out  = {};
+      snap.forEach(doc => { out[doc.id] = doc.data(); });
+      if (Object.keys(out).length) return res.json({ ok: true, data: out, source: 'firestore' });
+    } catch(e) {}
+  }
+  res.json({ ok: false, error: 'Sentiment not yet loaded' });
 });
 
 // ── API: Refresh sentiment now ──
 app.post('/api/sentiment/refresh', async (req, res) => {
-  if (!pipelineReady) return notReady(res);
+  if (!process.env.CLAUDE_API_KEY) return res.json({ ok: false, error: 'CLAUDE_API_KEY not set' });
   if (req.headers['x-pipeline-secret'] !== process.env.PIPELINE_SECRET)
     return res.status(401).json({ ok: false, error: 'Unauthorized' });
   res.json({ ok: true, message: 'Sentiment refresh started' });
-  runSentimentAnalysis()
-    .then(results => storeSentiment(admin, results))
-    .catch(console.error);
+  refreshSentimentCache();
 });
 
 // ── API: Manual pipeline trigger ──
@@ -184,9 +207,7 @@ if (pipelineReady) {
   if (process.env.CLAUDE_API_KEY) {
     cron.schedule('0 8 * * 1-5', () => {
       console.log('[CRON] Morning sentiment analysis triggered');
-      runSentimentAnalysis()
-        .then(results => storeSentiment(admin, results))
-        .catch(console.error);
+      refreshSentimentCache();
     }, { timezone: 'America/New_York' });
     console.log('[SERVER] Sentiment cron scheduled: 8am ET Mon–Fri');
   }
@@ -196,4 +217,9 @@ if (pipelineReady) {
 app.listen(PORT, () => {
   console.log(`VESTEX server running on port ${PORT}`);
   console.log(`Pipeline scheduled: daily 5pm ET (Mon–Fri)`);
+  // Run sentiment immediately on boot if Claude key is present
+  if (process.env.CLAUDE_API_KEY) {
+    console.log('[SERVER] Claude API key detected — running initial sentiment analysis...');
+    setTimeout(() => refreshSentimentCache(), 3000);
+  }
 });
