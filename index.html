@@ -1435,25 +1435,12 @@ document.addEventListener('keydown', e => {
 //  DATA
 // ═══════════════════════════════════════════════════════════
 const STOCKS = {
-  AAPL:  { name:'Apple Inc.',      price:185.50, chg:2.3,  desc:'Makes iPhones, Macs, and the App Store.' },
-  TSLA:  { name:'Tesla Inc.',      price:174.90, chg:-1.8, desc:'Makes electric cars, solar panels, and energy storage.' },
-  GOOGL: { name:'Alphabet Inc.',   price:141.20, chg:0.9,  desc:'Owns Google Search, YouTube, and Google Maps.' },
-  MSFT:  { name:'Microsoft Corp.', price:378.85, chg:1.4,  desc:'Makes Windows, Office 365, Xbox, and Azure cloud.' },
-  AMZN:  { name:'Amazon.com Inc.', price:186.40, chg:3.1,  desc:"Runs the world's largest online store and AWS cloud." },
+  AAPL:  { name:'Apple Inc.',      price:null, chg:null, desc:'Makes iPhones, Macs, and the App Store.' },
+  TSLA:  { name:'Tesla Inc.',      price:null, chg:null, desc:'Makes electric cars, solar panels, and energy storage.' },
+  GOOGL: { name:'Alphabet Inc.',   price:null, chg:null, desc:'Owns Google Search, YouTube, and Google Maps.' },
+  MSFT:  { name:'Microsoft Corp.', price:null, chg:null, desc:'Makes Windows, Office 365, Xbox, and Azure cloud.' },
+  AMZN:  { name:'Amazon.com Inc.', price:null, chg:null, desc:"Runs the world's largest online store and AWS cloud." },
 };
-
-const NEWS = [
-  { sym:'AAPL', s:'pos', hl:'Apple reports record iPhone sales in Asia — strong quarter expected',          src:'Bloomberg',   t:'2h ago', why:'More sales = more profit = stock price likely goes up' },
-  { sym:'TSLA', s:'neg', hl:'Tesla faces increased competition from BYD in European markets',                src:'Reuters',     t:'4h ago', why:'More competition can reduce Tesla\'s sales and profits' },
-  { sym:'GOOGL',s:'pos', hl:'Google AI drives YouTube ad revenue to all-time high',                         src:'CNBC',        t:'5h ago', why:'Higher ad revenue means more money for the company' },
-  { sym:'MSFT', s:'pos', hl:'Microsoft Azure cloud grows 29% — beats Wall Street expectations',             src:'WSJ',         t:'6h ago', why:'Cloud growth is Microsoft\'s biggest money maker right now' },
-  { sym:'AMZN', s:'pos', hl:'Amazon Prime hits 250 million subscribers worldwide',                          src:'FT',          t:'8h ago', why:'More Prime members = more spending on Amazon' },
-  { sym:'TSLA', s:'neu', hl:'Tesla announces new Gigafactory location — details pending',                   src:'TechCrunch',  t:'10h ago',why:'New factory means future growth but also high costs today' },
-  { sym:'AAPL', s:'neu', hl:'Apple Vision Pro gets mixed reviews from enterprise customers',                 src:'Wired',       t:'12h ago',why:'Too early to tell if Vision Pro will become a big product' },
-  { sym:'MSFT', s:'pos', hl:'Microsoft Copilot AI adopted by 65% of Fortune 500 companies',                src:'Forbes',      t:'1d ago', why:'Massive AI adoption = big recurring revenue for Microsoft' },
-  { sym:'AMZN', s:'neg', hl:'Amazon faces antitrust inquiry in UK over marketplace practices',              src:'Guardian',    t:'1d ago', why:'Legal issues can slow business and cost the company money' },
-  { sym:'GOOGL',s:'neu', hl:'FTC reviews Google\'s AI search changes for consumer impact',                  src:'Axios',       t:'1d ago', why:'Government review could lead to fines or required changes' },
-];
 
 // ═══════════════════════════════════════════════════════════
 //  STATE
@@ -1464,40 +1451,13 @@ let chartSym   = 'AAPL';
 let chartPer   = '1W';
 let dashChart  = null;
 let cpChart    = null;
-let portfolio  = [
-  { sym:'AAPL', shares:10, buy:172.00 },
-  { sym:'MSFT', shares:5,  buy:350.00 },
-  { sym:'AMZN', shares:8,  buy:178.00 },
-];
+let portfolio = JSON.parse(localStorage.getItem('vestex_portfolio') || '[]');
 
 const PERIODS = { '1W':7, '1M':30, '3M':90, '1Y':365 };
 
 // ═══════════════════════════════════════════════════════════
 //  UTILS
 // ═══════════════════════════════════════════════════════════
-function genPrices(base, chgPct, days) {
-  const out = [];
-  let p = base * (1 - (chgPct / 100) * (days / 6));
-  for (let i = 0; i < days; i++) {
-    const v = (Math.random() - 0.46) * base * 0.013;
-    const t = (chgPct / 100) * base / days;
-    p = Math.max(p + v + t, base * 0.4);
-    out.push(+p.toFixed(2));
-  }
-  return out;
-}
-
-function genLabels(days) {
-  const out = [];
-  const now = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    if (days <= 7) out.push(d.toLocaleDateString('en-US',{weekday:'short'}));
-    else           out.push(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
-  }
-  return out;
-}
 
 function lineColor(chg) { return chg >= 0 ? '#1A6E45' : '#CC0000'; }
 function fillColor(chg) { return chg >= 0 ? 'rgba(26,110,69,0.07)' : 'rgba(204,0,0,0.07)'; }
@@ -1510,9 +1470,14 @@ async function buildChart(ctx, sym, per, old) {
     const d = await fetchHistory(sym, per);
     prices = d.prices; labels = d.labels;
   } catch(e) {
-    const days = PERIODS[per];
-    prices = genPrices(st.price, st.chg, days);
-    labels = genLabels(days);
+    // No live data — show empty chart with message
+    return new Chart(ctx, {
+      type:'line',
+      data:{ labels:[], datasets:[{ data:[] }] },
+      options:{ responsive:true, plugins:{ legend:{display:false},
+        title:{ display:true, text:'Chart data unavailable — market may be closed', color:'#aaa', font:{ family:'Barlow Condensed', size:12 } }
+      }}
+    });
   }
   return new Chart(ctx, {
     type:'line',
@@ -1771,16 +1736,7 @@ function renderDashNews() {
     }).join('');
     return;
   }
-  // Fall back to mock
-  document.getElementById('d-news').innerHTML = NEWS.slice(0,5).map(n=>`
-    <div class="news-item">
-      <div class="sbar ${n.s}"></div>
-      <div>
-        <div class="news-hl">${n.hl}</div>
-        <div class="news-meta">${n.sym} ◆ ${n.src} ◆ ${n.t}</div>
-      </div>
-      <div class="spill ${n.s}">${n.s==='pos'?'Good':n.s==='neg'?'Bad':'Neutral'}</div>
-    </div>`).join('');
+  document.getElementById('d-news').innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;text-align:center;">News sentiment activates once Claude API key is added to Railway.</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2045,24 +2001,13 @@ function renderNewsFull() {
     return;
   }
 
-  // Fall back to mock
-  document.getElementById('news-full').innerHTML = NEWS.map(n=>`
+  document.getElementById('news-full').innerHTML = `
     <div class="panel" style="margin-bottom:12px;">
-      <div style="padding:18px 22px;display:grid;grid-template-columns:4px 1fr auto;gap:16px;align-items:start;">
-        <div class="sbar ${n.s}" style="min-height:60px;"></div>
-        <div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
-            <div style="font-size:8px;font-weight:700;letter-spacing:2px;color:var(--red);border:1px solid var(--red);padding:2px 8px;">${n.sym}</div>
-            <div class="news-meta">${n.src} ◆ ${n.t}</div>
-          </div>
-          <div style="font-size:13px;color:var(--dark);margin-bottom:9px;line-height:1.55;">${n.hl}</div>
-          <div style="font-size:11px;color:var(--gray);line-height:1.6;background:var(--off);padding:9px 13px;border-left:3px solid var(--gold);">
-            <strong style="color:var(--dark);">What this means for you:</strong> ${n.why}
-          </div>
-        </div>
-        <div class="spill ${n.s}" style="font-size:9px;padding:6px 10px;">${n.s==='pos'?'▲ Good News':n.s==='neg'?'▼ Bad News':'◆ Neutral'}</div>
+      <div style="padding:32px;text-align:center;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">◆ News Sentiment Offline</div>
+        <div style="font-size:12px;color:var(--gray);line-height:1.7;">Add <strong style="color:var(--dark);">CLAUDE_API_KEY</strong> to Railway environment variables to activate AI-powered news analysis for AAPL, TSLA, GOOGL, MSFT and AMZN.</div>
       </div>
-    </div>`).join('');
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2112,6 +2057,7 @@ function addStock() {
   const price  = parseFloat(document.getElementById('add-price').value);
   if (!sym || !shares || !price || shares<=0 || price<=0) { alert('Please fill in all fields.'); return; }
   portfolio.push({ sym, shares, buy:price });
+  localStorage.setItem('vestex_portfolio', JSON.stringify(portfolio));
   document.getElementById('add-sym').value = '';
   document.getElementById('add-shares').value = '';
   document.getElementById('add-price').value = '';
@@ -2120,6 +2066,7 @@ function addStock() {
 
 function removeStock(i) {
   portfolio.splice(i,1);
+  localStorage.setItem('vestex_portfolio', JSON.stringify(portfolio));
   renderPortfolio();
 }
 
@@ -2431,7 +2378,7 @@ async function init() {
   document.getElementById('banner-date').textContent = now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
 
   // Fetch live quotes — fall back to mock if blocked
-  try { await fetchQuotes(); } catch(e) { setLiveStatus(false); }
+  try { await fetchQuotes(); } catch(e) { setLiveStatus(false); console.warn('[QUOTES] Failed:', e.message); }
   await fetchSentiment();
 
   // Render FRED placeholder cards immediately, then load live data
