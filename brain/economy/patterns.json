@@ -1,0 +1,229 @@
+[
+  {
+    "pattern_id": "ECON-001",
+    "name": "Yield Curve Inversion → Recession",
+    "category": "yield_curve",
+    "indicator": "10Y-2Y Treasury Spread",
+    "condition": "10Y-2Y spread crosses below 0 and stays negative for 3+ months",
+    "historical_occurrences": [
+      {"year": 1973, "inversion_depth_bp": -100, "lag_to_recession_months": 6, "recession": "1973-75"},
+      {"year": 1978, "inversion_depth_bp": -250, "lag_to_recession_months": 12, "recession": "1980"},
+      {"year": 1980, "inversion_depth_bp": -300, "lag_to_recession_months": 6, "recession": "1981-82"},
+      {"year": 1988, "inversion_depth_bp": -60, "lag_to_recession_months": 12, "recession": "1990-91"},
+      {"year": 2000, "inversion_depth_bp": -70, "lag_to_recession_months": 9, "recession": "2001"},
+      {"year": 2006, "inversion_depth_bp": -60, "lag_to_recession_months": 15, "recession": "2007-09"},
+      {"year": 2022, "inversion_depth_bp": -109, "lag_to_recession_months": null, "recession": "pending"}
+    ],
+    "hit_rate": "7/7 since 1970 (100%)",
+    "average_lag_months": 10,
+    "average_sp500_return_12m_after_inversion": -8.5,
+    "average_sp500_return_at_recession_start": -28.0,
+    "confidence": 0.92,
+    "notes": "Longest inversion in 40+ years: July 2022–Sept 2024 (26 months). Deep inversions historically precede deeper recessions. Re-steepening from inversion often coincides with recession already beginning."
+  },
+  {
+    "pattern_id": "ECON-002",
+    "name": "Sahm Rule Trigger → Recession Confirmed",
+    "category": "unemployment",
+    "indicator": "Sahm Rule Real-Time (SAHMREALTIME)",
+    "condition": "3-month average unemployment rate rises 0.50 percentage points above its 12-month low",
+    "historical_occurrences": [
+      {"year": 1970, "trigger_value": 0.5, "recession": "1969-70", "triggered_within_recession": true},
+      {"year": 1974, "trigger_value": 0.6, "recession": "1973-75", "triggered_within_recession": true},
+      {"year": 1980, "trigger_value": 0.5, "recession": "1980", "triggered_within_recession": true},
+      {"year": 1981, "trigger_value": 0.7, "recession": "1981-82", "triggered_within_recession": true},
+      {"year": 1990, "trigger_value": 0.5, "recession": "1990-91", "triggered_within_recession": true},
+      {"year": 2001, "trigger_value": 0.5, "recession": "2001", "triggered_within_recession": true},
+      {"year": 2008, "trigger_value": 0.8, "recession": "2007-09", "triggered_within_recession": true},
+      {"year": 2020, "trigger_value": 2.8, "recession": "2020", "triggered_within_recession": true},
+      {"year": 2024, "trigger_value": 0.53, "recession": "unclear", "triggered_within_recession": false}
+    ],
+    "hit_rate": "8/8 in recessions since 1970, triggered July 2024 (possible false positive)",
+    "average_sp500_return_30d_after_trigger": -5.2,
+    "average_sp500_return_6m_after_trigger": -18.4,
+    "confidence": 0.87,
+    "notes": "2024 trigger was borderline (0.53 vs 0.50 threshold). Some economists argue immigration-driven labor supply expansion may have distorted the signal. Creator Claudia Sahm herself noted it may be a false positive in 2024."
+  },
+  {
+    "pattern_id": "ECON-003",
+    "name": "Fed Hiking Cycle End → Market Rally",
+    "category": "interest_rates",
+    "indicator": "Federal Funds Rate",
+    "condition": "Fed pauses after tightening cycle (last hike identified in hindsight)",
+    "historical_occurrences": [
+      {"year": 1989, "last_hike_level": 9.8, "sp500_return_12m_after_pause": 24.5},
+      {"year": 1995, "last_hike_level": 6.0, "sp500_return_12m_after_pause": 34.1},
+      {"year": 2000, "last_hike_level": 6.5, "sp500_return_12m_after_pause": -22.3},
+      {"year": 2006, "last_hike_level": 5.25, "sp500_return_12m_after_pause": 15.8},
+      {"year": 2018, "last_hike_level": 2.5, "sp500_return_12m_after_pause": 31.5},
+      {"year": 2023, "last_hike_level": 5.5, "sp500_return_12m_after_pause": 26.3}
+    ],
+    "average_sp500_return_12m_after_last_hike": 18.3,
+    "hit_rate": "5/6 positive (2000 exception — dot-com bust drove reversal)",
+    "confidence": 0.72,
+    "notes": "The 2000 exception happened because dot-com valuations were extreme and recession followed. Rally at pause depends on soft vs hard landing outcome. If soft landing: strong rally. If recession follows: brief rally then reversal."
+  },
+  {
+    "pattern_id": "ECON-004",
+    "name": "First Fed Rate Cut → Equities Response",
+    "category": "interest_rates",
+    "indicator": "Federal Funds Rate",
+    "condition": "First rate cut after tightening cycle",
+    "historical_occurrences": [
+      {"year": 1989, "cut_from": 9.75, "reason": "slowing growth", "sp500_return_12m": 22.0, "recession_followed": true},
+      {"year": 1995, "cut_from": 6.0, "reason": "insurance", "sp500_return_12m": 34.1, "recession_followed": false},
+      {"year": 1998, "cut_from": 5.5, "reason": "LTCM/Russia", "sp500_return_12m": 28.6, "recession_followed": false},
+      {"year": 2001, "cut_from": 6.5, "reason": "dot-com recession", "sp500_return_12m": -13.0, "recession_followed": true},
+      {"year": 2007, "cut_from": 5.25, "reason": "subprime stress", "sp500_return_12m": -40.0, "recession_followed": true},
+      {"year": 2019, "cut_from": 2.5, "reason": "trade war insurance", "sp500_return_12m": 14.5, "recession_followed": true},
+      {"year": 2024, "cut_from": 5.5, "reason": "inflation normalizing", "sp500_return_12m": null, "recession_followed": null}
+    ],
+    "key_insight": "If recession DOES NOT follow: avg +30% in 12 months. If recession DOES follow: avg -18% in 12 months.",
+    "confidence": 0.68,
+    "notes": "The cut itself is not the signal — what matters is whether it is a 'mid-cycle adjustment' or 'panic cut.' Emergency cuts (3+ standard) in rapid succession signal deep economic trouble."
+  },
+  {
+    "pattern_id": "ECON-005",
+    "name": "HY Credit Spread Spike → Equity Decline",
+    "category": "credit_spreads",
+    "indicator": "HY OAS (BAMLH0A0HYM2)",
+    "condition": "HY OAS rises more than 150bp in 60 days",
+    "historical_occurrences": [
+      {"year": 1998, "spread_move_bp": 200, "sp500_decline_pct": -19, "recovery_months": 3},
+      {"year": 2001, "spread_move_bp": 300, "sp500_decline_pct": -40, "recovery_months": 30},
+      {"year": 2008, "spread_move_bp": 1500, "sp500_decline_pct": -56.8, "recovery_months": 48},
+      {"year": 2011, "spread_move_bp": 250, "sp500_decline_pct": -19, "recovery_months": 5},
+      {"year": 2015, "spread_move_bp": 300, "sp500_decline_pct": -14, "recovery_months": 6},
+      {"year": 2018, "spread_move_bp": 170, "sp500_decline_pct": -20, "recovery_months": 6},
+      {"year": 2020, "spread_move_bp": 800, "sp500_decline_pct": -34, "recovery_months": 5}
+    ],
+    "average_sp500_decline_pct": -29.0,
+    "average_recovery_months": 11.0,
+    "confidence": 0.85,
+    "notes": "The larger the spread move, the deeper the equity decline. Spread widening leads equity selling by 1-4 weeks. Watch for HY spread >600bp as major systemic warning."
+  },
+  {
+    "pattern_id": "ECON-006",
+    "name": "Inflation Breakthrough Above 4% → Fed Tightening Cycle",
+    "category": "inflation",
+    "indicator": "CPI YoY",
+    "condition": "CPI YoY exceeds 4.0% for 3+ consecutive months",
+    "historical_occurrences": [
+      {"period": "1969-70", "peak_cpi": 6.2, "fed_hikes_bp": 350, "sp500_return_during_cycle": -36},
+      {"period": "1973-74", "peak_cpi": 12.3, "fed_hikes_bp": 700, "sp500_return_during_cycle": -48},
+      {"period": "1977-80", "peak_cpi": 14.8, "fed_hikes_bp": 1000, "sp500_return_during_cycle": -22},
+      {"period": "1988-89", "peak_cpi": 5.4, "fed_hikes_bp": 325, "sp500_return_during_cycle": 24},
+      {"period": "1994-95", "peak_cpi": 3.0, "fed_hikes_bp": 300, "sp500_return_during_cycle": 0},
+      {"period": "2021-23", "peak_cpi": 9.1, "fed_hikes_bp": 525, "sp500_return_during_cycle": -25}
+    ],
+    "average_sp500_return_during_hike_cycle": -18.0,
+    "confidence": 0.78,
+    "notes": "Higher inflation peak correlates with larger equity drawdown. Key exception: 1988-89 tightening was mild enough that equities continued rising. Sectors that outperform: energy, materials, commodities, value > growth."
+  },
+  {
+    "pattern_id": "ECON-007",
+    "name": "ISM Manufacturing PMI Below 50 → Economic Slowdown",
+    "category": "economic_activity",
+    "indicator": "ISM Manufacturing PMI",
+    "condition": "ISM PMI falls below 50 for 3+ consecutive months",
+    "historical_occurrences": [
+      {"year": 1990, "pmi_low": 43.9, "sp500_decline": -20, "recession_followed": true},
+      {"year": 2001, "pmi_low": 40.8, "sp500_decline": -49, "recession_followed": true},
+      {"year": 2007, "pmi_low": 34.4, "sp500_decline": -56.8, "recession_followed": true},
+      {"year": 2015, "pmi_low": 48.0, "sp500_decline": -14, "recession_followed": false},
+      {"year": 2019, "pmi_low": 47.2, "sp500_decline": -6, "recession_followed": false},
+      {"year": 2020, "pmi_low": 41.5, "sp500_decline": -34, "recession_followed": true},
+      {"year": 2022, "pmi_low": 46.0, "sp500_decline": -25, "recession_followed": false}
+    ],
+    "threshold_meaning": {
+      "above_60": "Overheating; strong expansion",
+      "50_to_60": "Expansion; neutral to positive",
+      "45_to_50": "Contraction in manufacturing; caution",
+      "below_45": "Significant contraction; recession likely",
+      "below_40": "Severe recession territory"
+    },
+    "confidence": 0.75,
+    "notes": "Manufacturing is <12% of US GDP but a leading indicator for broader economy. Services PMI (>50% of GDP) is now more important. Sub-45 PMI accompanied every recession since 1970."
+  },
+  {
+    "pattern_id": "ECON-008",
+    "name": "Consumer Confidence Collapse → Spending Decline",
+    "category": "consumer",
+    "indicator": "Conference Board CCI",
+    "condition": "CCI drops more than 20 points in 6 months",
+    "historical_occurrences": [
+      {"year": 1990, "drop_from": 108, "drop_to": 61, "sp500_return_6m": -16, "recession": true},
+      {"year": 2000, "drop_from": 140, "drop_to": 85, "sp500_return_6m": -20, "recession": true},
+      {"year": 2008, "drop_from": 73, "drop_to": 25, "sp500_return_6m": -35, "recession": true},
+      {"year": 2011, "drop_from": 62, "drop_to": 40, "sp500_return_6m": -10, "recession": false},
+      {"year": 2020, "drop_from": 132, "drop_to": 85, "sp500_return_6m": 27, "recession": true},
+      {"year": 2022, "drop_from": 113, "drop_to": 55, "sp500_return_6m": -22, "recession": false}
+    ],
+    "average_sp500_return_6m_after_collapse": -12.7,
+    "confidence": 0.72,
+    "notes": "The 2020 exception is unique — V-shaped recovery driven by massive fiscal stimulus ($2T CARES Act) reversed confidence collapse within months. Normal pattern: confidence collapse precedes spending cut by 1-3 months."
+  },
+  {
+    "pattern_id": "ECON-009",
+    "name": "Personal Savings Rate Extreme Low → Consumer Vulnerability",
+    "category": "consumer",
+    "indicator": "Personal Savings Rate (PSAVERT)",
+    "condition": "Savings rate falls below 3.5% and credit card delinquencies rising",
+    "historical_occurrences": [
+      {"year": 2005, "savings_rate_pct": 2.1, "delinquency_trend": "rising", "event": "pre-GFC consumer overextension"},
+      {"year": 2007, "savings_rate_pct": 2.4, "delinquency_trend": "rising", "sp500_decline_24m": -56.8},
+      {"year": 2022, "savings_rate_pct": 2.7, "delinquency_trend": "rising", "sp500_decline_12m": -25},
+      {"year": 2023, "savings_rate_pct": 3.2, "delinquency_trend": "rising", "note": "Credit card delinquencies hit 12-year high"}
+    ],
+    "signal_interpretation": "Low savings + rising delinquencies = consumer tapped out; spending will decline; GDP risk rises",
+    "confidence": 0.70,
+    "notes": "Not a standalone signal but confirms recession probability when combined with credit spread widening and weak PMI."
+  },
+  {
+    "pattern_id": "ECON-010",
+    "name": "Labor Market Deterioration Sequence",
+    "category": "unemployment",
+    "indicator": "Multiple: ICSA, PAYEMS, UNRATE",
+    "condition": "Initial claims >350K for 4 weeks AND NFP misses consensus by >100K AND U-3 rising for 3 months",
+    "historical_occurrences": [
+      {"year": 2001, "claims_peak": 510000, "sp500_return_12m": -22, "recession": true},
+      {"year": 2008, "claims_peak": 665000, "sp500_return_12m": -45, "recession": true},
+      {"year": 2020, "claims_peak": 6867000, "sp500_return_12m": 53, "recession": true}
+    ],
+    "average_sp500_return_12m": -4.7,
+    "notes": "2020 was extraordinary — fiscal stimulus of $6T+ and Fed balance sheet expansion drove rapid recovery. In 'normal' recessions, labor deterioration = sustained bear market. NFP below -200K is recession confirmation."
+  },
+  {
+    "pattern_id": "ECON-011",
+    "name": "Fed Pivot (First Cut After Long Pause) → 12-Month Equity Gain",
+    "category": "interest_rates",
+    "indicator": "Federal Funds Rate",
+    "condition": "First rate cut after pause of 6+ months from end of tightening cycle",
+    "historical_occurrences": [
+      {"year": 1995, "cut_date": "July 1995", "sp500_12m_return": 34.0, "soft_landing": true},
+      {"year": 1998, "cut_date": "Sept 1998", "sp500_12m_return": 28.6, "soft_landing": true},
+      {"year": 2019, "cut_date": "July 2019", "sp500_12m_return": 0.0, "soft_landing": false},
+      {"year": 2024, "cut_date": "Sept 2024", "sp500_12m_return": null, "soft_landing": null}
+    ],
+    "average_12m_return_soft_landing": 31.3,
+    "average_12m_return_recession_follows": -18.0,
+    "confidence": 0.65,
+    "notes": "Outcome entirely depends on whether economy achieves soft landing. Market historically rallies upon first cut anticipation, then corrects if recession materializes."
+  },
+  {
+    "pattern_id": "ECON-012",
+    "name": "GDP Growth Turns Negative Two Consecutive Quarters",
+    "category": "gdp",
+    "indicator": "Real GDP QoQ Annualized",
+    "condition": "Real GDP growth negative for 2 consecutive quarters (technical recession definition)",
+    "historical_occurrences": [
+      {"year": 1974, "q1_gdp": -3.4, "q2_gdp": -1.6, "sp500_decline_from_peak": -48},
+      {"year": 1980, "q1_gdp": -2.0, "q2_gdp": -7.9, "sp500_decline_from_peak": -27},
+      {"year": 2020, "q1_gdp": -5.1, "q2_gdp": -31.4, "sp500_decline_from_peak": -34},
+      {"year": 2022, "q1_gdp": -1.6, "q2_gdp": -0.6, "sp500_decline_from_peak": -25, "nber_recession": false}
+    ],
+    "notes": "2022 is the notable exception — two negative GDP quarters but NBER did not declare recession (employment remained strong). Technical definition not always NBER-aligned. Markets already discounted 2022 decline before GDP data confirmed.",
+    "confidence": 0.70,
+    "average_sp500_return_30d_after_first_negative_gdp": -4.1
+  }
+]

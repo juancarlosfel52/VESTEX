@@ -1,0 +1,1190 @@
+[
+  {
+    "pattern_id": "PATTERN_001",
+    "category": "technical",
+    "name": "Golden Cross",
+    "description": "The 50-day moving average crosses above the 200-day moving average, signaling a long-term bullish trend shift. Often follows a period of base-building and is considered one of the most reliable long-term bullish signals in technical analysis.",
+    "trigger_conditions": [
+      "50-day SMA crosses above 200-day SMA",
+      "Price above both moving averages at time of cross",
+      "Volume on crossover day above 20-day average volume (adds confidence)",
+      "200-day SMA trending flat or upward (avoids whipsaws in dead cat bounces)"
+    ],
+    "historical_occurrences": 312,
+    "avg_return_1d": 0.4,
+    "avg_return_7d": 1.8,
+    "avg_return_30d": 4.2,
+    "win_rate": 68,
+    "confidence": 72,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Simultaneous yield curve inversion",
+      "VIX above 35 at time of cross",
+      "Golden cross forming during bear market (lower-high structure still intact)",
+      "Price already extended >15% above 200MA before cross forms"
+    ],
+    "notes": "Studied on S&P 500 since 1950 by LPL Research and Ned Davis Research. 1-year forward returns average +10.5% vs. all-other-periods average of +7.9%. False signals most common in choppy, range-bound markets (2011, 2015–2016). The 2020 golden cross (June) preceded a +35% run by year-end. Most effective when combined with RSI < 60 at the cross (still room to run)."
+  },
+  {
+    "pattern_id": "PATTERN_002",
+    "category": "technical",
+    "name": "Death Cross",
+    "description": "The 50-day moving average crosses below the 200-day moving average, signaling a long-term bearish trend shift. Widely followed by institutional traders as confirmation of a bear market or major correction phase.",
+    "trigger_conditions": [
+      "50-day SMA crosses below 200-day SMA",
+      "Price below both moving averages at time of cross",
+      "200-day SMA turning flat or downward",
+      "Volume expanding on down days in the weeks prior"
+    ],
+    "historical_occurrences": 298,
+    "avg_return_1d": -0.6,
+    "avg_return_7d": -2.1,
+    "avg_return_30d": -5.3,
+    "win_rate": 62,
+    "confidence": 65,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Death cross occurring after price already down >30% (often a lagging sell signal)",
+      "Fed pivoting to rate cuts simultaneously",
+      "VIX already >40 at time of cross (capitulation may already be in)",
+      "Death cross in early stages of a known technical bear market rally"
+    ],
+    "notes": "Notorious as a lagging indicator — it often fires after the damage is done. The 2008 death cross (Dec 2007 on S&P 500) was timely; the 2020 death cross (March) fired near the exact bottom. Ned Davis Research found that avoiding the market during death cross periods since 1929 still results in underperformance vs. buy-and-hold due to missing rallies. More useful as a risk-off signal in institutional portfolio management than a short trigger."
+  },
+  {
+    "pattern_id": "PATTERN_003",
+    "category": "technical",
+    "name": "RSI Oversold Bounce",
+    "description": "RSI(14) drops below 30, indicating the asset is technically oversold, then recovers back above 30. The recovery cross back above 30 is the actual trigger signal, not the dip below 30 itself — buying the dip below 30 is known as 'catching a falling knife.'",
+    "trigger_conditions": [
+      "RSI(14) drops below 30",
+      "RSI crosses back above 30 on the next 1–3 sessions",
+      "Price stabilizes or forms a bottoming candle (hammer, doji, engulfing)",
+      "Volume contracts on final down days then expands on recovery day"
+    ],
+    "historical_occurrences": 1847,
+    "avg_return_1d": 1.2,
+    "avg_return_7d": 3.4,
+    "avg_return_30d": 5.8,
+    "win_rate": 64,
+    "confidence": 68,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "RSI stays below 30 for >10 consecutive sessions (trending down, not oversold)",
+      "Fundamental catalyst driving the decline (earnings miss, fraud, litigation)",
+      "Sector-wide selloff (individual RSI oversold meaningless when sector collapsing)",
+      "Death cross in place simultaneously"
+    ],
+    "notes": "Welles Wilder's original RSI research (1978) identified 30/70 as standard thresholds. In strong bull markets, RSI rarely reaches 30 — 40 may serve as the functional oversold level. In bear markets, RSI can stay below 30 for weeks. Backtesting by traders at Connors Research showed RSI(2) < 10 bounce signals outperform RSI(14) < 30 signals on short timeframes (1–5 days). The 2-period RSI strategy produced a 70%+ win rate on S&P 500 daily bars from 1993–2010."
+  },
+  {
+    "pattern_id": "PATTERN_004",
+    "category": "technical",
+    "name": "RSI Overbought Reversal",
+    "description": "RSI(14) rises above 70, indicating the asset is technically overbought, then falls back below 70. The crossing back below 70 is the trigger signal. In strong trending markets this is a dangerous signal to fade as price can remain overbought for extended periods.",
+    "trigger_conditions": [
+      "RSI(14) exceeds 70",
+      "RSI crosses back below 70 on the next 1–3 sessions",
+      "Bearish divergence present (price higher high, RSI lower high) adds 15+ confidence",
+      "Volume contracts on the final push above 70 (exhaustion)"
+    ],
+    "historical_occurrences": 1923,
+    "avg_return_1d": -0.8,
+    "avg_return_7d": -1.9,
+    "avg_return_30d": -2.4,
+    "win_rate": 56,
+    "confidence": 55,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Strong fundamental catalyst (earnings beat, buyback announcement) driving the run",
+      "Price breaking out of a multi-year consolidation (breakouts stay overbought)",
+      "Entire market in euphoric bull phase (2020–2021 style)",
+      "RSI crosses back above 70 within 2 sessions (failed reversal, momentum resuming)"
+    ],
+    "notes": "The standalone RSI overbought signal has one of the lowest standalone win rates in technical analysis. Its real power comes when combined with bearish divergence — when price makes a higher high but RSI makes a lower high, the historical win rate climbs to ~65%. Famous example: Bitcoin RSI divergence in Nov–Dec 2021 prior to the 2022 crash. Avoid shorting RSI overbought in MOMO (momentum) stocks — they can stay overbought for 6–12 months."
+  },
+  {
+    "pattern_id": "PATTERN_005",
+    "category": "technical",
+    "name": "MACD Bullish Crossover",
+    "description": "The MACD line (12-period EMA minus 26-period EMA) crosses above the signal line (9-period EMA of MACD). This indicates short-term momentum is accelerating faster than medium-term momentum, signaling a potential trend reversal or continuation to the upside.",
+    "trigger_conditions": [
+      "MACD line crosses above the signal line",
+      "Crossover occurs below the zero line (stronger signal — momentum turning from negative to positive)",
+      "Histogram moves from negative to positive",
+      "Price above 200-day SMA (confirm in uptrend context)"
+    ],
+    "historical_occurrences": 2104,
+    "avg_return_1d": 0.5,
+    "avg_return_7d": 1.6,
+    "avg_return_30d": 3.1,
+    "win_rate": 59,
+    "confidence": 61,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "MACD crossover happening above zero line during overbought conditions",
+      "Death cross simultaneously in place",
+      "Crossover on extremely low volume",
+      "Multiple false MACD crossovers in prior 4 weeks (whipsaw environment)"
+    ],
+    "notes": "Gerald Appel created MACD in the late 1970s for daily charts. The standard parameters (12,26,9) work best on daily and weekly timeframes. Below-zero crossovers are significantly more reliable than above-zero crossovers. The Weekly MACD crossover on the S&P 500 has historically preceded 6-month gains averaging +8.2% per academic research by Brock, Lakonishok & LeBaron (1992). Whipsaw risk is highest in sideways/choppy markets — use ADX > 20 as a filter."
+  },
+  {
+    "pattern_id": "PATTERN_006",
+    "category": "technical",
+    "name": "MACD Bearish Crossover",
+    "description": "The MACD line crosses below the signal line. Indicates short-term downward momentum is accelerating. Most significant when the crossover occurs above the zero line in an overbought context, signaling potential trend exhaustion.",
+    "trigger_conditions": [
+      "MACD line crosses below the signal line",
+      "Crossover occurs above the zero line (stronger bearish signal)",
+      "Histogram transitions from positive to negative",
+      "Price below 50-day SMA at time of cross"
+    ],
+    "historical_occurrences": 2089,
+    "avg_return_1d": -0.4,
+    "avg_return_7d": -1.4,
+    "avg_return_30d": -2.8,
+    "win_rate": 57,
+    "confidence": 58,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Bearish MACD crossover after price already down >20% (late signal)",
+      "Fed pivoting dovish — macro overrides technical",
+      "Earnings catalyst expected within 5 days",
+      "Crossover on abnormally low summer/holiday volume"
+    ],
+    "notes": "Like the bullish counterpart, the MACD bearish crossover is most powerful when it occurs at an extreme — above-zero crosses during late bull market phases have preceded corrections of >10% at a rate of about 58% of the time. Famous setup: the weekly MACD bearish cross on the Nasdaq in December 2021 signaled before the 2022 35% drawdown. Combined with RSI > 70 and bearish divergence, confidence jumps to ~73%."
+  },
+  {
+    "pattern_id": "PATTERN_007",
+    "category": "technical",
+    "name": "Volume Climax / Capitulation",
+    "description": "An extreme volume spike (typically 3–5x the 20-day average) occurs on a sharp down day, indicating panic selling and potential capitulation. The exhaustion of sellers often marks a tradeable low. Also called a 'selling climax' or 'exhaustion bar.'",
+    "trigger_conditions": [
+      "Daily volume exceeds 3x the 20-day average volume",
+      "Price closes down >3% on the climax day",
+      "Intraday reversal — price opens near lows, closes in upper 40% of range",
+      "VIX spike of >15% on the same day (fear confirmation)"
+    ],
+    "historical_occurrences": 284,
+    "avg_return_1d": 1.8,
+    "avg_return_7d": 4.6,
+    "avg_return_30d": 7.2,
+    "win_rate": 71,
+    "confidence": 74,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Climax bar followed by another gap down the next session (panic not exhausted)",
+      "Fundamental collapse confirmed (bankruptcy filing, fraud revelation)",
+      "No intraday reversal — price closes at or near the lows of the session",
+      "Multiple climax bars within 10 sessions (distribution, not capitulation)"
+    ],
+    "notes": "Richard Wyckoff identified the capitulation climax in the 1930s as 'selling climax followed by an automatic rally.' The October 2002 low, March 2009 low, March 2020 low, and October 2022 low all featured textbook volume climax bars. The 10-day put/call ratio spiking above 1.3 alongside a volume climax historically produced 7-day forward gains of +6.1% on the S&P 500 per Sentimentrader research. The pattern is most reliable when it occurs after a >20% drawdown."
+  },
+  {
+    "pattern_id": "PATTERN_008",
+    "category": "technical",
+    "name": "Breakout Above 52-Week High",
+    "description": "Price closes above the highest closing price of the prior 52 weeks. This is a momentum signal indicating that all sellers from the past year are in profit and new all-time-high price discovery can begin. One of the most robust momentum signals in academic literature.",
+    "trigger_conditions": [
+      "Price closes above 52-week high closing price",
+      "Volume on breakout day exceeds 50% above 20-day average",
+      "No major earnings within 48 hours (avoids headline risk)",
+      "Market (S&P 500) in confirmed uptrend (above 200 SMA)"
+    ],
+    "historical_occurrences": 4271,
+    "avg_return_1d": 0.6,
+    "avg_return_7d": 1.9,
+    "avg_return_30d": 4.8,
+    "win_rate": 65,
+    "confidence": 71,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Breakout on low volume (fake breakout, distribution)",
+      "Broader market sell-off the same week",
+      "Price immediately fails back below 52-week high within 3 sessions",
+      "Sector rotation out of the stock's industry simultaneously"
+    ],
+    "notes": "Documented in the 'momentum premium' academic literature (Jegadeesh & Titman, 1993). Stocks hitting new 52-week highs in January have outperformed by 6.5% over the next 12 months per Kenneth French data. The 52-week high breakout is the core of the IBD/O'Neil CANSLIM methodology. Failed breakouts (returning below the 52-week high within 3 sessions) are among the most reliable short setups — the trapped bulls create selling pressure that often produces 5–10% declines."
+  },
+  {
+    "pattern_id": "PATTERN_009",
+    "category": "technical",
+    "name": "Breakdown Below 52-Week Low",
+    "description": "Price closes below the lowest closing price of the prior 52 weeks. All holders from the past year are at a loss, removing any potential buyers who 'want to get even.' Price discovery to the downside with no technical support. Mirrors the 52-week high breakout in bearish direction.",
+    "trigger_conditions": [
+      "Price closes below 52-week low",
+      "Volume on breakdown day above average",
+      "Prior 52-week low tested at least once in prior 30 days (double-bottom failure is most bearish)",
+      "Sector peers also breaking down (confirms sector-wide pressure, not idiosyncratic)"
+    ],
+    "historical_occurrences": 3842,
+    "avg_return_1d": -0.9,
+    "avg_return_7d": -3.1,
+    "avg_return_30d": -7.6,
+    "win_rate": 66,
+    "confidence": 69,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Price recovers back above 52-week low within 2 sessions",
+      "Major buyback or acquisition news",
+      "Macro reversal (surprise Fed pivot)",
+      "Stock already down >50% before breakdown (position sizing / risk matters)"
+    ],
+    "notes": "The inverse of the 52-week high breakout momentum effect. Academic research shows stocks hitting new 52-week lows underperform the market by 8.2% over the next 6 months on average (Fama-French data). However, deep value investors (Benjamin Graham, Joel Greenblatt) argue that 52-week lows in high-quality companies with intact fundamentals are buying opportunities. Context is critical: momentum breakdown in a deteriorating fundamental story vs. technical washout in a solid company are very different setups."
+  },
+  {
+    "pattern_id": "PATTERN_010",
+    "category": "technical",
+    "name": "Support Bounce",
+    "description": "Price pulls back to a well-established support level (prior swing low, round number, rising moving average, or high-volume price node) and bounces higher with a reversal candle. The number of times a support level has been tested (and held) increases its significance.",
+    "trigger_conditions": [
+      "Price touches a support level that has held at least twice in prior 6 months",
+      "Reversal candle forms at support (hammer, bullish engulfing, morning star)",
+      "Volume lighter than average on the approach to support (low-urgency selling)",
+      "RSI approaching but not breaking below 40 (indicates trend still intact)"
+    ],
+    "historical_occurrences": 5621,
+    "avg_return_1d": 0.7,
+    "avg_return_7d": 2.2,
+    "avg_return_30d": 4.0,
+    "win_rate": 63,
+    "confidence": 66,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Support breaks on high volume and then immediately fails to recover",
+      "Macro event overrides (Fed surprise, geopolitical shock)",
+      "Negative earnings or guidance the same week",
+      "Multiple support failures in prior 8 weeks (support eroding)"
+    ],
+    "notes": "Support and resistance are cornerstones of technical analysis dating to Charles Dow (1900s). The S&P 500 bouncing off the 200-day SMA has historically produced average 10-day returns of +3.4% when the index was in a bull market trend (above 200-day). The key caveat from Edwards & Magee's 'Technical Analysis of Stock Trends' (1948): once a support level is decisively broken, it typically becomes resistance. The '3% rule' — only count a break as confirmed if it exceeds the level by >3% — reduces false signals by ~30%."
+  },
+  {
+    "pattern_id": "PATTERN_011",
+    "category": "technical",
+    "name": "Resistance Rejection",
+    "description": "Price rallies into a well-established resistance level (prior swing high, round number, declining moving average, or heavy supply zone) and reverses with a rejection candle. The more times resistance has been tested without breaking, the more significant the level.",
+    "trigger_conditions": [
+      "Price touches a resistance level tested at least twice without breaking in prior 6 months",
+      "Rejection candle forms at resistance (shooting star, bearish engulfing, evening star)",
+      "Volume above average on the day price touches resistance",
+      "RSI approaching but not exceeding 65 (overbought pressure building)"
+    ],
+    "historical_occurrences": 5388,
+    "avg_return_1d": -0.5,
+    "avg_return_7d": -1.7,
+    "avg_return_30d": -3.2,
+    "win_rate": 61,
+    "confidence": 63,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Strong fundamental catalyst drives price through resistance on heavy volume",
+      "Golden cross forming simultaneously (bullish trend change overrides resistance)",
+      "Price gaps through resistance at open (gap and go pattern)",
+      "Resistance level is being tested 5th+ time (more attempts = more likely to break)"
+    ],
+    "notes": "The psychological significance of round numbers as resistance is well-documented — Dow 10,000; S&P 2,000; BTC $20,000, $50,000, $100,000 all acted as major resistance in their first test. Academic research by Lo & MacKinlay (1988) confirmed that technical patterns like resistance have statistically significant predictive power beyond random walk. The 'magnet effect' — where price is drawn to round numbers — is confirmed in equity options strike price clustering research."
+  },
+  {
+    "pattern_id": "PATTERN_012",
+    "category": "macro",
+    "name": "Yield Curve Inversion",
+    "description": "The 10-year minus 2-year U.S. Treasury yield spread turns negative (inversion), historically one of the most reliable recession predictors available. Every U.S. recession since 1955 has been preceded by a yield curve inversion with an average lead time of 12–18 months.",
+    "trigger_conditions": [
+      "10-year Treasury yield falls below 2-year Treasury yield",
+      "Inversion persists for at least 10 consecutive trading days",
+      "3-month / 10-year spread also inverts (confirms, not just 2s/10s)",
+      "Fed Funds Rate in a hiking cycle simultaneously"
+    ],
+    "historical_occurrences": 8,
+    "avg_return_1d": -0.1,
+    "avg_return_7d": -0.3,
+    "avg_return_30d": -0.8,
+    "win_rate": 88,
+    "confidence": 85,
+    "timeframe": "monthly",
+    "sector_bias": "financial",
+    "counter_signals": [
+      "Inversion resolves quickly (less than 3 weeks) — may be technical, not recessionary",
+      "Inversion driven by foreign QE artificially suppressing long-end yields",
+      "Strong labor market (unemployment < 4%) provides buffer",
+      "Recession may take 12–24 months to materialize — not an immediate sell signal"
+    ],
+    "notes": "Studied extensively by Duke University's Campbell Harvey (who literally wrote the PhD thesis on it in 1986). The 2s/10s inverted in 2019, 2006-2007, 2000, 1998, 1989, 1980, 1978, and 1973 — all preceding recessions. The average time from first inversion to recession start is 14 months; average time from inversion to market peak is 9 months. The 2019 inversion presaged the COVID recession (though timing was COVID-accelerated). Note: the stock market often RISES during the inversion period itself — it's a leading indicator with a long lag."
+  },
+  {
+    "pattern_id": "PATTERN_013",
+    "category": "macro",
+    "name": "Yield Curve Steepening (Recovery Signal)",
+    "description": "After a period of inversion or flat curve, the 10-year minus 2-year spread widens positively ('steepens'), signaling that markets expect economic recovery and higher future growth/inflation. A 'bull steepener' (long rates rising faster) signals growth; a 'bear steepener' can also occur.",
+    "trigger_conditions": [
+      "10-year minus 2-year spread turns positive after prior inversion",
+      "Spread widens by at least 50bps within 6 months of hitting trough",
+      "ISM Manufacturing PMI stabilizing or rising simultaneously",
+      "Fed beginning to cut rates (often triggers steepening)"
+    ],
+    "historical_occurrences": 7,
+    "avg_return_1d": 0.2,
+    "avg_return_7d": 0.9,
+    "avg_return_30d": 3.4,
+    "win_rate": 75,
+    "confidence": 73,
+    "timeframe": "monthly",
+    "sector_bias": "financial",
+    "counter_signals": [
+      "Steepening driven by rising long-term inflation expectations ('bear steepener') rather than growth",
+      "Unemployment still rising even as curve steepens",
+      "Steepening very late in cycle (2009 style) — great for equities long-term but initial months volatile",
+      "Oil supply shock driving inflation while curve steepens"
+    ],
+    "notes": "Research by the Federal Reserve Bank of New York confirms that yield curve steepening after recession signals the end of the economic contraction phase. The 2009 steepening (curve went from -50bps to +200bps) coincided with the S&P 500 low on March 9, 2009 — equities bottomed at the onset of steepening. Banks benefit most from steepening as net interest margin improves. Cyclicals (industrials, materials, consumer discretionary) also outperform historically during curve steepening phases."
+  },
+  {
+    "pattern_id": "PATTERN_014",
+    "category": "macro",
+    "name": "First Fed Rate Cut in Cycle",
+    "description": "The Federal Reserve cuts the Federal Funds Rate for the first time after a tightening cycle. Historically a major catalyst for risk assets, though the initial reaction depends heavily on whether the cut is 'insurance' (economy still OK) or 'panic' (recession already underway).",
+    "trigger_conditions": [
+      "FOMC announces first rate cut after minimum 6 months of no cuts",
+      "Rate cut of at least 25bps",
+      "Fed communications shift from 'data dependent' to 'appropriate to adjust policy'",
+      "PCE inflation below 3% at time of cut (gives Fed cover)"
+    ],
+    "historical_occurrences": 12,
+    "avg_return_1d": 0.8,
+    "avg_return_7d": 1.5,
+    "avg_return_30d": 2.9,
+    "win_rate": 67,
+    "confidence": 66,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Cut is 'panic cut' responding to recession already in progress (2001, 2007 — markets fell further)",
+      "Cut accompanied by growth/earnings downgrades from major banks",
+      "Unemployment already above 5% (recession may already be starting)",
+      "Fed cuts while yield curve still inverted (short rates falling but long rates rising)"
+    ],
+    "notes": "Ryan Detrick (Carson Group) analysis of all first Fed cuts since 1984: 12-month forward returns averaged +11.2% when economy was still growing vs. -7.8% when recession had already started. The key distinction is whether the cut is 'insurance' (1995, 1998, 2019, 2024) or 'emergency' (2001, 2007). Insurance cuts in a soft-landing environment are among the most historically bullish macro catalysts. The September 2024 cut (first of cycle) preceded a year-end rally in equities."
+  },
+  {
+    "pattern_id": "PATTERN_015",
+    "category": "macro",
+    "name": "Last Fed Rate Hike in Cycle",
+    "description": "The Federal Reserve raises rates for the final time in a tightening cycle. Historical analysis shows that the 12 months following the last rate hike have been strongly positive for equities on average, as the 'uncertainty of more hikes' premium dissipates from valuations.",
+    "trigger_conditions": [
+      "FOMC raises rates, then pauses for 3+ consecutive meetings",
+      "Fed language shifts from 'ongoing increases appropriate' to 'holding steady'",
+      "PCE inflation falling toward 2.5% target",
+      "Labor market showing first signs of softening"
+    ],
+    "historical_occurrences": 11,
+    "avg_return_1d": 0.3,
+    "avg_return_7d": 1.1,
+    "avg_return_30d": 3.7,
+    "win_rate": 73,
+    "confidence": 70,
+    "timeframe": "monthly",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Inflation re-accelerates forcing Fed to resume hiking ('skip' becomes a hike)",
+      "Yield curve still deeply inverted — recession risk elevated",
+      "Credit spreads widening simultaneously (corporate distress)",
+      "Market pricing additional hikes (Fed Funds futures > current rate)"
+    ],
+    "notes": "Analysis by Goldman Sachs and LPL Financial confirms that S&P 500 returns in the 12 months after the last Fed hike averaged +14.6% since 1970. The July 2023 hike was subsequently declared the cycle peak; the following 12 months saw the S&P 500 gain ~24%. The 2006 last hike (June) was followed by 12 months of gains before the 2008 crisis hit. The pattern is most bullish for growth/tech stocks (rate-sensitive) and most negative for banks (NIM compression as curve eventually steepens)."
+  },
+  {
+    "pattern_id": "PATTERN_016",
+    "category": "macro",
+    "name": "CPI Print Above Expectations",
+    "description": "The monthly CPI (Consumer Price Index) report comes in higher than the consensus economist estimate. This signals that inflation is more persistent than expected, raising the probability of additional Fed rate hikes or delays in rate cuts, which is negative for equities and bonds.",
+    "trigger_conditions": [
+      "Headline CPI YoY exceeds consensus estimate by 0.1% or more",
+      "Core CPI (ex-food & energy) also beats estimates",
+      "Month-over-month acceleration, not just absolute level",
+      "Fed is already at or above neutral rate"
+    ],
+    "historical_occurrences": 64,
+    "avg_return_1d": -0.9,
+    "avg_return_7d": -1.6,
+    "avg_return_30d": -1.8,
+    "win_rate": 61,
+    "confidence": 63,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Beat driven entirely by energy (volatile, Fed discounts it)",
+      "Market already priced in a hot number (implied vol elevated pre-release)",
+      "Beat is small (0.1%) and comes after several months of deceleration",
+      "Simultaneous strong earnings season offsetting macro concern"
+    ],
+    "notes": "The May 2021 CPI print (4.2% vs. 3.6% expected) triggered a 2.1% Nasdaq sell-off. The January 2023 CPI beat (6.4% vs. 6.2%) caused a 1.4% S&P decline. BLS releases CPI typically at 8:30am ET on the second or third Tuesday/Wednesday after month-end. The market reaction has become more extreme in high-inflation regimes (2021–2023) vs. low-inflation regimes (2010–2019). Defensives (consumer staples, utilities) outperform on hot CPI days; tech and REITs underperform most."
+  },
+  {
+    "pattern_id": "PATTERN_017",
+    "category": "macro",
+    "name": "CPI Print Below Expectations",
+    "description": "The monthly CPI report comes in lower than the consensus estimate, signaling that inflation is decelerating faster than expected. This reduces the probability of additional Fed rate hikes or brings forward rate cut expectations, which is broadly positive for equities and bonds.",
+    "trigger_conditions": [
+      "Headline CPI YoY misses consensus estimate by 0.1% or more",
+      "Core CPI also misses or matches expectations",
+      "Month-over-month deceleration in the report",
+      "Fed currently in a tightening or holding cycle"
+    ],
+    "historical_occurrences": 58,
+    "avg_return_1d": 1.2,
+    "avg_return_7d": 2.1,
+    "avg_return_30d": 3.3,
+    "win_rate": 64,
+    "confidence": 67,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Miss driven by volatile food/energy components that may reverse",
+      "Economy simultaneously showing recession signals (miss due to demand collapse, not supply fix)",
+      "Fed communications immediately walk back rate cut expectations despite soft CPI",
+      "Bond market not rallying on soft CPI (yields not falling — suspicious)"
+    ],
+    "notes": "The November 2022 CPI print (7.7% vs. 8.0% expected) triggered one of the largest single-day S&P 500 rallies of the year (+5.5%). The July 2023 print (3.2% vs. 3.3% expected) fueled a 1.9% gain. Disinflation CPI prints are among the most powerful single-day catalysts for the 'long duration' trade — Nasdaq/growth stocks outperform most. REITs, utilities, and bonds rally on softer-than-expected CPI due to rate cut repricing."
+  },
+  {
+    "pattern_id": "PATTERN_018",
+    "category": "macro",
+    "name": "NFP Jobs Beat",
+    "description": "The monthly Non-Farm Payrolls report (released first Friday of each month) shows job creation above the consensus estimate. In a normal environment this is bullish for equities; in a high-inflation environment, a jobs beat can be bearish as it signals the Fed must keep tightening.",
+    "trigger_conditions": [
+      "NFP headline number exceeds consensus estimate by 50,000+ jobs",
+      "Unemployment rate stable or falling",
+      "Average hourly earnings growth not accelerating (reduces inflation concern)",
+      "Participation rate stable or rising"
+    ],
+    "historical_occurrences": 97,
+    "avg_return_1d": 0.6,
+    "avg_return_7d": 1.1,
+    "avg_return_30d": 1.8,
+    "win_rate": 58,
+    "confidence": 57,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Beat accompanied by wage acceleration (stagflation risk)",
+      "Beat driven by part-time jobs while full-time falls",
+      "Market in high-inflation regime (good news = bad news for rate path)",
+      "Beat reverses prior month's large miss (catch-up revision effect)"
+    ],
+    "notes": "The BLS NFP report is released at 8:30am ET on the first Friday of each month. The 'good news is bad news' dynamic was prevalent in 2022–2023 when strong jobs prints pushed the Fed to keep hiking. January 2023 blowout NFP (+517k vs. +187k expected) actually caused markets to fall that week as rate hike expectations surged. In normal or dovish Fed environments (2010–2019), beats were reliably positive for equities, particularly cyclicals and small caps."
+  },
+  {
+    "pattern_id": "PATTERN_019",
+    "category": "macro",
+    "name": "NFP Jobs Miss",
+    "description": "Non-Farm Payrolls come in significantly below the consensus estimate. Signals labor market weakness, which in normal environments is bearish (recession risk). In high-rate environments, a miss can be bullish as it raises hopes of Fed rate cuts.",
+    "trigger_conditions": [
+      "NFP misses consensus by 50,000+ jobs",
+      "Unemployment rate rising",
+      "Accompanying earnings growth moderate (not stagflationary)",
+      "Prior month NFP also revised lower"
+    ],
+    "historical_occurrences": 89,
+    "avg_return_1d": -0.5,
+    "avg_return_7d": -0.9,
+    "avg_return_30d": -1.4,
+    "win_rate": 52,
+    "confidence": 51,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Miss in high-rate environment triggers rate cut hopes (bad news = good news)",
+      "Miss after strong previous 3 months may just be mean-reversion noise",
+      "Government shutdown affected data collection",
+      "Sector-specific layoffs (e.g., tech only) while broader economy fine"
+    ],
+    "notes": "NFP misses have a notably ambiguous market impact because they sit at the intersection of the macro and policy environment. The August 2024 miss (114k vs. 185k expected) triggered a 3% S&P sell-off and ignited recession fears — but markets recovered within days on subsequent data. NFP data is notoriously noisy with large seasonal adjustments and benchmark revisions. The 3-month average is far more reliable than any single print. Economists' forecast errors on NFP average ±80,000 jobs per Citigroup analysis."
+  },
+  {
+    "pattern_id": "PATTERN_020",
+    "category": "macro",
+    "name": "Unemployment Rate Spike (Sahm Rule)",
+    "description": "The Sahm Rule, developed by former Fed economist Claudia Sahm, triggers when the 3-month moving average of the unemployment rate rises 0.5 percentage points above its 12-month low. Has correctly identified every U.S. recession since 1970 in real time with zero false positives (as of 2023).",
+    "trigger_conditions": [
+      "3-month average unemployment rate rises 0.5%+ above 12-month low",
+      "Unemployment rate rising for at least 3 consecutive months",
+      "Initial jobless claims 4-week average rising above 250,000",
+      "Continuing claims trending higher"
+    ],
+    "historical_occurrences": 11,
+    "avg_return_1d": -1.4,
+    "avg_return_7d": -4.2,
+    "avg_return_30d": -9.8,
+    "win_rate": 82,
+    "confidence": 80,
+    "timeframe": "monthly",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Rise driven by labor supply increase rather than layoffs (immigration, returning workers)",
+      "Rise is seasonal or weather-related (hurricane, extreme cold)",
+      "Simultaneous strong GDP print contradicting weakness signal",
+      "Claudia Sahm herself noted the July 2024 trigger may be false due to supply-side dynamics"
+    ],
+    "notes": "Named after Claudia Sahm (former Fed, Macroeconomic Advisers). The indicator triggered in July 2024 when unemployment rose from a 12-month low of 3.4% to 4.3% — a 0.5% rise. This caused a major market selloff (S&P -3%, Nasdaq -3.4% in one week) before recovering on subsequent data. The Sahm Rule has zero false positives since 1970 in normal economic environments. It is now one of the most-watched recession indicators by Wall Street. When the Sahm Rule triggers, the average subsequent S&P 500 peak-to-trough drawdown has been -28% historically."
+  },
+  {
+    "pattern_id": "PATTERN_021",
+    "category": "earnings",
+    "name": "Earnings Beat + Guidance Raised",
+    "description": "A company reports earnings per share above consensus estimates AND raises full-year earnings guidance above prior guidance and/or analyst estimates. This is the highest-quality positive earnings surprise, signaling management confidence in sustained outperformance.",
+    "trigger_conditions": [
+      "EPS exceeds consensus by at least 5%",
+      "Revenue also beats consensus (not just cost-cutting beat)",
+      "Full-year EPS guidance raised above prior guidance AND street consensus",
+      "Guidance raise driven by organic growth, not one-time items"
+    ],
+    "historical_occurrences": 3421,
+    "avg_return_1d": 4.8,
+    "avg_return_7d": 5.9,
+    "avg_return_30d": 7.3,
+    "win_rate": 76,
+    "confidence": 82,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Stock already priced to perfection (P/E > 40x) — even a raise may disappoint",
+      "Guidance raise driven by lower tax rate or buybacks, not operational improvement",
+      "Sector-wide earnings compression expected (macro headwind overrides single stock)",
+      "Whisper number significantly higher than the raised guidance"
+    ],
+    "notes": "This is the gold standard earnings outcome. FactSet analysis (2010–2024) shows that S&P 500 companies that beat EPS and raised guidance saw average 1-day returns of +4.9% vs. the sector average. The 'EPS beat + raise' is the primary driver of 52-week high breakouts post-earnings — approximately 35% of all breakouts above 52-week highs occur within 5 days of an 'EPS beat + raise' report. Famous examples: NVIDIA Q2 2023 (+24% day-of), Apple iPhone supercycle quarters, Amazon AWS acceleration quarters."
+  },
+  {
+    "pattern_id": "PATTERN_022",
+    "category": "earnings",
+    "name": "Earnings Beat + Guidance Maintained",
+    "description": "Company reports EPS above consensus but maintains, rather than raises, full-year guidance. A solid outcome but less bullish than a raise — the market often interprets maintained guidance as 'management has low confidence in outperformance continuing' or that the beat was one-time.",
+    "trigger_conditions": [
+      "EPS exceeds consensus by at least 3%",
+      "Revenue in-line or beating",
+      "Full-year guidance reaffirmed (no change to range)",
+      "Management commentary positive but non-committal on acceleration"
+    ],
+    "historical_occurrences": 4882,
+    "avg_return_1d": 1.4,
+    "avg_return_7d": 1.9,
+    "avg_return_30d": 2.7,
+    "win_rate": 62,
+    "confidence": 64,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Market had 'whisper' expectations of a raise — maintaining guidance feels like a miss",
+      "Operating margins compressing despite EPS beat (quality of earnings poor)",
+      "Guidance maintained at low end of prior range vs. high end (subtle downward bias)",
+      "Peers reporting stronger results and raising guidance in same period"
+    ],
+    "notes": "The 'buy the rumor, sell the news' dynamic applies here when the stock has rallied >15% into earnings. FactSet data shows that even EPS beats with maintained guidance produce positive 1-month returns 62% of the time — not a reason to sell, but not a catalyst for a major breakout either. Management 'sandbag' culture is common: companies with a history of maintaining then raising mid-quarter have this pattern treated more positively by the market."
+  },
+  {
+    "pattern_id": "PATTERN_023",
+    "category": "earnings",
+    "name": "Earnings Beat + Guidance Cut",
+    "description": "The most confusing and dangerous earnings outcome: EPS beats current-quarter consensus but full-year or next-quarter guidance is cut below prior estimates. Often called 'a beat and lower' by traders. The market typically sells the guidance cut regardless of the reported beat.",
+    "trigger_conditions": [
+      "EPS beats current quarter consensus",
+      "Full-year or next-quarter EPS guidance cut below street consensus",
+      "Management cites macro headwinds, demand softening, or margin pressure",
+      "Revenue guidance also cut (confirms it's not just a margin issue)"
+    ],
+    "historical_occurrences": 1874,
+    "avg_return_1d": -3.2,
+    "avg_return_7d": -4.1,
+    "avg_return_30d": -3.8,
+    "win_rate": 31,
+    "confidence": 72,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Guidance cut is conservative / sandbagging after a rough stretch (history of cuts followed by raises)",
+      "Stock severely oversold pre-earnings — 'sell the rumor, buy the news' dynamic",
+      "Cut driven by FX headwind, not underlying business weakness",
+      "Activist investor or buyback program announced alongside results"
+    ],
+    "notes": "The 'beat and lower' is one of the most reliably negative earnings outcomes for short-term price action. A June 2023 FactSet study showed 'beat and lower' stocks underperformed the S&P 500 by 5.8% in the month following earnings. Famous examples: Meta Q3 2022 (-24% despite EPS beat when guidance implied ongoing metaverse spending drag). The market is 'forward-looking' — a current beat means nothing if the next quarter is looking worse."
+  },
+  {
+    "pattern_id": "PATTERN_024",
+    "category": "earnings",
+    "name": "Earnings Miss + Guidance Cut",
+    "description": "The worst-case earnings outcome: both current-quarter EPS misses consensus AND forward guidance is reduced. This 'double miss' combination triggers the largest and most sustained negative reactions in equity markets.",
+    "trigger_conditions": [
+      "EPS misses consensus by more than 5%",
+      "Revenue also misses (confirms fundamental weakness, not just cost issue)",
+      "Full-year guidance cut below prior guidance AND street estimates",
+      "Management tone negative or uncertain on recovery timeline"
+    ],
+    "historical_occurrences": 1621,
+    "avg_return_1d": -7.4,
+    "avg_return_7d": -9.2,
+    "avg_return_30d": -11.6,
+    "win_rate": 18,
+    "confidence": 84,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Stock already down >30% before earnings — much of bad news priced in",
+      "Strategic pivot announced (new product, M&A, restructuring)",
+      "Activist investor takes large stake on weakness",
+      "Entire sector repricing lower on same macro headwind"
+    ],
+    "notes": "The most reliable and high-confidence earnings signal — a 'miss + cut' almost universally produces significant short-term losses. FactSet data (2000–2024) shows miss + cut stocks averaged a -7.4% reaction day-of and continued to underperform the index by an average of -8.3% over the following month. The analyst estimate revision cycle amplifies this: after a miss+cut, nearly all analysts downgrade or cut estimates, creating a sustained headwind. Examples: Meta Q3 2022; Netflix Q1 2022 (-35% day-of); Peloton throughout 2022."
+  },
+  {
+    "pattern_id": "PATTERN_025",
+    "category": "earnings",
+    "name": "Earnings Miss + Guidance Maintained",
+    "description": "Company misses current-quarter EPS consensus but maintains full-year guidance, implying management believes the miss was temporary and second-half acceleration is expected. The market reaction depends heavily on whether this message is credible.",
+    "trigger_conditions": [
+      "EPS misses consensus but by less than 10%",
+      "Revenue in-line or slight miss",
+      "Full-year EPS guidance unchanged",
+      "Management explains miss as timing/one-time, not structural"
+    ],
+    "historical_occurrences": 2103,
+    "avg_return_1d": -2.1,
+    "avg_return_7d": -2.4,
+    "avg_return_30d": -1.8,
+    "win_rate": 39,
+    "confidence": 61,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "History of 'maintaining then cutting' guidance (management credibility low)",
+      "Analyst consensus already below maintained guidance range",
+      "Miss driven by structural shift (competition, market share loss) not timing",
+      "Broad sector miss simultaneously (not a company-specific timing issue)"
+    ],
+    "notes": "The market often gives a 'benefit of the doubt' bounce attempt after a miss+maintain, but then gravitates lower if second-half acceleration doesn't materialize. Research by Bernstein shows that 'miss + maintain' stocks underperform the market by 4.2% on average in the 3 months following the report — management guidance is credible less than 50% of the time after a miss. Key read: if the company has a history of conservative guidance and this is a first miss, the maintain is credible."
+  },
+  {
+    "pattern_id": "PATTERN_026",
+    "category": "earnings",
+    "name": "Revenue Beat with Margin Miss",
+    "description": "Company exceeds revenue consensus but gross or operating margins come in below expectations, indicating the company is growing but at a higher cost than anticipated. This 'growth at any cost' signal is viewed negatively in a rising-rate, margin-compression environment.",
+    "trigger_conditions": [
+      "Revenue exceeds consensus by 2%+",
+      "Gross margin or operating margin below consensus estimate",
+      "EPS may be in-line or slightly below due to margin compression",
+      "Management attributes margins to 'investment phase' or competition"
+    ],
+    "historical_occurrences": 2387,
+    "avg_return_1d": -1.6,
+    "avg_return_7d": -2.3,
+    "avg_return_30d": -2.9,
+    "win_rate": 38,
+    "confidence": 65,
+    "timeframe": "daily",
+    "sector_bias": "tech",
+    "counter_signals": [
+      "Market in 'growth at any cost' mode (ZIRP environment — 2020–2021)",
+      "Margin compression explained by investment in growth that has a clear ROI payback",
+      "Revenue acceleration is accelerating faster than margin compression",
+      "Sector-wide margin pressure (input costs) — not company-specific"
+    ],
+    "notes": "This pattern is notably environment-dependent. In 2020–2021 (ZIRP), revenue beats with margin misses were often rewarded (growth valued above profitability). In 2022–2023 (rising rates), margin misses were punished severely. Amazon's early years featured consistent revenue beats with margin misses that were rewarded. The same pattern in 2022 for unprofitable SaaS companies resulted in catastrophic stock declines. Gross margin expansion is the single most watched metric in software/SaaS earnings calls."
+  },
+  {
+    "pattern_id": "PATTERN_027",
+    "category": "earnings",
+    "name": "Revenue Miss with EPS Beat",
+    "description": "Company misses revenue consensus but beats EPS through cost-cutting, buybacks, or margin expansion rather than organic growth. Often viewed skeptically as 'low quality beat' since it does not signal underlying business strength.",
+    "trigger_conditions": [
+      "Revenue misses consensus by 1%+",
+      "EPS beats consensus by 5%+",
+      "Operating margin expanding significantly YoY",
+      "Share count declining (buybacks masking EPS impact of revenue miss)"
+    ],
+    "historical_occurrences": 1842,
+    "avg_return_1d": -0.4,
+    "avg_return_7d": -0.8,
+    "avg_return_30d": -1.1,
+    "win_rate": 46,
+    "confidence": 57,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Revenue miss driven by voluntary strategic exit from low-margin business (quality mix shift)",
+      "Large buyback announced alongside results (EPS accretion going forward)",
+      "Revenue miss due to FX headwind (constant-currency growth still strong)",
+      "Company returning to disciplined capital allocation after period of over-investment"
+    ],
+    "notes": "Wall Street has grown more sophisticated in separating 'quality of earnings.' A revenue miss with an EPS beat from buybacks is viewed very differently from an EPS beat driven by genuine margin expansion. IBM's late 2010s results frequently featured this pattern and were consistently poorly received. In contrast, companies like AutoZone consistently buy back massive amounts of stock, and their revenue-miss/EPS-beat pattern is accepted by the market as intentional capital allocation. Context of industry and management history matters enormously."
+  },
+  {
+    "pattern_id": "PATTERN_028",
+    "category": "seasonal",
+    "name": "January Effect",
+    "description": "The historical tendency for small-cap stocks to outperform large-cap stocks in January, especially in the first two weeks. Attributed to tax-loss harvesting in December followed by reinvestment in January, and institutional rebalancing into small caps at year-start.",
+    "trigger_conditions": [
+      "Calendar month is January",
+      "December featured significant small-cap underperformance and tax-loss selling",
+      "Small-cap/large-cap ratio (IWM/SPY) below 6-month average in December",
+      "Broad market in uptrend (bear markets suppress the January Effect)"
+    ],
+    "historical_occurrences": 74,
+    "avg_return_1d": 0.2,
+    "avg_return_7d": 1.8,
+    "avg_return_30d": 3.9,
+    "win_rate": 62,
+    "confidence": 61,
+    "timeframe": "monthly",
+    "sector_bias": "small cap",
+    "counter_signals": [
+      "December already saw massive small-cap rally (anticipated January Effect brought forward)",
+      "Recession fears dominate — risk-off environment negates seasonal tailwind",
+      "January rate decision from Fed surprises hawkish",
+      "January Effect has weakened since 2000 as markets have become more efficient"
+    ],
+    "notes": "First documented by Sidney Wachtel in 1942. Confirmed by Keim (1983), Reinganum (1983), and Roll (1983) in major academic literature. The effect was strongest 1926–1993 — the Russell 2000 outperformed the S&P 500 by an average of 3.2% in January over that period. Since 2000, the effect has weakened as hedge funds began pre-positioning in December to capture it. Now, the December pre-positioning has partly absorbed the January return, moving some of the alpha to late December (Santa Claus rally overlap)."
+  },
+  {
+    "pattern_id": "PATTERN_029",
+    "category": "seasonal",
+    "name": "Sell in May (May–October Underperformance)",
+    "description": "The market adage that stocks tend to underperform from May through October vs. November through April. The full saying is 'Sell in May and go away, and come back on St. Leger's Day' (mid-September in UK racing). One of the most documented seasonal patterns globally.",
+    "trigger_conditions": [
+      "Calendar enters May",
+      "S&P 500 year-to-date return positive (not applicable when market already in bear phase)",
+      "VIX at or below 20 (complacency entering seasonal weak period)",
+      "Market at or near 52-week highs in late April"
+    ],
+    "historical_occurrences": 74,
+    "avg_return_1d": 0.0,
+    "avg_return_7d": 0.2,
+    "avg_return_30d": 0.4,
+    "win_rate": 55,
+    "confidence": 54,
+    "timeframe": "monthly",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Election year (May–October in election years is historically more positive)",
+      "Fed in aggressive rate-cut cycle (overrides seasonal)",
+      "Bear market bottom occurred in the May–October window (2002 Oct, 2009 Mar, 2020 Mar)",
+      "Strong earnings season extends into May/June reducing selling pressure"
+    ],
+    "notes": "Research by Bouman & Jacobsen (2002) in the American Economic Review confirmed the 'Halloween effect' (November–April outperformance) across 37 of 37 countries studied. S&P 500 average return November–April: +6.9%, May–October: +2.1% since 1950 (LPL Research). However, fully exiting the market misses real gains in many years. The pattern works best as a risk-reduction signal — lightening equity exposure in May, not abandoning it. The worst market months on average are September (-0.9%) and August (-0.1%)."
+  },
+  {
+    "pattern_id": "PATTERN_030",
+    "category": "seasonal",
+    "name": "September Effect",
+    "description": "September is historically the worst month of the year for U.S. stock markets. The S&P 500 has averaged a negative return in September more frequently than any other month. Multiple structural explanations include mutual fund fiscal year-end selling, return from summer vacation positioning, and portfolio rebalancing.",
+    "trigger_conditions": [
+      "Calendar month is September",
+      "Market has had a strong summer rally (more profit-taking to unwind)",
+      "VIX below 18 entering September (complacency)",
+      "No major Fed policy event expected that month"
+    ],
+    "historical_occurrences": 74,
+    "avg_return_1d": -0.1,
+    "avg_return_7d": -0.6,
+    "avg_return_30d": -1.1,
+    "win_rate": 43,
+    "confidence": 62,
+    "timeframe": "monthly",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Fed meeting in September with expected dovish pivot",
+      "Massive stimulus announcement (2008 September TARP vote was a positive catalyst)",
+      "September OpEx positioning causes unusual volatility that resolves upward",
+      "Post-recession recovery September (2009, 2020 Septembers were both strongly positive)"
+    ],
+    "notes": "Since 1928, the S&P 500 has averaged -1.1% in September, the only month with a negative average return. The Dow Jones has averaged -1.4% in September over the same period. The CBOE found that implied volatility (VIX) spikes most frequently in September–October due to fiscal year-end fund rebalancing and back-to-school institutional return from summer. The 2001 September (9/11) and 2008 September (Lehman) were obviously extreme outliers that skew the data. Even excluding these events, the month is still the weakest on average."
+  },
+  {
+    "pattern_id": "PATTERN_031",
+    "category": "seasonal",
+    "name": "November–April Outperformance (Halloween Effect)",
+    "description": "The six-month period from November 1 through April 30 historically produces dramatically higher equity returns than the May–October period. This is the long-form version of 'Sell in May' — the positive side of the seasonal trade.",
+    "trigger_conditions": [
+      "Calendar enters November",
+      "Year-to-date market performance positive (confirms bull context for seasonality to work)",
+      "VIX declining as October sells off",
+      "Earnings season (Q3 reports) mostly positive heading into November"
+    ],
+    "historical_occurrences": 74,
+    "avg_return_1d": 0.1,
+    "avg_return_7d": 0.8,
+    "avg_return_30d": 3.1,
+    "win_rate": 69,
+    "confidence": 69,
+    "timeframe": "monthly",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Recession already in progress (2008 November through April 2009 was brutal)",
+      "Fed aggressively hiking throughout period",
+      "Major global crisis event (COVID March 2020 hit within the period)",
+      "November begins with major political/geopolitical shock"
+    ],
+    "notes": "Bouman & Jacobsen (2002) confirmed this across 37 markets. The S&P 500's average November–April 6-month return since 1950 is +6.9% vs. +2.1% May–October. The most consistent November–April stretch is the Thanksgiving–Christmas–January trifecta. Tactical asset allocators who shift from bonds to equities on November 1 have historically outperformed a static 60/40 allocation by 1.5–2% annually. The effect is most pronounced in small caps and cyclicals, and weakest in defensives (utilities, consumer staples)."
+  },
+  {
+    "pattern_id": "PATTERN_032",
+    "category": "seasonal",
+    "name": "Santa Claus Rally",
+    "description": "The tendency for the S&P 500 to rally during the last five trading days of December and the first two trading days of January. Coined by Yale Hirsch in the Stock Trader's Almanac (1972). A failure of the Santa Claus Rally is considered a bearish omen for the coming year.",
+    "trigger_conditions": [
+      "Period is the last 5 trading days of December + first 2 of January",
+      "No major geopolitical event disrupting markets",
+      "VIX below 22 during the window",
+      "No FOMC meeting in the window (rare)"
+    ],
+    "historical_occurrences": 74,
+    "avg_return_1d": 0.1,
+    "avg_return_7d": 1.3,
+    "avg_return_30d": 2.1,
+    "win_rate": 74,
+    "confidence": 71,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Recession in progress",
+      "Major year-end geopolitical shock (rare but occurred in 2018)",
+      "Fed surprise tightening in late December",
+      "Tax legislation changes creating unusual year-end selling dynamics"
+    ],
+    "notes": "Yale Hirsch's original research showed the Santa Claus 7-day window has been positive 74% of the time since 1950, averaging +1.4% over the 7-day period. The famous Hirsch caveat: 'If Santa Claus should fail to call, bears may come to Broad and Wall.' Years where the Santa Claus Rally failed (2000, 2008, 2022) were all terrible full years for markets. The 2022 failure correlated with the worst annual S&P 500 performance (-19.4%) since 2008. Retail investor buying, low institutional volumes, and tax-loss harvesting completion all contribute to the effect."
+  },
+  {
+    "pattern_id": "PATTERN_033",
+    "category": "seasonal",
+    "name": "Quarterly Options Expiration (OpEx Week)",
+    "description": "The third Friday of March, June, September, and December marks quarterly options expiration — when equity options, index options, equity futures, and index futures all expire simultaneously ('quadruple witching'). Creates unusual volume and volatility, often with a directional tendency.",
+    "trigger_conditions": [
+      "Third Friday of March, June, September, or December",
+      "Large open interest in at-the-money or near-money options",
+      "Market makers have significant net short gamma exposure",
+      "Volume in derivatives markets 2–4x normal levels"
+    ],
+    "historical_occurrences": 120,
+    "avg_return_1d": 0.3,
+    "avg_return_7d": -0.4,
+    "avg_return_30d": 0.6,
+    "win_rate": 58,
+    "confidence": 53,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Market makers net long gamma (opposite pinning dynamics)",
+      "Major macro event same week (CPI, FOMC) dominates OpEx dynamics",
+      "OpEx in September (combines September Effect + negative seasonal bias)",
+      "Very low open interest — pinning effect weak"
+    ],
+    "notes": "Quadruple witching (now sometimes called 'triple witching' after single-stock futures decline) generates the highest trading volumes of any day of the year, often 2–4x normal. The 'max pain' theory suggests prices gravitate toward the strike price where the maximum number of options expire worthless (max pain for option buyers = max profit for market makers/sellers). Academic support for max pain is mixed but practitioners observe the effect anecdotally. The week before OpEx tends to drift toward the max pain strike, while the week after OpEx can move sharply away from it."
+  },
+  {
+    "pattern_id": "PATTERN_034",
+    "category": "seasonal",
+    "name": "End of Quarter Window Dressing",
+    "description": "During the final week of each quarter (March, June, September, December), mutual fund and pension fund managers buy recent outperformers and sell laggards to make their portfolios 'look good' for quarterly statements reported to shareholders. This creates predictable short-term momentum in leaders.",
+    "trigger_conditions": [
+      "Final 5–10 trading days of a calendar quarter",
+      "Clear quarter-to-date winners and losers identifiable",
+      "Quarter-to-date returns significantly positive (more to dress up)",
+      "Institutional fund reporting dates concentrated in next 10 days"
+    ],
+    "historical_occurrences": 296,
+    "avg_return_1d": 0.2,
+    "avg_return_7d": 0.9,
+    "avg_return_30d": -0.3,
+    "win_rate": 58,
+    "confidence": 54,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Quarter-to-date returns negative (nothing to dress up)",
+      "Major macro event in final week overshadows positioning",
+      "Quarter-end coincides with OpEx (more complex dynamics)",
+      "Effect reverses sharply in first week of new quarter as window dressing is unwound"
+    ],
+    "notes": "Window dressing is widely discussed in academic literature (Haugen & Lakonishok, 1988; He, Ng & Wang, 2004). The effect has been most documented in mutual funds — they buy the quarter's top performers in the final days and sell them in the first days of the new quarter, creating a predictable reversal. This 'January Effect' of selling window-dressed positions on January 2 is a well-known trading strategy: short the top performers on December 31, cover on January 5–6. The effect is larger in smaller funds and has diminished somewhat with the rise of ETFs and passive investing."
+  },
+  {
+    "pattern_id": "PATTERN_035",
+    "category": "sentiment",
+    "name": "Extreme Fear Contrarian Buy Signal",
+    "description": "CNN's Fear & Greed Index drops below 20 (Extreme Fear territory), indicating a sentiment extreme that historically has preceded significant market recoveries. Based on the contrarian principle that peak pessimism occurs at or near market bottoms.",
+    "trigger_conditions": [
+      "CNN Fear & Greed Index below 20",
+      "Index has been in Extreme Fear territory for at least 5 consecutive days",
+      "At least 3 of the 7 sub-components are in extreme fear",
+      "Breadth indicators: >70% of stocks below 50-day SMA"
+    ],
+    "historical_occurrences": 187,
+    "avg_return_1d": 0.9,
+    "avg_return_7d": 3.1,
+    "avg_return_30d": 5.8,
+    "win_rate": 67,
+    "confidence": 70,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Extreme fear during genuine fundamental collapse (2008 — fear stayed extreme for months)",
+      "Trigger caused by structural risk event (bank failures, sovereign default)",
+      "Economic recession already confirmed — bottoming process takes longer",
+      "Extreme fear after just a 5–8% pullback (not a deep enough washout)"
+    ],
+    "notes": "The Fear & Greed Index was created by CNN Business and measures 7 indicators: stock price momentum, stock price strength, stock price breadth, put/call ratio, market volatility (VIX), safe haven demand, and junk bond demand. Sentimentrader research shows that Fear & Greed below 20 has been followed by positive 1-month returns 67% of the time with average gains of +5.8%. The March 2020 bottom featured a Fear & Greed reading of 2; the October 2022 bottom was 17. The October 2008 reading was 12 — but that was the beginning of the worst phase of the financial crisis."
+  },
+  {
+    "pattern_id": "PATTERN_036",
+    "category": "sentiment",
+    "name": "Extreme Greed Contrarian Sell Signal",
+    "description": "CNN Fear & Greed Index rises above 80 (Extreme Greed territory), indicating that investors are excessively optimistic — a contrarian signal that has historically preceded corrections or periods of underperformance. The market proverb: 'Be fearful when others are greedy.'",
+    "trigger_conditions": [
+      "CNN Fear & Greed Index above 80",
+      "Index has been in Extreme Greed for at least 5 consecutive days",
+      "At least 4 of the 7 sub-components in greed or extreme greed",
+      "Put/call ratio below 0.7 simultaneously (complacency)"
+    ],
+    "historical_occurrences": 214,
+    "avg_return_1d": -0.3,
+    "avg_return_7d": -1.2,
+    "avg_return_30d": -2.4,
+    "win_rate": 58,
+    "confidence": 56,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Strong momentum trend can keep greed elevated for months without correction",
+      "Extreme greed in early stages of secular bull market (1995–1996 extreme greed preceded years more)",
+      "New fundamental catalyst (AI boom, new drug approval) justifies re-rating",
+      "Greed driven by institutional positioning, not retail FOMO (more durable)"
+    ],
+    "notes": "Extreme greed is a weaker signal than extreme fear for timing purposes — markets can stay greedy longer than they stay fearful. The January 2021 reading was >90 for weeks before any correction. However, extreme greed readings above 90 for 15+ days have historically been followed by a >5% correction within 30 days 71% of the time (Sentimentrader). Warren Buffett's 'be fearful when others are greedy' quote is the philosophical foundation of this contrarian signal. The most effective version is when extreme greed is combined with RSI > 70 and a bearish MACD divergence."
+  },
+  {
+    "pattern_id": "PATTERN_037",
+    "category": "sentiment",
+    "name": "VIX Spike Above 40 — Contrarian Buy Signal",
+    "description": "The CBOE VIX (Volatility Index) spikes above 40, indicating extreme fear and panic in options markets. Historically, VIX readings above 40 have occurred at or near major market bottoms, as they represent maximum pessimism and a 'buy the panic' signal with very strong historical backing.",
+    "trigger_conditions": [
+      "VIX closes above 40",
+      "VIX is elevated from a sub-20 base (spike, not chronic high volatility)",
+      "Equities have declined >15% from recent highs",
+      "News/catalyst driving the spike is event-driven, not a slow structural collapse"
+    ],
+    "historical_occurrences": 48,
+    "avg_return_1d": 2.1,
+    "avg_return_7d": 5.2,
+    "avg_return_30d": 10.4,
+    "win_rate": 79,
+    "confidence": 81,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "VIX above 40 during confirmed financial system collapse (2008 VIX hit 89 in Oct — too early to buy)",
+      "VIX stays above 40 for >3 weeks (chronic panic = structural problem, not spike)",
+      "Bank contagion or sovereign debt crisis driving the spike",
+      "Corporate credit markets (HYG) also collapsing simultaneously"
+    ],
+    "notes": "Research by Sentimentrader and CBOE shows VIX spikes above 40 have been followed by 30-day average S&P 500 gains of +10.4% since 1990. Major VIX spikes: VIX 89 in October 2008 (bottom was March 2009), VIX 82 in March 2020 (exact market bottom), VIX 48 in August 2024 (bottom was day-of), VIX 45 in December 2018 (near the bottom), VIX 44 in February 2018 (bottom was within days). The VIX mean-reversion trade — selling VIX puts or buying equities when VIX is above 40 — has been one of the highest-win-rate systematic strategies available."
+  },
+  {
+    "pattern_id": "PATTERN_038",
+    "category": "sentiment",
+    "name": "Put/Call Ratio Extreme — Contrarian Buy Signal",
+    "description": "The CBOE total put/call ratio exceeds 1.5, indicating that traders are buying extremely high levels of put options (downside protection) relative to calls. This represents peak hedging and panic — contrarian theory says this level of fear is a reliable buy signal.",
+    "trigger_conditions": [
+      "CBOE Total Put/Call ratio above 1.5 on a single day",
+      "10-day moving average of put/call above 1.2",
+      "Equity-only put/call (not total — excludes index hedging distortion) also elevated",
+      "VIX also elevated (>25) confirming fear across multiple metrics"
+    ],
+    "historical_occurrences": 284,
+    "avg_return_1d": 1.1,
+    "avg_return_7d": 3.2,
+    "avg_return_30d": 5.6,
+    "win_rate": 68,
+    "confidence": 69,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Single-day spike due to large institutional index hedge (not market panic)",
+      "Elevated put/call persisting for >2 weeks as market continues lower (systematic not panic)",
+      "Zero-Day-to-Expiration (0DTE) options distorting the traditional put/call ratio",
+      "Fundamental deterioration justifies the hedging (not just emotion-driven)"
+    ],
+    "notes": "The put/call ratio was popularized as a contrarian indicator by Marty Zweig in the 1970s. The standard 10-day moving average of the equity put/call above 1.0 has historically preceded 20-day positive returns averaging +4.8% per Sentimentrader. Important caveat: the explosion of 0DTE (zero days to expiration) options since 2022 has distorted the traditional put/call ratio — the daily single ratio is less reliable now, but the 10-day average remains valid. The index put/call (where institutions hedge large portfolios) is the most watched by options market makers."
+  },
+  {
+    "pattern_id": "PATTERN_039",
+    "category": "sentiment",
+    "name": "Short Squeeze Setup",
+    "description": "A stock with high short interest (>20% of float sold short) begins to rally, forcing short sellers to cover by buying shares, which accelerates the rally further. The mechanics create a self-reinforcing upward price spiral that can produce explosive moves in days.",
+    "trigger_conditions": [
+      "Short interest above 20% of float outstanding",
+      "Days-to-cover (short interest / average daily volume) above 5",
+      "Stock begins rallying on fundamental catalyst or sentiment shift",
+      "Available shares to borrow declining (short sellers can't add to positions)"
+    ],
+    "historical_occurrences": 847,
+    "avg_return_1d": 3.4,
+    "avg_return_7d": 9.8,
+    "avg_return_30d": 7.1,
+    "win_rate": 58,
+    "confidence": 62,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Fundamental thesis for short remains intact (company still headed for bankruptcy)",
+      "Short interest declining before squeeze begins (shorts already capitulated)",
+      "Large cap stocks with >15% short interest — institutional short may be paired hedge",
+      "Squeeze driven purely by social media (WSB) with no fundamental change — fades quickly"
+    ],
+    "notes": "Short squeezes are among the most explosive patterns in markets — GameStop went from $20 to $483 in January 2021 (>2,400%) in the most famous squeeze in history. The mechanics: short sellers borrowed and sold shares hoping to buy them back cheaper; when price rises they must buy to close, driving price even higher. Short interest data is published bi-monthly by FINRA — bi-monthly lag makes real-time monitoring of changes critical. The most reliable squeezes have both high short interest AND a legitimate fundamental catalyst (earnings beat, FDA approval, contract win) to trigger covering."
+  },
+  {
+    "pattern_id": "PATTERN_040",
+    "category": "sentiment",
+    "name": "Insider Cluster Buying",
+    "description": "Multiple corporate insiders (C-suite executives, directors, large shareholders) at the same company make open-market stock purchases within a short period (30–60 days). Insider cluster buying is considered one of the highest-conviction signals of undervaluation, as insiders are betting their own money on the stock's recovery.",
+    "trigger_conditions": [
+      "3+ distinct insiders purchase shares in open market within 60 days",
+      "Purchases are open-market buys (not option exercises — actual cash investment)",
+      "Total insider purchase value exceeds $500,000",
+      "Stock is down >20% from 52-week high (distressed situation — signal is stronger)"
+    ],
+    "historical_occurrences": 2847,
+    "avg_return_1d": 0.4,
+    "avg_return_7d": 1.9,
+    "avg_return_30d": 5.1,
+    "win_rate": 66,
+    "confidence": 73,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Insider purchases made purely to signal confidence while dumping in secondary accounts",
+      "Company in financial distress — insiders buying to prevent bankruptcy perception",
+      "Small purchase amounts (<$50,000) from wealthy executives — may be symbolic only",
+      "Insider blackout period ending (routine, pre-scheduled purchasing, not discretionary)"
+    ],
+    "notes": "Research by H. Nejat Seyhun (University of Michigan) over 20+ years of insider transaction data found that open-market insider buys predicted positive abnormal returns of +4.5% over the following 6 months. Cluster buys are more reliable than individual buys. The most reliable signal is C-level (CEO, CFO, COO) open-market purchases exceeding 10% of their current holdings. Famous example: Bank of America CEOs/directors purchasing stock in 2011 during EU crisis (stock went from $5 to $18 over 18 months). SEC Form 4 filings must be made within 2 business days of the transaction — track via SEC EDGAR."
+  },
+  {
+    "pattern_id": "PATTERN_041",
+    "category": "technical",
+    "name": "Bull Flag Continuation",
+    "description": "After a sharp, nearly vertical price advance (the 'flagpole'), price consolidates in a tight downward-sloping channel (the 'flag') on declining volume before breaking out to new highs. One of the most reliable continuation patterns in technical analysis.",
+    "trigger_conditions": [
+      "Initial flagpole advance of >10% over 1–3 weeks on heavy volume",
+      "Consolidation period of 5–20 days in a tight, downward-sloping channel",
+      "Volume contracts significantly during the flag formation",
+      "Breakout above flag's upper trendline on volume expansion"
+    ],
+    "historical_occurrences": 3127,
+    "avg_return_1d": 1.4,
+    "avg_return_7d": 4.1,
+    "avg_return_30d": 8.2,
+    "win_rate": 67,
+    "confidence": 71,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Flag is too deep (>50% retracement of flagpole) — likely a reversal, not continuation",
+      "Volume expands during the flag consolidation (distribution, not healthy pullback)",
+      "Broader market enters correction during flag formation",
+      "Flag forming at major resistance level"
+    ],
+    "notes": "The bull flag is a core pattern in the IBD/O'Neil CANSLIM system. The measured move target is typically the height of the flagpole added to the breakout point. Thomas Bulkowski's 'Encyclopedia of Chart Patterns' documented bull flags from 1991–2004 and found a 67% win rate with average gains of 24% to the measured move target. The best bull flags form in stocks that are market leaders in strong sectors — they represent a 'pause that refreshes' before the next leg higher. Failed bull flags (breaking below the flag low) are reliable short setups."
+  },
+  {
+    "pattern_id": "PATTERN_042",
+    "category": "technical",
+    "name": "Head and Shoulders Top",
+    "description": "A reversal pattern consisting of three peaks: a left shoulder, a higher central peak (head), and a right shoulder at approximately the same height as the left shoulder. A break below the 'neckline' connecting the two troughs between the peaks confirms the bearish reversal.",
+    "trigger_conditions": [
+      "Three-peak structure with head clearly higher than both shoulders",
+      "Right shoulder lower than the head (ideally at or below left shoulder height)",
+      "Neckline break on volume expansion",
+      "Declining volume on the right shoulder formation vs. left shoulder (weakness)"
+    ],
+    "historical_occurrences": 1847,
+    "avg_return_1d": -0.7,
+    "avg_return_7d": -3.4,
+    "avg_return_30d": -9.1,
+    "win_rate": 63,
+    "confidence": 68,
+    "timeframe": "daily",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Neckline break on low volume (not confirmed, may reverse)",
+      "Failed H&S (price recovers above neckline after brief break) — powerful bull signal",
+      "H&S forms at extreme oversold levels (double negative = potential positive)",
+      "Major bullish catalyst immediately follows neckline break"
+    ],
+    "notes": "One of the oldest documented chart patterns — described in Richard Schabacker's 'Stock Market Theory and Practice' (1932). Thomas Bulkowski's research on 431 head and shoulders tops found a 63% success rate with an average decline of 22% to the measured move target (distance from head to neckline, projected below neckline). The most famous H&S pattern was the S&P 500 in 2007–2008 — a massive multi-month top formation that preceded the financial crisis. The H&S inverse (head and shoulders bottom) is the bullish equivalent with similar statistics."
+  },
+  {
+    "pattern_id": "PATTERN_043",
+    "category": "macro",
+    "name": "Credit Spread Widening Signal",
+    "description": "The spread between investment-grade or high-yield corporate bond yields and comparable Treasury yields widens significantly (>100bps for IG, >300bps for HY), indicating increasing credit market stress and recession risk. Credit markets are often 'smarter' than equity markets in identifying economic deterioration.",
+    "trigger_conditions": [
+      "ICE BofA US High Yield OAS (Option-Adjusted Spread) widens above 500bps from under 400bps",
+      "Investment grade spreads widen above 150bps",
+      "CDX Investment Grade index rising",
+      "Bank CDS (credit default swap) prices rising simultaneously"
+    ],
+    "historical_occurrences": 14,
+    "avg_return_1d": -0.8,
+    "avg_return_7d": -3.1,
+    "avg_return_30d": -8.6,
+    "win_rate": 72,
+    "confidence": 74,
+    "timeframe": "weekly",
+    "sector_bias": "financial",
+    "counter_signals": [
+      "Fed announces large-scale asset purchase program (QE) targeting credit markets",
+      "Spread widening isolated to single sector (energy in 2015–2016) not systemic",
+      "Widening from historically tight levels (300bps) to still-moderate levels (400bps) — not a crisis",
+      "Government backstop announced for credit markets (2020 March Fed corporate bond buying)"
+    ],
+    "notes": "Credit spreads widened dramatically before every major equity market selloff. The 2007 high-yield spread widening from 250bps to 800bps preceded the S&P 500 peak by 6 months. The March 2020 HY spread peak of 1,100bps coincided almost exactly with the equity market bottom. Research by Goldman Sachs found that HY spreads above 700bps have historically been followed by positive 12-month equity returns of +28.6% on average — once credit markets normalize, equities tend to rally dramatically. Watch the relationship between equity volatility (VIX) and credit spreads — when they diverge, credit is usually right."
+  },
+  {
+    "pattern_id": "PATTERN_044",
+    "category": "technical",
+    "name": "Cup and Handle Breakout",
+    "description": "A bullish continuation pattern where price forms a rounded bottom (the 'cup') followed by a minor pullback and consolidation (the 'handle') before breaking out to new highs. First described by William O'Neil, the founder of Investor's Business Daily, in the 1980s. A cornerstone of the CANSLIM methodology.",
+    "trigger_conditions": [
+      "Cup formation spans 7 weeks to 65 weeks (proper base-building)",
+      "Cup depth between 15% and 33% from rim to low (deeper is riskier)",
+      "Handle forms in upper half of cup on low volume",
+      "Breakout above cup rim (prior high) on volume 40%+ above average"
+    ],
+    "historical_occurrences": 2841,
+    "avg_return_1d": 1.2,
+    "avg_return_7d": 3.8,
+    "avg_return_30d": 9.4,
+    "win_rate": 68,
+    "confidence": 74,
+    "timeframe": "weekly",
+    "sector_bias": "all",
+    "counter_signals": [
+      "Cup is V-shaped rather than rounded (too quick, no proper base-building)",
+      "Handle forms in lower half of cup (below the midpoint) — bearish position",
+      "Volume heavy during handle formation (accumulation not completing)",
+      "Breakout occurs in a bear market (cup and handle patterns fail in downtrends)"
+    ],
+    "notes": "William O'Neil studied every market leader from 1952 to 1985 and found that most of the greatest winners formed cup and handle patterns before their major advances. The pattern is named after the visual similarity to a cup with a handle when viewed on a weekly chart. The measured move target is typically the depth of the cup added to the breakout price. Historically, IBD-style cup and handle setups in top-rated stocks during bull markets have produced 3-month average gains of +20–30%. Tesla 2019–2020 formed a perfect cup and handle before its 700% run."
+  }
+]

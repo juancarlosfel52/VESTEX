@@ -1,0 +1,401 @@
+{
+  "metadata": {
+    "category": "academic_research_patterns",
+    "version": "1.0.0",
+    "last_updated": "2026-06-03",
+    "description": "Quantified market patterns derived from peer-reviewed academic research. Each pattern includes source, historical return premium, confidence level, activation conditions, and practical notes.",
+    "confidence_scale": "HIGH=robust post-publication, multi-study, >$1B capacity | MODERATE=exists but conditions-dependent | LOW=weakened/arbitraged"
+  },
+  "patterns": [
+    {
+      "pattern_id": "momentum_12_1",
+      "name": "Cross-Sectional Price Momentum (12-1 Month)",
+      "academic_source": {
+        "primary": "Jegadeesh & Titman (1993), Journal of Finance 48(1), pp. 65-91",
+        "secondary": "Jegadeesh & Titman (2001), NBER Working Paper w7159",
+        "supporting": "Carhart (1997) 4-factor model; Asness, Moskowitz & Pedersen (2013) AQR"
+      },
+      "signal_construction": {
+        "formation_period_months": 12,
+        "skip_months": 1,
+        "effective_lookback": "months 2 through 13 (skip most recent month)",
+        "holding_period_months": "1 to 6",
+        "universe": "Any liquid equity universe; originally NYSE/AMEX",
+        "long_portfolio": "Top decile or top 20-30% by trailing return",
+        "short_portfolio": "Bottom decile or bottom 20-30% by trailing return"
+      },
+      "historical_return_premium": {
+        "raw_monthly": "~1.0% per month (original 1965-1989 sample)",
+        "raw_annual": "~12% annualized (long-short)",
+        "post_publication_annual": "4-6% annualized (1993-present, reduced by arbitrage)",
+        "long_only_annual": "2-4% excess return over market on long side",
+        "sample_period": "1965-1989 original; confirmed out-of-sample through 2023"
+      },
+      "confidence": "HIGH",
+      "status": "ACTIVE — persistent post-publication; one of most replicated anomalies in finance",
+      "conditions": {
+        "works_best_in": [
+          "Trending bull markets",
+          "Low-to-moderate volatility environments (VIX < 25)",
+          "Mid-cap universe ($500M - $15B market cap)",
+          "International equity markets"
+        ],
+        "works_poorly_in": [
+          "Bear market rebounds (crash risk — losses of 30-91% documented)",
+          "High volatility environments (VIX > 30)",
+          "Choppy sideways markets with frequent reversals",
+          "Immediate post-market-crash recovery periods"
+        ],
+        "regime_filter": "Apply only when broad market price > 200-day moving average",
+        "volatility_filter": "Reduce position size when VIX > 25; go flat when VIX > 35"
+      },
+      "crash_risk": {
+        "documented": true,
+        "source": "Daniel & Moskowitz (2016), NBER w20439",
+        "worst_case": "August-September 1932: strategy lost ~91% in 2 months",
+        "modern_example": "2009 post-crisis rebound: severe momentum crash",
+        "mitigation": "Dynamic sizing based on predicted mean and variance; 200-day MA filter"
+      },
+      "notes": "Skip 1 month is critical — avoids short-term reversal effect. Time-series momentum (Moskowitz 2012) provides independent confirmation signal. Factor momentum (momentum of factor returns) is a newer variant with similar properties."
+    },
+    {
+      "pattern_id": "time_series_momentum",
+      "name": "Time-Series Momentum (Absolute Momentum)",
+      "academic_source": {
+        "primary": "Moskowitz, Ooi & Pedersen (2012), Journal of Financial Economics 104(2)",
+        "supporting": "AQR Research; Gary Antonacci 'Dual Momentum Investing' (2014)"
+      },
+      "signal_construction": {
+        "formation_period_months": 12,
+        "signal": "positive if asset return over past 12 months is positive; negative if negative",
+        "asset_classes": "Works across 58 futures: equity indices, bonds, commodities, currencies",
+        "holding_period_months": 1
+      },
+      "historical_return_premium": {
+        "raw_annual": "~11-14% annualized across asset classes (1985-2012 original sample)",
+        "sharpe_ratio": "~0.95 average across 58 instruments",
+        "note": "Independent of cross-sectional momentum; both share positive auto-covariance source"
+      },
+      "confidence": "HIGH",
+      "status": "ACTIVE",
+      "conditions": {
+        "works_best_in": "Trending macro environments; works across multiple asset classes",
+        "works_poorly_in": "Sharp trend reversals; whipsaw markets",
+        "best_use": "Equity index ETFs, sector ETFs — go long when index has positive 12-month return"
+      },
+      "notes": "Simpler implementation than cross-sectional: just check if asset is up or down over past 12 months. Works across equities, bonds, commodities, FX. Provides portfolio-level trend signal."
+    },
+    {
+      "pattern_id": "small_cap_premium",
+      "name": "Size Premium (SMB — Small Minus Big)",
+      "academic_source": {
+        "primary": "Fama & French (1993), Journal of Financial Economics 33, pp. 3-56",
+        "supporting": "Banz (1981) original documentation; Fama-French data library (Ken French website)"
+      },
+      "signal_construction": {
+        "metric": "Market capitalization",
+        "long_portfolio": "Bottom 30% by market cap (small caps)",
+        "short_portfolio": "Top 30% by market cap (large caps)",
+        "rebalance": "Annual"
+      },
+      "historical_return_premium": {
+        "raw_annual_us": "1.5-3.5% (1926-present U.S. data)",
+        "post_1980_us": "Near-zero to 0.5% (weakened substantially)",
+        "international": "Stronger premium in international markets",
+        "small_plus_value": "3-5% when combined with value screen"
+      },
+      "confidence": "LOW (standalone) — MODERATE (combined with momentum or value)",
+      "status": "WEAKENED — Raw premium largely arbitraged in U.S. large/mid-caps; survives in micro-cap and international",
+      "conditions": {
+        "works_best_in": [
+          "Micro-cap universe (<$300M market cap) — but high transaction costs",
+          "International small caps (stronger premium persists)",
+          "Combined with momentum signal",
+          "Combined with value screen (cheap small caps)"
+        ],
+        "works_poorly_in": [
+          "Large-cap universe",
+          "Risk-off environments (small caps sell off harder in bear markets)",
+          "High yield spread environments (credit tightening hits small caps more)"
+        ]
+      },
+      "notes": "January seasonality for small caps has residual effect in first 5 trading days of January. Do not use SMB as standalone signal in modern U.S. markets. Best as a tilt within a multi-factor framework."
+    },
+    {
+      "pattern_id": "value_premium",
+      "name": "Value Premium (HML — High Minus Low Book-to-Market)",
+      "academic_source": {
+        "primary": "Fama & French (1993), Journal of Financial Economics 33, pp. 3-56",
+        "secondary": "De Bondt & Thaler (1985) Journal of Finance 40(3) — behavioral explanation",
+        "supporting": "Asness, Moskowitz & Pedersen (2013) — value across asset classes"
+      },
+      "signal_construction": {
+        "metrics": ["Book-to-market ratio", "P/E ratio", "EV/EBITDA", "P/FCF"],
+        "long_portfolio": "Bottom tertile by valuation (highest book-to-market)",
+        "short_portfolio": "Top tertile by valuation (growth stocks)",
+        "quality_overlay": "Add profitability filter to avoid value traps (RMW factor)",
+        "rebalance": "Annual or semi-annual"
+      },
+      "historical_return_premium": {
+        "raw_annual": "3-5% (long-run U.S. data 1926-present)",
+        "2010_2020_period": "Near zero to negative (growth massively outperformed)",
+        "post_2022": "Value recovered significantly with rate hikes",
+        "international": "Stronger premium ex-U.S."
+      },
+      "confidence": "MODERATE",
+      "status": "ACTIVE but regime-dependent — requires patience; underperforms in low-rate, growth-dominant regimes",
+      "conditions": {
+        "works_best_in": [
+          "Rising interest rate environments (hurts long-duration growth stocks more)",
+          "Commodity/inflation cycles (value-heavy sectors benefit)",
+          "Post-bubble recoveries",
+          "International/emerging market allocations"
+        ],
+        "works_poorly_in": [
+          "Falling rate / financial repression environments (2010-2021)",
+          "Technology-led bull markets",
+          "When combined with deteriorating fundamentals (avoid value traps)"
+        ]
+      },
+      "notes": "Book value increasingly less meaningful due to intangibles revolution. Better value metrics: EV/EBITDA, P/FCF, price-to-sales adjusted for margins. Combine always with quality (profitability) screen to avoid buying fundamentally broken companies."
+    },
+    {
+      "pattern_id": "low_volatility_anomaly",
+      "name": "Low Volatility / Low Beta Anomaly",
+      "academic_source": {
+        "primary": "Black, Jensen & Scholes (1972); Haugen & Heins (1975) — original documentation",
+        "modern": "Baker, Bradley & Wurgler (2011) Journal of Portfolio Management",
+        "supporting": "Frazzini & Pedersen (2014) 'Betting Against Beta' — AQR; robust in 20+ countries"
+      },
+      "signal_construction": {
+        "metrics": ["12-month trailing beta to market", "12-month realized volatility", "Idiosyncratic volatility"],
+        "long_portfolio": "Bottom quintile by trailing beta/volatility",
+        "short_portfolio": "Top quintile by trailing beta/volatility (or simply avoid high-beta)",
+        "rebalance": "Monthly or quarterly"
+      },
+      "historical_return_premium": {
+        "risk_adjusted": "2-4% annualized excess Sharpe (risk-adjusted outperformance)",
+        "raw_return": "Low-vol stocks earn similar or higher raw returns than high-vol",
+        "market_coverage": "Documented in 20+ global markets since 1970",
+        "persistence": "Robust; one of most stable anomalies across time and geography"
+      },
+      "confidence": "HIGH",
+      "status": "ACTIVE — persistent due to structural reasons (benchmark constraints, leverage limits)",
+      "conditions": {
+        "works_best_in": [
+          "Bear markets and high-volatility environments (defensive characteristics shine)",
+          "Late-cycle environments",
+          "Long-only portfolios where Sharpe improvement matters",
+          "Institutional portfolios with drawdown constraints"
+        ],
+        "works_poorly_in": [
+          "Strong momentum bull markets (high-beta stocks outperform)",
+          "Early-cycle recoveries (beaten-down high-beta names outperform)"
+        ]
+      },
+      "behavioral_explanation": "Investors overpay for 'lottery ticket' high-vol stocks. Benchmark-relative mandates push institutional managers toward high-beta. Leverage constraints prevent rational arbitrage. These structural forces are unlikely to disappear.",
+      "notes": "Best implemented via minimum-variance portfolio construction. Also accessible via low-vol ETFs (SPLV, USMV). Combine with dividend yield for income + defensive portfolio."
+    },
+    {
+      "pattern_id": "january_effect",
+      "name": "January Effect — Small Cap Seasonality",
+      "academic_source": {
+        "primary": "Rozeff & Kinney (1976); Keim (1983) Journal of Financial Economics",
+        "supporting": "Roll (1983); Thaler (1987) behavioral explanation"
+      },
+      "signal_construction": {
+        "timing": "First 5 trading days of January (concentrated effect)",
+        "universe": "Small-cap stocks; recent 12-month losers (tax-loss selling candidates)",
+        "mechanism": "Tax-loss harvesting in December → rebound buying in January"
+      },
+      "historical_return_premium": {
+        "original_magnitude_small_cap": "3-6% excess return in January vs. other months",
+        "modern_magnitude": "Near-zero for large caps; 1-2% residual for micro-caps",
+        "trend": "Steadily declining since 1980s as awareness increased"
+      },
+      "confidence": "LOW",
+      "status": "MOSTLY DEAD in large/mid-caps — weak residual in micro-caps and international markets with different tax regimes",
+      "conditions": {
+        "works_in": "Micro-caps in taxable accounts where year-end selling pressure is high",
+        "does_not_work_in": "Large caps, ETFs, tax-advantaged account universe",
+        "secondary_effects": "November-December may show selling pressure from tax-loss harvesting setup"
+      },
+      "notes": "Halloween Effect (Sell in May) is a related but more persistent seasonal anomaly: November-April avg +7%, May-October avg +2% historically. Use as minor allocation tilt, not primary signal."
+    },
+    {
+      "pattern_id": "pead_earnings_drift",
+      "name": "Post-Earnings Announcement Drift (PEAD)",
+      "academic_source": {
+        "original": "Ball & Brown (1968) — first documentation",
+        "primary": "Bernard & Thomas (1989) Journal of Accounting Research; Bernard & Thomas (1990) Journal of Accounting and Economics",
+        "modern": "Philadelphia Fed Working Paper 21-07 (2021) — text-based PEAD enhancement"
+      },
+      "signal_construction": {
+        "metric": "Standardized Unexpected Earnings (SUE) = (Actual EPS - Consensus EPS) / Std Dev of past forecast errors",
+        "simple_alternative": "EPS beat or miss percentage vs. consensus",
+        "long_signal": "Top SUE decile (large positive surprise)",
+        "short_signal": "Bottom SUE decile (large negative surprise)",
+        "additional_signal": "Management guidance direction: raised = stronger drift; cut = stronger negative drift"
+      },
+      "historical_return_premium": {
+        "raw_quarterly_bernard_thomas": "8-9% per quarter (zero-investment, long-short)",
+        "annualized_pre_cost": "~35% annualized (original 1974-1985 sample)",
+        "modern_post_cost": "8-15% annualized in mid-cap universe after transaction costs",
+        "drift_duration_trading_days": 60,
+        "appeared_in_quarters": "41 of 48 quarters studied (85.4% hit rate)",
+        "bidirectional": true
+      },
+      "confidence": "HIGH",
+      "status": "ACTIVE — most persistent anomaly in accounting/finance literature; reduced but not eliminated",
+      "conditions": {
+        "works_best_in": [
+          "Mid-cap stocks ($2B-$15B) with 3-8 analyst estimates",
+          "Low analyst coverage names (slower information absorption)",
+          "When guidance is raised (confirms the beat is not one-time)",
+          "When analyst revisions follow in same direction post-announcement"
+        ],
+        "works_poorly_in": [
+          "Large-cap S&P 500 names (fast institutional reaction absorbs drift quickly)",
+          "Pre-announced earnings (surprise already priced in)",
+          "When market-wide volatility is very high (beta swamps alpha)"
+        ],
+        "entry_timing": "2-5 days after announcement (let initial volatility settle; bid-ask narrows)",
+        "exit_timing": "Day before next earnings announcement; or at 60 trading day mark"
+      },
+      "notes": "Guidance matters more than EPS beat. A 5% EPS beat with guidance maintained is weaker than a 3% beat with raised guidance. Text sentiment from earnings call transcripts provides additional alpha beyond numeric surprise (2021 Fed study). Analyst estimate revision tracking for 30 days post-announcement strengthens signal."
+    },
+    {
+      "pattern_id": "volatility_mean_reversion",
+      "name": "VIX Mean-Reversion / Volatility Risk Premium",
+      "academic_source": {
+        "primary": "Engle (1982) ARCH — Econometrica 50(4); Bollerslev (1986) GARCH — Journal of Econometrics 31(3)",
+        "modern": "Carr & Wu (2009) Volatility Risk Premium study; Liu, Ning & Zhang (2018) VRP analysis",
+        "applied": "CBOE VIX methodology (2003); Realized GARCH model (Hansen & Huang 2016, J. Financial Econometrics)"
+      },
+      "signal_construction": {
+        "vix_mean_reversion": {
+          "long_run_mean": "~19-20 (long-run VIX historical average)",
+          "buy_signal_threshold": 35,
+          "strong_buy_threshold": 45,
+          "low_vol_caution_threshold": 12,
+          "regime_thresholds": {
+            "bull_low_vol": "<15",
+            "normal_transitional": "15-25",
+            "elevated_stress": "25-35",
+            "fear_panic": ">35",
+            "extreme_capitulation": ">45"
+          }
+        },
+        "volatility_risk_premium": {
+          "definition": "VIX (implied vol) minus subsequent realized 30-day vol",
+          "historical_average_premium": "2-4 vol points (implied consistently exceeds realized)",
+          "strategy": "Sell options to collect this premium; requires tail-risk management"
+        }
+      },
+      "historical_return_premium": {
+        "vix_spike_trade": "VIX > 40: subsequent 1-month S&P 500 return historically > +5%",
+        "vix_spike_3m": "VIX > 40: subsequent 3-month return > +10% in most historical cases",
+        "hit_rate_vix_40": ">80% positive 3-month forward returns after VIX > 40",
+        "vrp_strategy": "Short-vol systematic strategies: Sharpe ~1.0-1.3 with periodic severe drawdowns"
+      },
+      "confidence": "HIGH",
+      "status": "ACTIVE — VIX mean-reversion is one of the most reliable tactical signals in markets",
+      "conditions": {
+        "signal_type": "Contrarian — spike in VIX is an opportunity, not a warning to stay out",
+        "works_best": "Spot equity long positions after extreme VIX spikes (>40)",
+        "risk": "VIX can stay elevated for months in structural bear markets (2008-2009); need stop-loss",
+        "vrp_risk": "Short-vol strategies can lose 50%+ in crash events (Feb 2018, March 2020)"
+      },
+      "vix_term_structure": {
+        "contango": "Normal — front month VIX < back month; indicates low near-term stress; favorable for short-vol",
+        "backwardation": "Stress — front month VIX > back month; acute fear; potential buy signal for equities",
+        "signal_use": "Steep backwardation = extreme fear = contrarian buy; steep contango = complacency = risk-off warning"
+      },
+      "notes": "More than 65% of U.S. equities show statistically significant mean-reverting volatility. GARCH(1,1) is robust baseline; Realized GARCH significantly outperforms conventional GARCH for VIX forecasting. The volatility risk premium is persistent and has theoretical grounding in risk aversion and demand for portfolio insurance."
+    },
+    {
+      "pattern_id": "cape_valuation_signal",
+      "name": "Shiller CAPE Ratio — Long-Term Valuation Signal",
+      "academic_source": {
+        "primary": "Shiller, R.J. (1981) 'Do Stock Prices Move Too Much?' American Economic Review",
+        "measurement": "Campbell & Shiller (1988) 'The Dividend-Price Ratio and Expectations of Future Dividends and Discount Factors' Review of Financial Studies",
+        "predictive_power": "Goyal & Welch (2008); Faber (2012) 'Global Value' — international CAPE application"
+      },
+      "signal_construction": {
+        "formula": "CAPE = Current Price / (10-year average of real, inflation-adjusted EPS)",
+        "purpose": "Smooths out cyclical earnings fluctuations to get normalized valuation",
+        "update_frequency": "Monthly",
+        "source": "Robert Shiller's online data (irrationalexuberance.com); multpl.com"
+      },
+      "historical_return_premium": {
+        "r_squared_10yr_returns": "~37% (CAPE explains 37% of subsequent 10-year return variance)",
+        "cape_below_10": "Historical 10-year real return ~10-15% annualized",
+        "cape_10_to_15": "Historical 10-year real return ~8-12% annualized",
+        "cape_15_to_20": "Historical 10-year real return ~5-9% annualized",
+        "cape_20_to_25": "Historical 10-year real return ~3-6% annualized",
+        "cape_above_30": "Historical 10-year real return ~0-3% annualized (sometimes negative)",
+        "timing_r_squared": "<5% for 1-year return prediction (essentially useless for short-term)"
+      },
+      "confidence": "HIGH (10-year prediction) — LOW (1-2 year timing)",
+      "status": "ACTIVE as long-term asset allocation signal; UNRELIABLE as market timing tool",
+      "conditions": {
+        "valid_uses": [
+          "Long-term (10+ year) portfolio allocation decisions",
+          "Comparing U.S. vs. international valuation (relative CAPE)",
+          "Setting return expectations for retirement planning",
+          "Determining size of equity allocation in multi-asset portfolio"
+        ],
+        "invalid_uses": [
+          "Predicting bear markets or market peaks (cannot)",
+          "Short-selling equities based on high CAPE alone",
+          "Any tactical decision with <3 year horizon"
+        ],
+        "structural_caveat": "Tech/platform company dominance in S&P 500 may justify structurally higher CAPE vs. historical average; intangibles not in book value; buybacks reduce share count increasing EPS"
+      },
+      "notes": "CAPE remained above 25 from 1996-2000 and markets gained 100%+ before the crash. High CAPE = poor expected future returns, not imminent crash. Use as valuation guardrail and allocation weight, not as binary in/out signal."
+    },
+    {
+      "pattern_id": "profitability_factor_rmw",
+      "name": "Profitability Factor (RMW — Robust Minus Weak)",
+      "academic_source": {
+        "primary": "Fama & French (2015) Journal of Financial Economics 116(1), pp. 1-22",
+        "supporting": "Novy-Marx (2013) 'The Other Side of Value' — gross profitability predicts returns"
+      },
+      "signal_construction": {
+        "metric": "Operating profitability = (Revenue - COGS - SG&A - Interest) / Book Equity",
+        "alternative_metrics": ["Gross profit / Total assets (Novy-Marx)", "Return on invested capital (ROIC)", "Free cash flow yield"],
+        "long_portfolio": "Top tertile by profitability",
+        "short_portfolio": "Bottom tertile by profitability",
+        "rebalance": "Annual"
+      },
+      "historical_return_premium": {
+        "raw_annual": "~3% annualized (Fama-French data library)",
+        "combined_with_value": "4-6% when combined with cheap valuation (profitable value)"
+      },
+      "confidence": "HIGH",
+      "status": "ACTIVE — robust addition to factor model; avoids value trap problem",
+      "notes": "Critical use: overlay on value screen. Cheap + profitable = strong expected return. Cheap + unprofitable = value trap. RMW screen eliminates most value traps."
+    },
+    {
+      "pattern_id": "investment_factor_cma",
+      "name": "Investment Factor (CMA — Conservative Minus Aggressive)",
+      "academic_source": {
+        "primary": "Fama & French (2015) Journal of Financial Economics 116(1), pp. 1-22",
+        "supporting": "Cooper, Gulen & Schill (2008) 'Asset Growth and the Cross-Section of Stock Returns'"
+      },
+      "signal_construction": {
+        "metric": "Annual asset growth rate = (Total Assets(t) - Total Assets(t-1)) / Total Assets(t-1)",
+        "long_portfolio": "Bottom tertile — conservative investors (low asset growth)",
+        "short_portfolio": "Top tertile — aggressive investors (high asset growth)",
+        "rebalance": "Annual"
+      },
+      "historical_return_premium": {
+        "raw_annual": "~2-3% annualized",
+        "mechanism": "Aggressive investment often signals management overconfidence or empire-building; returns diluted; shareholders overpay for growth that doesn't materialize"
+      },
+      "confidence": "MODERATE",
+      "status": "ACTIVE — useful as negative screen; avoid companies with aggressive asset growth without profit improvement",
+      "notes": "Primary use: negative screen. Avoid companies growing assets >20%/year without corresponding profit growth. Acquisitive conglomerates often destroy value."
+    }
+  ]
+}

@@ -1,0 +1,325 @@
+{
+  "metadata": {
+    "category": "news_event_patterns",
+    "version": "1.0.0",
+    "last_updated": "2026-06-03",
+    "description": "Historical market reaction patterns for specific news event types. All return figures are averages/medians from historical event studies. Individual outcomes vary significantly based on macro context, degree of market anticipation, and company-specific factors.",
+    "return_convention": "All returns are approximate average/median changes from pre-announcement close. Positive = market up; Negative = market down.",
+    "confidence_scale": "HIGH=well-documented, multiple studies, consistent pattern | MODERATE=general tendency, high variance | LOW=weak or context-dependent pattern",
+    "data_sources": [
+      "LPL Financial historical geopolitical study",
+      "Visual Capitalist / RBC Wealth Management rate-cut analysis",
+      "Bernard & Thomas PEAD research (1989, 1990)",
+      "CFI / Wall Street Oasis M&A premium data",
+      "Biotech event studies (Journal of Finance and Accountancy; PMC)",
+      "Jegadeesh-Titman momentum research",
+      "J.P. Morgan, T. Rowe Price, State Street institutional research"
+    ]
+  },
+  "patterns": [
+    {
+      "pattern_id": "rate_cut_first",
+      "name": "First Rate Cut in a Federal Reserve Easing Cycle",
+      "description": "Initial Fed rate cut after a tightening or neutral period. Market reaction heavily dependent on whether cut accompanies a recession or is a 'soft landing insurance cut'.",
+      "avg_return_1h": "+0.3% to +0.8% (if clean dovish cut; flat to negative if hawkish cut)",
+      "avg_return_1d": "+0.5% to +1.5%",
+      "avg_return_7d": "+1.0% to +3.0%",
+      "avg_return_30d": "+3.0% to +6.0% (non-recession scenario); -5% to -15% (recession scenario)",
+      "avg_return_12m_median": "+11.9% (S&P 500 median, 11 easing cycles since 1970)",
+      "avg_return_12m_mean": "+7.6% (mean, pulled down by recession episodes)",
+      "positive_12m_hit_rate": "~70% of historical instances",
+      "confidence": "HIGH (direction); MODERATE (magnitude — wide variance)",
+      "fade_signal": "Fade (sell) when: Fed signals one-and-done cut; unemployment rising; yield curve not steepening; 'hawkish cut' language used",
+      "follow_signal": "Follow (hold/buy) when: clear soft landing; employment strong; inflation already near target; multiple future cuts signaled",
+      "sector_rotation": {
+        "buy": ["REITs", "Utilities", "Small-caps", "Regional banks", "Consumer discretionary"],
+        "sell": ["Short-duration bonds", "Defensive cash-equivalents"],
+        "neutral": ["Technology", "Healthcare"]
+      },
+      "notes": "The most important variable is recession probability. Non-recession first cuts have historically been excellent buying opportunities. Recession-accompanied cuts preceded the worst bear markets (2001, 2008). Year 2 of easing cycle with no recession: S&P 500 historically >16% return."
+    },
+    {
+      "pattern_id": "rate_hike_first",
+      "name": "First Rate Hike in a Federal Reserve Tightening Cycle",
+      "description": "Initial Fed rate hike from accommodative levels. Short-term headwind but historically bull markets survive entire hiking cycles if the economy remains strong.",
+      "avg_return_1h": "-0.5% to -1.5% (initial kneejerk)",
+      "avg_return_1d": "Flat to -1.0% (uncertainty removal can cause partial reversal)",
+      "avg_return_7d": "-1.0% to -3.0%",
+      "avg_return_30d": "-3.0% to -7.0% (since 1999, S&P always down 3 months after first hike on avg)",
+      "avg_return_full_cycle": "+62.9% S&P 500 average across full hiking cycles since 1989",
+      "avg_months_hike_to_bear_market": 42,
+      "avg_months_hike_to_recession": 49,
+      "confidence": "MODERATE (short-term negative predictable; long-term depends entirely on macro)",
+      "fade_signal": "Fade the initial selloff when: economy is clearly strong; earnings growth positive; hike is normalization not emergency tightening",
+      "follow_signal": "Follow (stay bearish) when: hike responding to uncontrolled inflation; aggressive pace signaled; yield curve already flat/inverted",
+      "sector_rotation": {
+        "early_cycle_buy": ["Financials (NIM expansion)", "Energy", "Materials", "Industrials"],
+        "avoid": ["High-multiple growth tech", "REITs", "Utilities", "Long-duration bonds"],
+        "late_cycle_shift": "Rotate to quality / low-vol as cycle matures"
+      },
+      "notes": "2022 was atypical: S&P fell -25% in the calendar year due to supply-shock inflation requiring very aggressive hikes (+75bps increments). Normal hiking cycles do not produce this. The first hike day itself averages near-flat (+0.03%) with +0.83% average 1-month return."
+    },
+    {
+      "pattern_id": "earnings_beat_large",
+      "name": "Large Earnings Beat (EPS >10% Above Consensus)",
+      "description": "Company reports earnings per share more than 10% above the Wall Street consensus estimate. Reaction depends heavily on guidance and whether the beat was anticipated.",
+      "avg_return_1h": "+2% to +5% (gap at open)",
+      "avg_return_1d": "+3% to +5% (large-cap S&P 500); +8% to +15% (mid/small-cap, high-vol names)",
+      "avg_return_7d": "+3% to +6% (PEAD begins; analyst upgrades follow)",
+      "avg_return_30d": "+5% to +10% (full PEAD drift over 60 trading days; guidance-dependent)",
+      "confidence": "HIGH (beat + raised guidance); MODERATE (beat + maintained guidance); LOW (beat + lowered guidance)",
+      "fade_signal": "Fade (sell/trim) when: stock rallied >20% in prior 30 days (priced in); beat driven by cost cuts not revenue; guidance only maintained; P/E already 40x+",
+      "follow_signal": "Follow (hold/add) when: beat + raised guidance; revenue also beat; stock was flat or down pre-earnings; mid-cap with low analyst coverage (stronger PEAD)",
+      "beat_quality_hierarchy": [
+        "1. Revenue beat + EPS beat + Guidance raised = STRONGEST (full follow)",
+        "2. EPS beat + Revenue beat + Guidance maintained = STRONG (follow)",
+        "3. EPS beat only (cost cuts) + Guidance maintained = MODERATE (limited follow)",
+        "4. EPS beat + Revenue miss + Guidance maintained = WEAK (fade likely)",
+        "5. EPS beat + Guidance cut = NEGATIVE (fade immediately)"
+      ],
+      "pead_parameters": {
+        "drift_window_trading_days": 60,
+        "best_universe": "Mid-cap ($2B-$15B), 3-8 analyst estimates",
+        "entry_timing": "2-5 days post-announcement (after initial volatility settles)",
+        "exit_timing": "Day before next earnings announcement or at 60-trading-day mark"
+      },
+      "notes": "~75% of S&P 500 companies beat EPS in a typical quarter; consensus is set conservatively. This means a simple beat is insufficient — magnitude and quality of beat determine the reaction. Guidance is the most forward-looking and therefore most market-moving component."
+    },
+    {
+      "pattern_id": "earnings_miss_large",
+      "name": "Large Earnings Miss (EPS >10% Below Consensus)",
+      "description": "Company reports EPS more than 10% below consensus. One of the most reliably negative events in equity markets, especially when combined with guidance cut.",
+      "avg_return_1h": "-3% to -6% (gap down at open)",
+      "avg_return_1d": "-5% to -8% (large-cap S&P 500); -10% to -25% (high-vol/small-cap names)",
+      "avg_return_7d": "-6% to -10% (negative PEAD; analyst downgrades published)",
+      "avg_return_30d": "-8% to -15% (full negative PEAD + estimate resets)",
+      "confidence": "HIGH (especially miss + guidance cut scenario)",
+      "fade_signal": "Fade (buy the dip) when: miss was clearly one-time/non-recurring; guidance raised despite miss; stock already down 30-40% before earnings; sector-wide macro issue (everyone missed)",
+      "follow_signal": "Follow (sell/short) when: miss + guidance cut; structural issue identified (competitive share loss); management language is evasive; analyst consensus was already conservative",
+      "worst_case": "Miss + guidance cut + CEO evasiveness: average -10% to -20% day; -20% to -30% over 30 days. 'Triple threat' in growth stocks can be -30% to -50%.",
+      "kitchen_sink_exception": "New CEO deliberately lowers bar in first/second quarter ('kitchen sink' quarter); buy after the initial selloff as subsequent quarters will likely beat the reset bar",
+      "notes": "Negative reactions tend to persist longer and be larger in magnitude than positive reactions of equivalent absolute surprise — consistent with Kahneman prospect theory and loss aversion in markets."
+    },
+    {
+      "pattern_id": "guidance_raised",
+      "name": "Management Guidance Raised (Full Year or Next Quarter)",
+      "description": "Company raises forward earnings/revenue guidance during or after an earnings report. Considered more important than current-quarter EPS in most cases.",
+      "avg_return_1h": "+3% to +7% (strong immediate positive reaction)",
+      "avg_return_1d": "+4% to +8%",
+      "avg_return_7d": "+5% to +10%",
+      "avg_return_30d": "+7% to +12%",
+      "confidence": "HIGH — guidance raise is the single most consistently positive catalyst in earnings context",
+      "fade_signal": "Fade when: guidance raise is very small (<1-2%) below expectations; raised guidance implies deceleration in growth rate; valuation already stretched (implied by DCF)",
+      "follow_signal": "Follow when: guidance raise is >5% above prior guidance; raises across multiple metrics (revenue AND EPS); multiple quarters of consecutive guidance raises (trend matters)",
+      "combination_effects": {
+        "beat_plus_raise": "Strongest possible: avg +5% to +8% day; full PEAD follow-through",
+        "miss_plus_raise": "Unusual but positive: avg +1% to +3% if raise is significant; signals management confidence",
+        "beat_plus_maintain": "Moderate: avg +2% to +4%; PEAD weaker than beat+raise",
+        "beat_plus_cut": "Negative despite beat: avg -2% to -5%; market prices future, not past"
+      },
+      "notes": "Forward guidance is more valuable than current EPS because it tells the market where earnings power is heading. Companies that consistently beat-and-raise create 'beat-and-raise' multiple premiums and sustained PEAD patterns."
+    },
+    {
+      "pattern_id": "guidance_cut",
+      "name": "Management Guidance Cut (Full Year or Next Quarter)",
+      "description": "Company reduces forward earnings/revenue guidance. One of the most reliably negative catalysts, especially if accompanied by an earnings miss.",
+      "avg_return_1h": "-4% to -10% (immediate severe selloff)",
+      "avg_return_1d": "-6% to -15%",
+      "avg_return_7d": "-8% to -18%",
+      "avg_return_30d": "-10% to -25%",
+      "confidence": "HIGH — guidance cut is the most consistently negative earnings event",
+      "fade_signal": "Fade (buy after selloff) when: pre-announcement already happened (double-discount); 'kitchen sink' cut from new management; cut is very conservative and sets low bar; sector-wide issue not company-specific",
+      "follow_signal": "Follow (sell/avoid) when: guidance cut in growth stock with high multiple; CEO language is cautious/vague; second consecutive guidance cut; competitive dynamics cited",
+      "pre_announcement_dynamic": "If company pre-announces a guidance cut before formal earnings report, stock already sold off on pre-announcement day. Formal earnings release then often trades FLAT or slightly up as the bad news was already absorbed.",
+      "notes": "Growth stocks (P/E > 30x) are hit hardest on guidance cuts because valuation depends heavily on out-year earnings assumptions. A 10% guidance cut on a 40x P/E stock justifies more than a 10% stock decline due to valuation multiple compression."
+    },
+    {
+      "pattern_id": "layoff_large",
+      "name": "Large-Scale Layoff Announcement (5,000+ Employees)",
+      "description": "Company announces layoff of 5,000 or more employees. Market reaction is highly context-dependent — the same absolute number of layoffs is interpreted very differently based on macroeconomic environment and company narrative.",
+      "avg_return_1h": "Positive context: +0.5% to +2%. Negative context: -1% to -3%",
+      "avg_return_1d": "Average across all types: -1% to -3%. Tech restructuring bull market: +1% to +3%. Recession-signal layoffs: -2% to -5%",
+      "avg_return_7d": "Restructuring: flat to +2%. Demand-weakness: -2% to -5%",
+      "avg_return_30d": "Driven by subsequent earnings/guidance — no reliable directional pattern beyond 30 days",
+      "confidence": "LOW to MODERATE — context dominates over the raw event",
+      "fade_signal": "Fade (buy after selloff) when: clearly strategic restructuring; strong balance sheet; management provides clear cost savings dollar amounts; sector is healthy overall",
+      "follow_signal": "Follow (sell/avoid) when: layoffs accompanied by revenue guidance cut; language about 'demand softness' or 'macroeconomic headwinds'; repeated rounds of layoffs in 12-month period",
+      "context_matrix": {
+        "restructuring_bull_market": "+1% to +3% (efficiency story; market rewards cost discipline)",
+        "restructuring_bear_market": "-1% to -3% (market focuses on what business conditions forced the action)",
+        "demand_weakness_any_market": "-2% to -6% (revenue concern overrides cost-saving benefit)",
+        "ai_related_2024_2026": "56% of AI layoff announcements traded negative from announcement; avg decline ~25%"
+      },
+      "notes": "2022-2023 tech layoffs were initially well-received because companies had massively over-hired in 2020-2021. That specific dynamic has largely normalized. Modern layoff reactions are more nuanced and require management commentary analysis."
+    },
+    {
+      "pattern_id": "merger_target",
+      "name": "Merger/Acquisition — Target Company",
+      "description": "Company receives a formal acquisition offer. Target stock immediately gaps to near the offer price. Residual discount represents merger arbitrage spread (deal risk premium).",
+      "avg_return_1h": "+20% to +35% vs. unaffected pre-announcement price",
+      "avg_return_1d": "+20% to +35% (sustained; closes near offer price minus arb spread)",
+      "avg_return_7d": "+19% to +33% (slight discount to offer maintained as deal risk premium)",
+      "avg_return_30d": "+18% to +32% (convergence toward offer price if no deal issues)",
+      "typical_acquisition_premium_vs_unaffected": "20-30% (normal range); up to 50% in competitive situations",
+      "high_tech_premium_2018": "36.3% average",
+      "confidence": "HIGH — one of the most predictable single-event reactions in markets",
+      "fade_signal": "Fade (sell after spike) when: regulatory approval risk is very high (antitrust in tech/telecom/pharma); stock already trading near or above offer price; deal structure is complex (stock-for-stock with acquirer risks)",
+      "follow_signal": "Follow (buy on dip below offer) when: cash deal with strong acquirer balance sheet; regulatory path clear; target trading 5-10% below offer (pure arb capture)",
+      "arb_mechanics": {
+        "cash_deal": "Target trades 1-5% below offer price (deal risk premium); collapses to 0 on close",
+        "stock_deal": "Target trades 3-8% below offer (plus acquirer stock fluctuation risk)",
+        "competitive_bid": "Can trade above initial offer if second bidder expected; second bids average 10-15% above first",
+        "deal_break": "If deal breaks: target retraces to pre-announcement price minus any permanent value revelation"
+      },
+      "notes": "Run-up before announcement: M&A announcements are often preceded by stock price increases (information leaks). Most academic studies use '4 weeks before announcement' as unaffected price baseline. Do not use announcement day as baseline for calculating the premium."
+    },
+    {
+      "pattern_id": "merger_acquirer",
+      "name": "Merger/Acquisition — Acquiring Company",
+      "description": "Company announces it is acquiring another company. Markets typically punish acquirers immediately due to overpayment risk, integration risk, and potential balance sheet strain.",
+      "avg_return_1h": "-1% to -3%",
+      "avg_return_1d": "-2% to -4%",
+      "avg_return_7d": "-2% to -5%",
+      "avg_return_30d": "-3% to -8%",
+      "confidence": "MODERATE — direction (negative) is reliable; magnitude varies widely",
+      "fade_signal": "Fade (buy the acquirer dip) when: bolt-on acquisition; minimal premium (<20%); obvious synergies in core business; cash-financed with strong balance sheet; serial acquirer with track record",
+      "follow_signal": "Follow (avoid acquirer) when: large transformative acquisition (>$1B for mid-cap); high premium (>40%); debt-financed deal materially changing credit profile; first large acquisition by management team",
+      "long_term_note": "Academic consensus: majority of acquisitions fail to create value for acquiring shareholders over 3-5 year period. Day-1 market judgment (down) is historically more often right than wrong.",
+      "stock_vs_cash_deal": {
+        "cash_deal": "Acquirer typically down more (-3% to -5%) due to balance sheet concern and debt signal",
+        "stock_deal": "Acquirer down less initially (-1% to -3%) but dilution risk priced over time",
+        "all_stock_deal_signal": "Management using stock as currency often signals they believe stock is overvalued"
+      },
+      "notes": "Exception sectors: pharmaceutical bolt-ons (pipeline diversification well-understood), software tuck-ins (ARR multiple math is clear to market). In these sectors, well-structured acquisitions may receive flat or positive day-1 reaction."
+    },
+    {
+      "pattern_id": "fed_hawkish_surprise",
+      "name": "Federal Reserve Hawkish Surprise (More Aggressive Than Expected)",
+      "description": "Fed delivers a more hawkish message than market consensus expected — either larger hike, faster pace of tightening, or aggressive language about rate path.",
+      "avg_return_1h": "-1% to -2% (immediate; rate-sensitive sectors lead decline)",
+      "avg_return_1d": "-1% to -3%",
+      "avg_return_7d": "-2% to -4%",
+      "avg_return_30d": "-3% to -6% (aggressive surprise); -1% to -2% (communication hawkishness only)",
+      "bond_market_reaction": "10-year yield +5 to +15bps same day",
+      "fx_reaction": "USD strengthens 0.5-1.5% vs. major currencies",
+      "confidence": "HIGH — direction reliable; magnitude depends on surprise magnitude",
+      "historical_example": "Jackson Hole August 2022 (Powell hawkish pivot): S&P 500 -3.4% same day",
+      "fade_signal": "Fade (buy after drop) when: hawkishness is purely verbal/communication; subsequent inflation data lower than expected; market had already priced aggressive tightening",
+      "follow_signal": "Follow (stay bearish) when: inflation re-accelerating; Fed credibility under pressure; signals QT acceleration on top of hikes; financial conditions too loose",
+      "sector_impact": {
+        "most_negative": ["Long-duration growth tech", "REITs", "Utilities", "Speculative unprofitable tech"],
+        "least_negative": ["Energy", "Financials (short-term)", "Materials"],
+        "currencies": "USD strengthens; EM currencies under pressure"
+      },
+      "notes": "The 'hawkish cut' scenario is particularly important: when the Fed cuts rates but signals a slow future pace, the net reaction can be negative despite a nominal rate cut. Market trades the forward path, not the current action."
+    },
+    {
+      "pattern_id": "fed_dovish_surprise",
+      "name": "Federal Reserve Dovish Surprise (More Accommodative Than Expected)",
+      "description": "Fed delivers a more dovish message than market consensus — smaller hike/cut than expected, slower tightening pace, or explicitly accommodative language.",
+      "avg_return_1h": "+0.5% to +1.5%",
+      "avg_return_1d": "+1.0% to +2.5%",
+      "avg_return_7d": "+2.0% to +4.0%",
+      "avg_return_30d": "+3.0% to +6.0% (if macro supports the pivot)",
+      "bond_market_reaction": "10-year yield -5 to -15bps; bond prices rally",
+      "fx_reaction": "USD weakens 0.5-1.5%; gold strengthens",
+      "confidence": "HIGH — direction reliable; magnitude depends on macro confirmation",
+      "historical_example": "Jackson Hole August 2025 (Powell dovish, rate cuts signaled): S&P 500 +1.3% same day; Dow +680 points (+1.5%)",
+      "fade_signal": "Fade when: dovish because economy is terrible (recession signal masked as accommodation); inflation still clearly above target; dollar weakness signals stagflation concern",
+      "follow_signal": "Follow when: inflation clearly under control; employment still healthy (soft landing); multiple future cuts signaled; 'insurance cut' language used",
+      "sector_impact": {
+        "most_positive": ["Long-duration growth tech (Nasdaq)", "REITs", "Utilities", "Small-caps"],
+        "neutral": ["Defensives (already priced for stability)"],
+        "negative": ["USD-denominated commodity earners (USD weakens)"]
+      },
+      "notes": "Dovish surprises from a position of economic strength (rates being cut into solid growth) are more bullish than dovish surprises from economic weakness. The macro context behind the dovishness determines whether equities rally sustainably or just bounce temporarily."
+    },
+    {
+      "pattern_id": "product_launch",
+      "name": "Major Product Launch (Apple, Tesla, Major Tech)",
+      "description": "Highly anticipated product announcement or launch event. Classic 'buy the rumor, sell the news' pattern where speculation premium unwinds on actual announcement.",
+      "avg_return_1h": "Flat to -1.5% on launch day (if widely anticipated)",
+      "avg_return_1d": "-1% to -3% (anticipated launch); flat to +2% (unexpected/surprise launch)",
+      "avg_return_7d": "-1% to -4% (speculation premium unwinds over days)",
+      "avg_return_30d": "Returns to fundamental trajectory; actual sales data starts driving price",
+      "confidence": "MODERATE — buy-rumor-sell-news is real but magnitude is hard to predict",
+      "pre_launch_pattern": "Typical run-up: +5% to +15% in 30-60 days before major product events; creates the reversion setup",
+      "fade_signal": "Fade (sell before/at launch) when: stock up >15% in prior 6 weeks; product features were pre-leaked; all analyst expectations already incorporated; historical pattern applies to this company",
+      "follow_signal": "Follow (hold through launch) when: product is genuinely transformational and opens new market category; pre-launch setup was cautious (stock flat or down going in); company has consistently surprised to the upside on actual product performance",
+      "historical_exceptions": {
+        "iphone_2007": "Transformational; stock continued higher through and after launch",
+        "m1_chip_2020": "Significant performance improvement; Apple stock continued to rise",
+        "cybertruck": "Stock fell on reveal day; consistent with typical pattern for Tesla events"
+      },
+      "sector_applicability": "Primarily consumer electronics, EVs, major software releases. Less applicable to B2B enterprise products (different timing/revenue recognition dynamics).",
+      "notes": "The buy-rumor-sell-news pattern is self-reinforcing: as more traders expect the selloff and sell pre-launch, the run-up is shorter and the post-launch decline smaller. The pattern is best exploited in the lead-up (riding the rumor rally), not in trying to short the news day."
+    },
+    {
+      "pattern_id": "geopolitical_shock",
+      "name": "Geopolitical Shock (Wars, Attacks, Major Escalations)",
+      "description": "Unexpected geopolitical events including military conflicts, terrorist attacks, major escalations. Historically, these produce sharp but temporary declines that represent buying opportunities in most cases.",
+      "avg_return_1h": "-1% to -3% (immediate uncertainty premium spike)",
+      "avg_return_1d": "-3% to -6% (full initial shock absorption)",
+      "avg_return_7d": "-2% to -4% (partial recovery begins within days)",
+      "avg_return_30d": "Typically fully recovered; often positive vs. pre-shock price",
+      "avg_return_6m": "+4.6% (average after major geopolitical shock, per JP Morgan data)",
+      "avg_return_12m": "+11% (average after major geopolitical shock)",
+      "avg_days_to_bottom": 19,
+      "avg_days_to_full_recovery": 42,
+      "historical_recovery_rate": "19 of 20 major military conflicts since WWII: S&P 500 recovered within 28 days",
+      "confidence": "HIGH (recovery pattern is extremely consistent); MODERATE (timing of bottom is uncertain)",
+      "fade_signal": "Fade (buy the dip) when: no clear economic transmission mechanism (trade routes/commodity supply not disrupted); involves peripheral countries with limited global economic impact; initial selloff >5% without fundamental earnings impact",
+      "follow_signal": "Follow (stay cautious) when: direct energy/commodity supply disruption (oil embargo-style); nuclear escalation risk; involves major economic powers directly (U.S./China/EU); sustained multi-year supply chain disruption",
+      "sector_playbook": {
+        "buy_immediately": ["Defense contractors", "Energy/Oil (if Middle East involved)", "Gold miners"],
+        "buy_after_initial_panic": ["S&P 500 ETFs (SPY/QQQ)", "Consumer staples (dip into strength)"],
+        "avoid_short_term": ["Airlines", "Tourism/Hotels", "Consumer discretionary"]
+      },
+      "vix_behavior": "VIX typically spikes to 25-40+ on geopolitical shock; provides additional buy signal when combined with historical recovery data",
+      "notes": "Key distinction: 'pure' geopolitical shocks (limited economic transmission) vs. economic shocks that happen to be geopolitically caused. The 1973 oil embargo was fundamentally different from the Gulf War or 9/11 in economic impact. The more direct the economic channel, the longer and deeper the market decline."
+    },
+    {
+      "pattern_id": "fda_approval",
+      "name": "FDA Drug Approval (Biotech/Pharma)",
+      "description": "FDA approves a drug application (NDA/BLA). Magnitude depends heavily on company size, drug category, disease area, and degree of market anticipation.",
+      "avg_return_1h_small_biotech": "+20% to +50% (initial spike for single-product companies)",
+      "avg_return_1d_small_biotech": "+30% to +60%",
+      "avg_return_7d_small_biotech": "+20% to +40% (sustained; commercialization narrative continues)",
+      "avg_return_30d_small_biotech": "Depends on reimbursement, launch, and commercial guidance",
+      "avg_return_1d_large_pharma": "+2% to +8%",
+      "avg_return_7d_large_pharma": "+1% to +5%",
+      "confidence": "HIGH (direction for small biotech); MODERATE (magnitude varies by anticipation level)",
+      "fade_signal": "Fade (sell after spike) when: approval was near-100% expected by options market; approved label is narrower than expected; reimbursement/pricing risk remains significant; stock had already run 50-100% pre-approval",
+      "follow_signal": "Follow when: surprise approval (market implied probability was <70%); first-in-class drug; large unmet medical need market; breakthrough therapy or fast-track designation granted; no competitor approvals imminent",
+      "phase_outcomes": {
+        "phase_3_success": "+20% to +40% average (large programs); +40% to +80% (small biotech)",
+        "phase_3_failure": "-50% to -70% average (catastrophic for single-pipeline)",
+        "phase_2_success": "+10% to +30%",
+        "phase_2_failure": "-30% to -50%"
+      },
+      "notes": "Company classification (early biotech vs. large pharma) is the single biggest driver of magnitude. Disease category, trial phase, and competitive landscape also matter. Rare disease approvals (small patient populations with no alternatives) tend to produce larger % moves than crowded therapeutic areas."
+    },
+    {
+      "pattern_id": "fda_rejection",
+      "name": "FDA Drug Rejection (Complete Response Letter — CRL)",
+      "description": "FDA issues a Complete Response Letter (CRL) declining to approve a drug application. Among the most severe single-event stock declines for small biotech companies.",
+      "avg_return_1h_small_biotech": "-30% to -60% (immediate catastrophic decline)",
+      "avg_return_1d_small_biotech": "-40% to -70%",
+      "avg_return_7d_small_biotech": "-45% to -80%",
+      "avg_return_30d_small_biotech": "Often -50% to -90% for single-asset companies; may stabilize if other pipeline",
+      "avg_return_1d_large_pharma": "-3% to -10%",
+      "avg_return_7d_large_pharma": "-4% to -12%",
+      "asymmetry_vs_approval": "Rejection magnitude EXCEEDS approval magnitude; downside persists longer than upside (academic finding: confirmed in ResearchGate biotech study)",
+      "confidence": "HIGH — rejection is one of the most predictable catastrophic single-event declines",
+      "fade_signal": "Fade (cautious buy) ONLY when: CRL was for manufacturing/CMC issues only (fixable; not efficacy/safety); company explicitly states refiling timeline; company has other pipeline assets that weren't affected; stock has already fallen 70%+ (terminal value floor)",
+      "follow_signal": "Follow (avoid the name) when: safety rejection or clinical hold; single-asset company with no other pipeline; management communication is vague about path forward; FDA raises efficacy questions (not just manufacturing)",
+      "crl_type_matters": {
+        "manufacturing_cmc_issue": "Fixable; stock may recover 30-50% of loss over 6-12 months post-resubmission",
+        "safety_issue": "Near-terminal for the specific indication; rarely reversed",
+        "efficacy_issue": "Program likely dead; requires entirely new trials",
+        "labeling_issue": "Moderate; negotiation possible; partial recovery common"
+      },
+      "notes": "Never 'catch a falling knife' on FDA rejection day. Wait for management conference call to understand the nature of the rejection. Manufacturing/CMC rejections are recoverable; safety rejections are generally not. The CRL letter text is critical information."
+    }
+  ]
+}

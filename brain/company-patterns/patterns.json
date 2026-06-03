@@ -1,0 +1,334 @@
+{
+  "meta": {
+    "category": "company-patterns",
+    "version": "1.0.0",
+    "last_updated": "2026-06-03",
+    "description": "Historical stock price reaction patterns for corporate events. Returns are average % change for US large/mid-cap equities 2000-2023. Confidence is based on academic and empirical evidence volume.",
+    "sources": [
+      "Skinner & Sloan (2002) - Earnings Surprises, Growth Expectations, and Stock Returns",
+      "Bernard & Thomas (1989) - Post-Earnings Announcement Drift",
+      "Seyhun (1986) - Insiders' Profits, Costs of Trading, and Market Efficiency",
+      "Rozeff & Zaman (1998) - Overreaction and Insider Trading",
+      "Dechow et al. (2001) - Short-Sellers, Fundamental Analysis, and Stock Returns",
+      "Ikenberry et al. (1995) - Market Underreaction to Open Market Share Repurchases",
+      "Altman (1968) - Financial Ratios, Discriminant Analysis, and Bankruptcy",
+      "FactSet Earnings Insight 2015-2024",
+      "Damodaran NYU Stern M&A Database"
+    ]
+  },
+  "patterns": [
+    {
+      "pattern_id": "EARN_BEAT_LARGE",
+      "name": "Earnings Beat — Large (>10% above consensus)",
+      "category": "earnings",
+      "trigger": "Reported EPS exceeds analyst consensus by more than 10%",
+      "historical_occurrences": "Approximately 20-25% of all quarterly earnings reports in S&P 500",
+      "avg_return_1d": 4.2,
+      "avg_return_7d": 6.1,
+      "avg_return_30d": 8.5,
+      "return_range_1d": [2.5, 7.0],
+      "return_range_7d": [3.5, 9.5],
+      "return_range_30d": [4.0, 14.0],
+      "confidence": "high",
+      "beat_rate_typical": "70-75% of S&P 500 companies beat estimates in typical quarter",
+      "post_earnings_drift": true,
+      "drift_duration_days": 60,
+      "notes": "Large beats exhibit strong post-earnings announcement drift (PEAD). Effect is stronger for smaller, less analyst-covered companies. If accompanied by guidance raise, add 2-4% to all return estimates. Whisper number effect: stock may still sell off if actual number misses the unofficial whisper estimate despite beating consensus.",
+      "risk_factors": [
+        "High valuation can mute reaction (expensive stocks need to beat by more)",
+        "Sector-wide headwinds can override individual beat",
+        "Bear market conditions reduce drift magnitude by 30-50%"
+      ],
+      "sec_filings": ["10-Q", "8-K (earnings press release)"],
+      "signal_strength": 8
+    },
+    {
+      "pattern_id": "EARN_BEAT_SMALL",
+      "name": "Earnings Beat — Small (<5% above consensus)",
+      "category": "earnings",
+      "trigger": "Reported EPS exceeds analyst consensus by less than 5%",
+      "historical_occurrences": "Approximately 45-50% of all quarterly reports (most common outcome)",
+      "avg_return_1d": 0.9,
+      "avg_return_7d": 1.4,
+      "avg_return_30d": 2.1,
+      "return_range_1d": [-0.5, 2.5],
+      "return_range_7d": [-0.5, 3.5],
+      "return_range_30d": [0.0, 5.0],
+      "confidence": "medium",
+      "notes": "Small beats are often already priced in. The 'buy the rumor, sell the news' effect is most common here. Reaction is heavily dependent on guidance: a small beat with maintained guidance is neutral-to-positive; a small beat with guidance cut is negative despite the beat.",
+      "risk_factors": [
+        "Guidance dominates: small beat + guidance cut = net negative day",
+        "Already priced in via pre-earnings run-up",
+        "Revenue miss can offset EPS beat"
+      ],
+      "signal_strength": 4
+    },
+    {
+      "pattern_id": "EARN_MISS",
+      "name": "Earnings Miss",
+      "category": "earnings",
+      "trigger": "Reported EPS falls below analyst consensus by any amount",
+      "historical_occurrences": "Approximately 25-30% of quarterly reports in typical year",
+      "avg_return_1d": -3.8,
+      "avg_return_7d": -5.2,
+      "avg_return_30d": -7.5,
+      "return_range_1d": [-2.0, -12.0],
+      "return_range_7d": [-3.0, -15.0],
+      "return_range_30d": [-5.0, -20.0],
+      "confidence": "high",
+      "asymmetry_factor": 2.5,
+      "asymmetry_note": "Misses are punished approximately 2.5x harder than equivalent beats are rewarded",
+      "notes": "Earnings misses trigger analyst estimate cuts, price target reductions, and institutional selling in subsequent days/weeks. The reaction is steepest when: (1) the miss is on revenue rather than just EPS, (2) guidance is also cut (double miss), (3) management provides vague or evasive commentary on the conference call. Double miss (miss + guidance cut) = avg -12% on day 1, -20% over 30 days.",
+      "risk_factors": [
+        "Revenue miss worse than EPS miss alone",
+        "Conference call tone critical — defensive language amplifies decline",
+        "Multiple compression follows if growth thesis is broken"
+      ],
+      "signal_strength": 9
+    },
+    {
+      "pattern_id": "GUIDANCE_RAISE",
+      "name": "Guidance Raise",
+      "category": "guidance",
+      "trigger": "Company raises forward revenue or EPS guidance above prior guidance or analyst consensus",
+      "historical_occurrences": "Approximately 35-40% of companies raise guidance at quarterly reports in bull markets; 20-25% in bear markets",
+      "avg_return_1d": 3.1,
+      "avg_return_7d": 4.5,
+      "avg_return_30d": 7.2,
+      "return_range_1d": [1.0, 7.0],
+      "return_range_7d": [1.5, 9.0],
+      "return_range_30d": [2.0, 14.0],
+      "confidence": "high",
+      "magnitude_matters": true,
+      "notes": "Guidance raises are most powerful when they exceed analyst consensus by >5% on revenue or EPS. When combined with an earnings beat (double beat), cumulative return estimates should be increased. Mid-quarter guidance raises (outside earnings season) are particularly bullish as they signal visible demand acceleration. Analyst upgrades typically follow within 1-2 weeks, sustaining the move.",
+      "risk_factors": [
+        "Guidance raise that is still below consensus is actually bearish",
+        "If guidance raise comes with cost cuts rather than revenue growth, quality of raise is lower",
+        "Macro headwinds can prevent the drift from materializing"
+      ],
+      "signal_strength": 8
+    },
+    {
+      "pattern_id": "GUIDANCE_CUT",
+      "name": "Guidance Cut / Profit Warning",
+      "category": "guidance",
+      "trigger": "Company lowers forward revenue or EPS guidance below prior guidance or analyst consensus",
+      "historical_occurrences": "Approximately 15-20% of companies cut guidance at reports in typical year; rises to 30-40% during recessions",
+      "avg_return_1d": -9.5,
+      "avg_return_7d": -11.2,
+      "avg_return_30d": -14.8,
+      "return_range_1d": [-5.0, -20.0],
+      "return_range_7d": [-6.0, -22.0],
+      "return_range_30d": [-8.0, -30.0],
+      "confidence": "high",
+      "notes": "Guidance cuts are among the most negative single-event signals. Pre-announced profit warnings (before official earnings report) are even worse as they signal management could not wait. A second consecutive guidance cut within two quarters dramatically increases the probability of a structural decline in the business. Sectors most prone: semiconductors (demand cyclicality), retail (consumer spending sensitivity), industrials (lead time visibility issues).",
+      "risk_factors": [
+        "Second consecutive cut exponentially worsens outlook",
+        "Analyst estimates will be cut further in subsequent days",
+        "Institutional holders bound by mandate may be forced to sell if stock drops below key levels"
+      ],
+      "signal_strength": 10
+    },
+    {
+      "pattern_id": "LAYOFF_ANNOUNCEMENT",
+      "name": "Layoff Announcement",
+      "category": "corporate_action",
+      "trigger": "Company announces reduction in workforce (any size)",
+      "historical_occurrences": "Approximately 200-400 major announcements per year in S&P 500 universe",
+      "avg_return_1d": 1.2,
+      "avg_return_7d": 0.8,
+      "avg_return_30d": 2.5,
+      "return_range_1d": [-8.0, 6.0],
+      "return_range_7d": [-10.0, 5.0],
+      "return_range_30d": [-20.0, 8.0],
+      "confidence": "medium",
+      "context_dependent": true,
+      "context_rules": {
+        "efficiency_layoff": {
+          "description": "Proactive cost cut; revenue guidance maintained",
+          "avg_return_1d": 2.8,
+          "avg_return_30d": 4.5
+        },
+        "distress_layoff": {
+          "description": "Reactive to revenue decline; guidance cut or withdrawn",
+          "avg_return_1d": -5.5,
+          "avg_return_30d": -14.0
+        }
+      },
+      "notes": "Layoff reactions are highly context-dependent. Key discriminator: did management maintain revenue guidance? Tech sector layoffs in 2022-2023 were largely rewarded (MSFT, Meta, Salesforce all gained 3-5% on announcement). Manufacturing/retail layoffs are typically negative. Layoff percentage matters: >10% of workforce signals structural change; <5% is routine optimization. SEC 8-K filing will contain initial announcement.",
+      "risk_factors": [
+        "Talent loss risk in knowledge-intensive industries",
+        "Union response in manufacturing/airline sectors",
+        "Customer perception impact for service businesses"
+      ],
+      "signal_strength": 5
+    },
+    {
+      "pattern_id": "ACQUISITION_ANNOUNCED",
+      "name": "Acquisition Announced (Acquirer Perspective)",
+      "category": "corporate_action",
+      "trigger": "Company announces it will acquire another company",
+      "historical_occurrences": "Approximately 150-250 significant acquisitions per year in S&P 500 universe",
+      "avg_return_1d": -2.1,
+      "avg_return_7d": -1.8,
+      "avg_return_30d": -1.5,
+      "return_range_1d": [-6.0, 2.0],
+      "return_range_7d": [-7.0, 3.0],
+      "return_range_30d": [-10.0, 5.0],
+      "confidence": "high",
+      "deal_type_impact": {
+        "cash_deal": "Avg -1.5% Day 1 (less negative; signals stock not overvalued)",
+        "stock_deal": "Avg -3.0% Day 1 (more negative; dilution + possible overvaluation signal)",
+        "leveraged": "Avg -4.5% Day 1 (most negative; debt burden + integration risk)"
+      },
+      "acquisition_success_rate": "60-70% of acquisitions fail to create acquirer shareholder value (McKinsey, KPMG studies)",
+      "notes": "The acquirer 'curse' is one of the best-documented anomalies in corporate finance. Overpayment, integration failure, and cultural mismatch are chronic issues. However, strategic acquisitions that fill a clear gap can be long-term positive. Premium paid drives magnitude of drop: 40%+ premium = -3% to -5% acquirer reaction. Cash deals signal management believes stock is not overvalued. SEC filings: 8-K on announcement day; S-4 if stock deal.",
+      "risk_factors": [
+        "Synergy estimates are typically 40-50% overstated",
+        "Revenue synergies rarely materialize as promised",
+        "Integration costs consistently underestimated"
+      ],
+      "signal_strength": 6
+    },
+    {
+      "pattern_id": "BUYBACK_ANNOUNCED",
+      "name": "Share Buyback Announced",
+      "category": "corporate_action",
+      "trigger": "Company announces share repurchase program (new or expanded)",
+      "historical_occurrences": "Approximately 400-600 announcements per year across S&P 500",
+      "avg_return_1d": 2.0,
+      "avg_return_7d": 1.8,
+      "avg_return_30d": 3.5,
+      "return_range_1d": [0.5, 4.5],
+      "return_range_7d": [0.5, 5.0],
+      "return_range_30d": [1.0, 8.0],
+      "confidence": "medium-high",
+      "execution_rate": "Approximately 60-70% of announced buybacks are actually executed",
+      "eps_impact": "Each 1% reduction in share count adds approximately 1% to EPS, all else equal",
+      "notes": "Buyback announcements are positive but must be evaluated against context. Most credible signal when: FCF > 5% of market cap, D/E < 1.5, stock near historical P/E lows. Least credible: debt-funded buybacks, buybacks used to offset stock-based compensation (SBC), or buybacks during obvious overvaluation. The 'actual execution' matters more than the announcement for long-term returns. S&P 500 companies spent $795-880B/year on buybacks in 2022-2023.",
+      "risk_factors": [
+        "Announcement is not a legal obligation to execute",
+        "Debt-funded buybacks destroy balance sheet strength",
+        "May mask SBC dilution rather than represent real capital return"
+      ],
+      "signal_strength": 6
+    },
+    {
+      "pattern_id": "INSIDER_BUY",
+      "name": "Insider Buying (Open Market Purchase)",
+      "category": "insider_activity",
+      "trigger": "Corporate insiders (officers, directors, >10% shareholders) file Form 4 with Transaction Code 'P' (open market purchase)",
+      "historical_occurrences": "Far less common than insider selling; cluster buys (3+ insiders) occur 50-100 times per year across the market",
+      "avg_return_1d": 0.8,
+      "avg_return_7d": 2.1,
+      "avg_return_30d": 7.5,
+      "return_range_1d": [-0.5, 2.5],
+      "return_range_7d": [0.5, 5.0],
+      "return_range_30d": [3.0, 14.0],
+      "confidence": "high",
+      "strongest_signal_conditions": [
+        "Multiple insiders buying simultaneously (cluster buy)",
+        "CEO + CFO both buying within 30-day window",
+        "Purchase > 10% of insider's known net worth",
+        "Recent stock decline of 20%+ preceding the buy",
+        "Small/mid-cap stock (less analyst coverage = more insider edge)"
+      ],
+      "notes": "Insider buying is one of the most academically validated signals in market research (Seyhun 1986, Rozeff & Zaman 1998). The key is open-market purchases (Form 4 Code 'P') — not option grants or awards. The 30-day and 6-month returns are strongest for cluster buys. Effect is strongest in less-covered small/mid-caps where insiders have greatest information advantage. SEC EDGAR Form 4 filings must be submitted within 2 business days of trade.",
+      "risk_factors": [
+        "Single director buy may simply be ceremonial",
+        "Insider can still be wrong about their company",
+        "Pre-announced buyback plans can cause false Form 4 signals"
+      ],
+      "signal_strength": 8
+    },
+    {
+      "pattern_id": "HIGH_SHORT_INTEREST",
+      "name": "High Short Interest",
+      "category": "market_positioning",
+      "trigger": "Short interest exceeds 15% of float; or Days-to-Cover exceeds 5 days",
+      "historical_occurrences": "Approximately 5-8% of all listed stocks carry >15% short interest at any given time",
+      "avg_return_1d": -0.5,
+      "avg_return_7d": -2.1,
+      "avg_return_30d": -8.5,
+      "return_range_1d": [-3.0, 8.0],
+      "return_range_7d": [-8.0, 25.0],
+      "return_range_30d": [-25.0, 50.0],
+      "confidence": "high",
+      "dual_nature": true,
+      "squeeze_scenario": {
+        "trigger": "Stock rises 10%+ with high short interest and rising volume",
+        "avg_return_additional_7d": 25.0,
+        "famous_examples": [
+          "GameStop Jan 2021: +1,700% over 2 weeks",
+          "AMC Entertainment 2021: +900% at peak",
+          "Volkswagen Oct 2008: briefly world's largest company by market cap"
+        ]
+      },
+      "base_case_scenario": {
+        "description": "High short interest with declining or flat stock price",
+        "avg_return_30d": -15.0,
+        "note": "Short sellers are usually fundamentally correct about bad companies"
+      },
+      "notes": "High short interest is a double-edged signal. Fundamentally: short sellers are right more often than wrong about the companies they target (Dechow et al. 2001 shows high-short portfolios underperform by ~1-2%/month). Tactically: the fuel for a short squeeze is directly proportional to short interest and inversely proportional to float. High short interest alone is NOT a buy signal — need a catalyst (earnings beat, activist investor, deal) to ignite a squeeze. FINRA publishes bi-monthly reports; Ortex and S3 Partners provide real-time data.",
+      "risk_factors": [
+        "Timing a short squeeze is extremely difficult",
+        "Most squeezes fully retrace within 1-3 months",
+        "Borrowing costs increase dramatically when short interest is high"
+      ],
+      "signal_strength": 5
+    },
+    {
+      "pattern_id": "DEBT_INCREASE",
+      "name": "Significant Debt Increase",
+      "category": "balance_sheet",
+      "trigger": "Total debt increases >20% YoY, or D/E ratio crosses 2.0 threshold, or ICR falls below 2.0",
+      "historical_occurrences": "Common signal; approximately 15-20% of companies show >20% debt increase in any given year",
+      "avg_return_1d": -1.5,
+      "avg_return_7d": -2.0,
+      "avg_return_30d": -4.5,
+      "return_range_1d": [-5.0, 1.0],
+      "return_range_7d": [-7.0, 2.0],
+      "return_range_30d": [-15.0, 4.0],
+      "confidence": "medium",
+      "key_thresholds": {
+        "debt_to_equity": {
+          "below_0_5": "Conservative, low risk",
+          "0_5_to_1_0": "Normal, acceptable",
+          "1_0_to_2_0": "Elevated, monitor",
+          "2_0_to_3_0": "High, concern",
+          "above_3_0": "Danger zone, possible distress"
+        },
+        "interest_coverage_ratio": {
+          "above_5": "Comfortable",
+          "3_to_5": "Adequate",
+          "1_5_to_3": "Marginal",
+          "1_0_to_1_5": "Danger zone",
+          "below_1": "Acute distress — not covering interest"
+        },
+        "net_debt_to_ebitda": {
+          "below_1": "Very low leverage",
+          "1_to_2": "Normal",
+          "2_to_3": "Elevated",
+          "3_to_4": "High, rating agency concern",
+          "above_4": "Junk bond territory",
+          "above_5": "LBO level, equity at risk"
+        }
+      },
+      "altman_z_score": {
+        "formula": "1.2(X1) + 1.4(X2) + 3.3(X3) + 0.6(X4) + 1.0(X5)",
+        "above_3": "Safe zone",
+        "1_8_to_3": "Grey zone",
+        "below_1_8": "Distress zone, elevated bankruptcy risk",
+        "accuracy": "72-80% accuracy 1-2 years before bankruptcy"
+      },
+      "context_rules": {
+        "debt_for_acquisition": "Neutral if acquisition is clearly accretive",
+        "debt_for_buybacks": "Negative (destroys balance sheet for financial engineering)",
+        "debt_for_capex": "Positive if ROI of capex is demonstrated",
+        "debt_with_declining_revenue": "Very negative (double jeopardy)"
+      },
+      "notes": "Debt increases must be evaluated in context of use of proceeds. High debt in rising rate environments is more dangerous than in falling rate environments. Credit rating downgrades that follow debt increases force institutional bond holders to sell, creating cascading selling pressure. The Altman Z-Score is a composite predictor: formula uses working capital/assets, retained earnings/assets, EBIT/assets, market cap/book value of liabilities, and sales/assets.",
+      "signal_strength": 7
+    }
+  ]
+}

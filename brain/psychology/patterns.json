@@ -1,0 +1,402 @@
+{
+  "meta": {
+    "category": "psychology",
+    "version": "1.0.0",
+    "last_updated": "2026-06-03",
+    "description": "Market psychology patterns with measurable thresholds and historical forward returns. Returns are S&P 500 averages following signal conditions, 1990-2023. Individual episodes vary significantly.",
+    "sources": [
+      "Kahneman & Tversky (1979) - Prospect Theory",
+      "Jegadeesh & Titman (1993) - Returns to Buying Winners and Selling Losers",
+      "Barber & Odean (2000) - Trading Is Hazardous to Your Wealth",
+      "Bernard & Thomas (1989) - Post-Earnings Announcement Drift",
+      "CBOE VIX Historical Data 1990-2023",
+      "AAII Sentiment Survey Archives 1987-2023",
+      "DALBAR Quantitative Analysis of Investor Behavior 2023",
+      "CNN Fear & Greed Index Historical Data",
+      "Robert Shiller CAPE Database",
+      "FactSet Earnings Insight 2015-2024",
+      "FINRA Margin Statistics 2000-2023"
+    ]
+  },
+  "patterns": [
+    {
+      "pattern_id": "EXTREME_FEAR",
+      "name": "Extreme Fear",
+      "category": "sentiment_extreme",
+      "description": "Market sentiment has reached maximum bearishness. Investors are panic-selling or have already sold. Historically a contrarian buy signal.",
+      "measurable_thresholds": {
+        "fear_greed_index": "< 20 (scale 0-100)",
+        "vix": "> 35",
+        "aaii_bears": "> 50% of surveyed investors bearish",
+        "put_call_ratio_5day": "> 1.10",
+        "investor_intelligence_bears": "> 45%",
+        "fund_manager_cash": "> 5.5% of AUM (BofA Global Fund Manager Survey)"
+      },
+      "confirmation_requirement": "At least 3 of 6 thresholds must be triggered simultaneously for high-confidence signal",
+      "avg_return_30d": 4.2,
+      "avg_return_90d": 9.1,
+      "avg_return_1y": 17.4,
+      "return_range_30d": [-3.0, 12.0],
+      "return_range_90d": [0.0, 22.0],
+      "return_range_1y": [5.0, 40.0],
+      "signal_direction": "BULLISH (contrarian)",
+      "confidence": "high",
+      "historical_win_rate_6m": 0.78,
+      "notable_instances": [
+        {
+          "date": "2020-03-18",
+          "fear_greed": 2,
+          "vix_at_signal": 82.7,
+          "forward_1y_return": 65.0
+        },
+        {
+          "date": "2022-10-27",
+          "fear_greed": 11,
+          "vix_at_signal": 34.8,
+          "forward_1y_return": 25.0
+        },
+        {
+          "date": "2018-12-24",
+          "fear_greed": 8,
+          "vix_at_signal": 36.1,
+          "forward_1y_return": 37.0
+        }
+      ],
+      "risk_factors": [
+        "Can persist for months in sustained bear markets (2008 example)",
+        "Signal alone does not pinpoint exact bottom — can decline further before recovery",
+        "Structural bear markets (driven by fundamental re-rating) have worse outcomes than panic-driven fear"
+      ],
+      "notes": "Most reliable when fear is driven by sentiment panic rather than fundamental deterioration. Best combined with improving credit spreads (HY spreads narrowing) and stabilizing economic data for highest-confidence entries.",
+      "signal_strength": 8
+    },
+    {
+      "pattern_id": "EXTREME_GREED",
+      "name": "Extreme Greed",
+      "category": "sentiment_extreme",
+      "description": "Market sentiment has reached maximum bullishness. Risk appetite is at extremes. Historically associated with below-average forward returns.",
+      "measurable_thresholds": {
+        "fear_greed_index": "> 75 (scale 0-100)",
+        "vix": "< 13",
+        "aaii_bulls": "> 55% for 4+ consecutive weeks",
+        "put_call_ratio_5day": "< 0.65",
+        "investor_intelligence_bulls": "> 60%",
+        "fund_manager_cash": "< 3.5% of AUM (BofA Global Fund Manager Survey)",
+        "shiller_cape": "> 30"
+      },
+      "confirmation_requirement": "At least 3 of 7 thresholds triggered simultaneously",
+      "avg_return_30d": 0.3,
+      "avg_return_90d": 1.8,
+      "avg_return_1y": 4.2,
+      "return_range_30d": [-8.0, 6.0],
+      "return_range_90d": [-15.0, 10.0],
+      "return_range_1y": [-25.0, 15.0],
+      "signal_direction": "BEARISH (contrarian)",
+      "confidence": "medium-high",
+      "historical_win_rate_6m": 0.65,
+      "caveat": "Extreme greed can persist for 6-18 months during strong bull markets. Use as a REDUCE/HEDGE signal, not a pure short signal. Timing is less precise than extreme fear.",
+      "notable_instances": [
+        {
+          "date": "2021-11",
+          "fear_greed": 82,
+          "vix_at_signal": 17.0,
+          "forward_1y_return": -19.0
+        },
+        {
+          "date": "2020-01",
+          "fear_greed": 79,
+          "vix_at_signal": 13.7,
+          "note": "COVID crash 6 weeks later",
+          "forward_1y_return": 7.0
+        }
+      ],
+      "risk_factors": [
+        "Bull markets can sustain extreme greed for over a year",
+        "Prematurely short during extreme greed can cause large losses",
+        "Signal doesn't identify the specific catalyst for the reversal"
+      ],
+      "notes": "Best used as a risk management signal: reduce position size, buy protective puts, or rotate to more defensive sectors. The catalyst for reversal is typically unpredictable (COVID, Fed policy shift, geopolitical shock), but the setup creates fragility.",
+      "signal_strength": 6
+    },
+    {
+      "pattern_id": "VIX_SPIKE",
+      "name": "VIX Spike (Volatility Panic)",
+      "category": "volatility_extreme",
+      "description": "The VIX (CBOE Volatility Index) has spiked rapidly, indicating acute market fear and institutional hedging. Historically a strong contrarian buy signal.",
+      "measurable_thresholds": {
+        "vix_level_moderate": "> 30",
+        "vix_level_high": "> 40",
+        "vix_level_extreme": "> 60",
+        "vix_spike_velocity": "VIX rises > 50% within 5 trading days",
+        "vix_term_structure": "Front-month VIX > 3-month VIX (backwardation)",
+        "vvix": "> 130 (volatility of VIX)"
+      },
+      "avg_return_30d_vix30": 2.8,
+      "avg_return_30d_vix40": 4.5,
+      "avg_return_30d_vix60plus": 7.2,
+      "avg_return_1y_vix30": 18.6,
+      "avg_return_1y_vix40": 22.8,
+      "avg_return_1y_vix60plus": 37.6,
+      "vix_ranges": {
+        "below_12": {"label": "Extreme calm/complacency", "1y_forward_return": 8.4},
+        "12_to_20": {"label": "Normal", "1y_forward_return": 10.1},
+        "20_to_30": {"label": "Elevated", "1y_forward_return": 11.8},
+        "30_to_40": {"label": "High fear", "1y_forward_return": 18.6},
+        "40_to_60": {"label": "Panic", "1y_forward_return": 22.8},
+        "above_60": {"label": "Extreme panic", "1y_forward_return": 37.6}
+      },
+      "signal_direction": "BULLISH (contrarian at extremes)",
+      "confidence": "high",
+      "historical_win_rate_vix40_60d": 0.85,
+      "mean_reversion_days_from_40_to_25": 47,
+      "historical_vix_spikes": [
+        {"date": "2008-10", "peak": 89.5, "context": "Financial Crisis"},
+        {"date": "2020-03", "peak": 82.7, "context": "COVID-19 Crash"},
+        {"date": "2015-08", "peak": 53.3, "context": "China Devaluation"},
+        {"date": "2011-08", "peak": 48.0, "context": "US Debt Downgrade"},
+        {"date": "2018-12", "peak": 36.1, "context": "Fed rate hike fears"},
+        {"date": "2022-10", "peak": 34.8, "context": "Inflation/Rate shock"}
+      ],
+      "notes": "VIX has a structural mean reversion property — it always returns to 12-20 range eventually. Higher spikes produce larger subsequent relief rallies. The VIX 'fear gauge' is most useful when RISING RAPIDLY (velocity matters as much as level). Backwardation in VIX futures curve (near > far) is especially acute fear signal.",
+      "signal_strength": 9
+    },
+    {
+      "pattern_id": "CAPITULATION",
+      "name": "Market Capitulation",
+      "category": "selling_exhaustion",
+      "description": "Investors who wanted to sell have finished selling. Characterized by volume climax, extreme breadth readings, and sentiment collapse. Marks major market bottoms.",
+      "measurable_thresholds": {
+        "volume_climax": "Single-day volume > 3x average daily volume on down day",
+        "ninety_pct_down_day": "NYSE down volume > 90% of total volume",
+        "new_lows_surge": "NYSE 52-week new lows > 400 on single day",
+        "trin_spike": "TRIN (Arms Index) > 2.5 on single day",
+        "aaii_bears": "> 55%",
+        "vix": "> 40",
+        "put_call_5day": "> 1.15",
+        "breadth_extreme": "Advance-Decline ratio < 0.10 (10x more decliners than advancers)"
+      },
+      "confirmation_rule": "4 or more thresholds triggered for high-confidence capitulation signal",
+      "avg_return_30d": 6.8,
+      "avg_return_90d": 14.5,
+      "avg_return_1y": 24.2,
+      "return_range_30d": [-2.0, 18.0],
+      "return_range_90d": [2.0, 35.0],
+      "return_range_1y": [8.0, 65.0],
+      "signal_direction": "STRONGLY BULLISH (contrarian)",
+      "confidence": "high",
+      "post_capitulation_pattern": {
+        "phase_1_days_1_5": "Violent snap-back rally +5% to +10%",
+        "phase_2_weeks_2_4": "Consolidation, partial retracement (give back 25-40% of initial bounce)",
+        "phase_3_month_2_3": "Re-test of lows on LOWER volume (key confirmation)",
+        "phase_4_month_3_6": "Confirmed new uptrend; breadth expansion"
+      },
+      "false_capitulation_warning": "Multiple 90% down days required in severe bear markets before true capitulation. A single 90% down day in a young bear market often leads to further selling.",
+      "notable_capitulation_events": [
+        {"date": "2009-03-09", "vix": 56.0, "aaii_bears": 0.70, "forward_1y": 68.6},
+        {"date": "2020-03-23", "vix": 82.7, "context": "COVID bottom", "forward_1y": 75.0},
+        {"date": "2022-10-13", "vix": 34.8, "context": "Inflation peak bottom", "forward_1y": 25.0}
+      ],
+      "notes": "True capitulation has a 'feel' of maximum despair — news is universally terrible, analysts are cutting targets, retail investors are giving up. The volume climax followed by dramatically lower volume (sellers exhausted) is the most reliable confirmation. Expect a re-test of the low within 2-6 weeks after initial bounce.",
+      "signal_strength": 9
+    },
+    {
+      "pattern_id": "EUPHORIA",
+      "name": "Market Euphoria",
+      "category": "sentiment_extreme",
+      "description": "Market sentiment has reached maximum optimism with speculative excess. Characterized by IPO frenzy, extreme valuations, and dismissal of risk. Historically associated with major tops.",
+      "measurable_thresholds": {
+        "shiller_cape": "> 35",
+        "sp500_forward_pe": "> 22x",
+        "sp500_price_to_sales": "> 2.5",
+        "vix": "< 12 for 3+ consecutive weeks",
+        "ipo_quarterly_count": "> 100 US IPOs per quarter",
+        "first_day_ipo_pop_avg": "> 30%",
+        "margin_debt": "At all-time high",
+        "aaii_bulls": "> 55% for 4+ consecutive weeks",
+        "put_call_5day": "< 0.65"
+      },
+      "avg_return_1y_cape35": 4.1,
+      "avg_return_1y_cape40": -2.3,
+      "avg_return_3y_cape35": 8.2,
+      "avg_return_5y_cape35": 14.5,
+      "vs_historical_avg_1y": 10.1,
+      "signal_direction": "BEARISH (contrarian; long-term)",
+      "confidence": "high-for-long-term",
+      "caveat": "Euphoria is excellent at predicting BELOW-AVERAGE long-term returns but poor at timing. Euphoric conditions can persist for 12-36 months before the correction arrives. Shiller (Nobel 2013) has emphasized this limitation.",
+      "historical_euphoria_peaks": [
+        {
+          "date": "2000-03",
+          "cape": 44.2,
+          "context": "Dot-com bubble",
+          "subsequent_drawdown": -49.0,
+          "nasdaq_drawdown": -78.0
+        },
+        {
+          "date": "2007-10",
+          "cape": 27.5,
+          "context": "Housing bubble",
+          "subsequent_drawdown": -57.0
+        },
+        {
+          "date": "2021-12",
+          "cape": 38.6,
+          "context": "COVID stimulus bubble",
+          "subsequent_drawdown_sp500": -25.0,
+          "subsequent_drawdown_nasdaq": -36.0,
+          "subsequent_drawdown_arkk": -75.0
+        }
+      ],
+      "notes": "Euphoria is most dangerous when it is sector-specific (tech in 2000, housing in 2007, meme/growth in 2021) as it allows the broader market to 'look fine' while the bubble inflates. The dismissal of traditional valuation metrics ('EBITDA doesn't matter', 'P/E doesn't apply') is a classic narrative signal of euphoric excess.",
+      "signal_strength": 7
+    },
+    {
+      "pattern_id": "FOMO_PARABOLIC",
+      "name": "FOMO Parabolic Move",
+      "category": "behavioral_extreme",
+      "description": "A stock or asset has risen parabolically driven by Fear Of Missing Out. Volume accelerates with price. Social media coverage intense. Historically precedes sharp reversal.",
+      "measurable_thresholds": {
+        "price_gain_60d": "> 100% in 60 days or less without fundamental change",
+        "rsi_daily": "> 85 sustained for 3+ days",
+        "volume": "> 5x average daily volume on final parabolic days",
+        "short_interest": "> 15% of float (short squeeze component)",
+        "social_media": "Exponential increase in Reddit/Twitter mentions",
+        "options_skew": "Massive call buying with OTM strikes (>25% above current price)",
+        "distance_from_200ma": "> 80% above 200-day moving average"
+      },
+      "avg_return_30d_after_peak": -28.5,
+      "avg_return_90d_after_peak": -52.3,
+      "avg_return_1y_after_peak": -67.8,
+      "return_range_30d_after_peak": [-10.0, -65.0],
+      "signal_direction": "BEARISH (fade)",
+      "confidence": "high-for-mean-reversion",
+      "timing_caveat": "Identifying the EXACT peak is very difficult. Many traders have been wiped out shorting parabolic moves too early.",
+      "avg_retracement_pct_of_gain": 0.82,
+      "historical_examples": [
+        {
+          "name": "GameStop (GME)",
+          "peak_date": "2021-01-28",
+          "gain_before_peak_pct": 1700,
+          "retracement_from_peak_pct": -90,
+          "months_to_retracement": 3
+        },
+        {
+          "name": "Bitcoin",
+          "peak_date": "2017-12-17",
+          "gain_before_peak_pct": 1800,
+          "retracement_from_peak_pct": -83,
+          "months_to_retracement": 12
+        },
+        {
+          "name": "Peloton (PTON)",
+          "peak_date": "2021-01-14",
+          "gain_before_peak_pct": 475,
+          "retracement_from_peak_pct": -92,
+          "months_to_retracement": 18
+        },
+        {
+          "name": "ARK Innovation (ARKK)",
+          "peak_date": "2021-02-18",
+          "gain_before_peak_pct": 350,
+          "retracement_from_peak_pct": -75,
+          "months_to_retracement": 14
+        }
+      ],
+      "dead_cat_bounce": {
+        "description": "First major bounce after parabolic peak",
+        "typical_retracement_of_initial_decline": 0.35,
+        "then_resumes_lower": true
+      },
+      "notes": "The parabolic FOMO move typically follows this arc: slow accumulation → media coverage → retail FOMO influx → parabolic price spike → distribution (early buyers sell into FOMO) → collapse. Short squeezes specifically have average 75-85% retracement from peak within 90 days as mechanical short covering ends and fundamental bears reassert.",
+      "signal_strength": 8
+    },
+    {
+      "pattern_id": "BEAR_TRAP",
+      "name": "Bear Trap",
+      "category": "technical_psychological",
+      "description": "False breakdown below major support that triggers selling and short positions, then reverses sharply. Traps bearish traders and produces violent upside reversal.",
+      "measurable_thresholds": {
+        "price_break": "Index/stock breaks below major support (200-day MA, prior swing low, round number) by 0.5-3%",
+        "volume_on_breakdown": "LOWER than the volume that established the original support level",
+        "recovery_timing": "Reversal back above broken level within 1-5 trading days",
+        "close_confirmation": "Close above broken support level (not just intraday recovery)",
+        "breadth": "Advance-Decline line improving despite initial decline",
+        "vix": "VIX failing to make new highs on the price breakdown"
+      },
+      "avg_return_20d": 9.5,
+      "avg_return_60d": 16.2,
+      "return_range_20d": [3.0, 18.0],
+      "return_range_60d": [6.0, 28.0],
+      "signal_direction": "BULLISH",
+      "confidence": "medium-high",
+      "confirmation_rule": "Must close BACK ABOVE broken support within 5 days; breakdown on lower volume is essential",
+      "historical_examples": [
+        {
+          "date": "2022-10-11",
+          "context": "S&P 500 broke below June 2022 low intraday; reversed to close above",
+          "volume_note": "Breakdown on below-average volume",
+          "subsequent_return_60d": 14.0
+        },
+        {
+          "date": "2019-01",
+          "context": "S&P 500 briefly broke December 2018 lows on low volume; violent reversal",
+          "subsequent_return_60d": 20.0
+        }
+      ],
+      "false_bear_trap_warning": "True breakdown (high volume, stays below support for 5+ days) is NOT a bear trap. Do not apply this pattern to sustained breakdowns.",
+      "notes": "Bear traps are most common at major market lows or within bull market pullbacks. The psychological mechanism: weak holders are shaken out on the breakdown, clearing the path for a powerful recovery. Short sellers who entered on the breakdown are trapped and their covering adds fuel to the reversal rally.",
+      "signal_strength": 7
+    },
+    {
+      "pattern_id": "BULL_TRAP",
+      "name": "Bull Trap",
+      "category": "technical_psychological",
+      "description": "False breakout above major resistance that triggers buying, then reverses sharply below the breakout level. Traps bullish traders in losing positions.",
+      "measurable_thresholds": {
+        "price_break": "Index/stock breaks above major resistance (downtrend line, prior swing high, 200-day MA) by 0.5-3%",
+        "volume_on_breakout": "LOWER than the volume at the original resistance high (unconfirmed)",
+        "reversal_timing": "Failure to hold above resistance within 3-7 trading days",
+        "close_confirmation_fail": "Close back BELOW the broken resistance level",
+        "breadth": "Advance-Decline line not improving alongside breakout",
+        "earnings_revisions": "Analyst estimates still being cut during the breakout",
+        "vix": "VIX not declining meaningfully on the breakout (market not truly confident)"
+      },
+      "avg_return_30d_after_trap": -12.5,
+      "avg_return_60d_after_trap": -16.8,
+      "return_range_30d": [-5.0, -25.0],
+      "return_range_60d": [-8.0, -30.0],
+      "signal_direction": "BEARISH",
+      "confidence": "medium-high",
+      "confirmation_rule": "A bull trap is only CONFIRMED once price closes back BELOW the broken resistance level. Until then it may be a valid breakout.",
+      "historical_examples": [
+        {
+          "date": "2022-08",
+          "context": "S&P 500 rallied +17% from June 2022 lows, broke above 50-day MA, appeared to be new bull",
+          "reversal": "Failed within 10 days; fell to new cycle lows",
+          "subsequent_return_60d": -16.0
+        },
+        {
+          "date": "2001-01",
+          "context": "Post dot-com crash bounces all failed; multiple 10-15% bear market rallies trapped buyers",
+          "subsequent_drawdown": "NASDAQ fell to -78% total from peak"
+        }
+      ],
+      "bull_trap_vs_real_breakout": {
+        "real_breakout_signs": [
+          "Volume EXPANDING on breakout day vs. prior average",
+          "Breadth improving (AD line confirming)",
+          "Fundamentals turning (earnings revisions starting to improve)",
+          "Multiple sectors breaking out simultaneously",
+          "VIX declining to below 20 on the move"
+        ],
+        "bull_trap_signs": [
+          "Low volume breakout",
+          "Only 1-2 sectors participating",
+          "Earnings estimates still declining",
+          "Breakout fails within 1 week"
+        ]
+      },
+      "notes": "Bull traps are most common in bear markets as investors desperately seek signs of recovery. Each failed rally further demoralizes bulls and increases eventual capitulation selling. The 2022 bear market produced at least 3 notable bull traps (March, June-August, October partial trap) before the sustained 2023 recovery began.",
+      "signal_strength": 7
+    }
+  ]
+}
