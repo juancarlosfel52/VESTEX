@@ -3,6 +3,7 @@ const path    = require('path');
 const cron    = require('node-cron');
 const admin   = require('firebase-admin');
 const { runSentimentAnalysis, storeSentiment } = require('./sentiment');
+const { fetchEdgarData, fetchAllEdgarData }    = require('./edgar');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -136,6 +137,23 @@ app.get('/api/fred/:series', async (req, res) => {
   } catch(e) {
     res.json({ ok: false, error: e.message });
   }
+});
+
+// ── API: SEC EDGAR — single symbol ──
+app.get('/api/edgar/:symbol', async (req, res) => {
+  try {
+    const sym  = req.params.symbol.toUpperCase();
+    const data = await fetchEdgarData(sym);
+    res.json({ ok: true, data });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// ── API: SEC EDGAR — all symbols ──
+app.get('/api/edgar', async (req, res) => {
+  try {
+    const data = await fetchAllEdgarData();
+    res.json({ ok: true, data });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
 // ── Serve frontend ──

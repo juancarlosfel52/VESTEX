@@ -753,6 +753,26 @@ canvas{max-height:300px;}
 .fc-src{font-size:8px;letter-spacing:1px;color:#bbb;margin-top:6px;}
 @media(max-width:1024px){.fred-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:500px){.fred-grid{grid-template-columns:1fr 1fr;gap:10px;}}
+
+/* ── SEC EDGAR ── */
+.edgar-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;}
+.edgar-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+.ef-card{background:var(--off);border:1px solid var(--border);padding:14px;}
+.ef-lbl{font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:6px;}
+.ef-val{font-family:'Bodoni Moda',serif;font-size:20px;font-weight:700;}
+.ef-src{font-size:8px;color:#bbb;margin-top:4px;}
+.filing-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.filing-row:last-child{border-bottom:none;}
+.filing-badge{font-size:8px;font-weight:700;letter-spacing:1px;padding:3px 8px;border:1px solid;flex-shrink:0;width:52px;text-align:center;}
+.filing-badge.high{color:var(--red);border-color:var(--red);}
+.filing-badge.medium{color:var(--gold);border-color:var(--gold);}
+.filing-date{font-size:10px;color:var(--gray);flex-shrink:0;width:80px;}
+.filing-label{font-size:11px;color:var(--dark);}
+.insider-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);}
+.insider-row:last-child{border-bottom:none;}
+.insider-name{font-size:11px;color:var(--dark);flex:1;}
+.insider-date{font-size:10px;color:var(--gray);}
+@media(max-width:768px){.edgar-grid{grid-template-columns:1fr;}.edgar-facts{grid-template-columns:1fr 1fr;}}
 </style>
 </head>
 <body>
@@ -1062,6 +1082,33 @@ canvas{max-height:300px;}
         <div><div class="info-title">How Do We Predict?</div><div class="info-body">We analyze how the price has moved over recent weeks and detect patterns. Think of it like weather forecasting — very helpful as a guide, but not guaranteed. Always invest only what you can afford.</div></div>
       </div>
       <div id="pred-full"></div>
+
+      <!-- SEC EDGAR — Real Company Data -->
+      <div class="panel" style="margin-top:6px;">
+        <div class="ph">
+          <div><div class="ph-title">SEC Filings & Insider Activity</div><div class="ph-sub">Real data from SEC EDGAR — official government filings, no API key required</div></div>
+          <div id="edgar-status" style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">◆ SEC EDGAR</div>
+        </div>
+        <div class="pb">
+          <div style="margin-bottom:14px;">
+            <div class="stabs" id="edgar-stabs"></div>
+          </div>
+          <!-- Facts row -->
+          <div class="edgar-facts" id="edgar-facts"></div>
+          <!-- Filings + Insiders -->
+          <div class="edgar-grid">
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">Recent Filings</div>
+              <div id="edgar-filings"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">Insider Activity (Form 4)</div>
+              <div id="edgar-insiders"></div>
+            </div>
+          </div>
+          <div style="font-size:9px;letter-spacing:1px;color:#bbb;margin-top:8px;">◆ Source: SEC EDGAR · Official U.S. Securities and Exchange Commission filings database</div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══ PORTFOLIO PAGE ═══ -->
@@ -1503,7 +1550,7 @@ function nav(el, id) {
   el.classList.add('active');
   document.getElementById('page-'+id).classList.add('active');
   if (id==='charts')      renderChartPage();
-  if (id==='predictions') renderPredsFull();
+  if (id==='predictions') { renderPredsFull(); renderEdgar(); }
   if (id==='portfolio')   renderPortfolio();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    renderProgress();
@@ -1516,7 +1563,7 @@ function mobNav(el, id) {
   document.getElementById('page-'+id).classList.add('active');
   window.scrollTo(0,0);
   if (id==='charts')      renderChartPage();
-  if (id==='predictions') renderPredsFull();
+  if (id==='predictions') { renderPredsFull(); renderEdgar(); }
   if (id==='portfolio')   renderPortfolio();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    renderProgress();
@@ -2158,6 +2205,93 @@ function setLiveStatus(ok) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  SEC EDGAR — Real company filings & insider trades
+// ═══════════════════════════════════════════════════════════
+let edgarData   = {};
+let edgarSym    = 'AAPL';
+
+async function fetchEdgar() {
+  try {
+    const res  = await fetch('/api/edgar');
+    const json = await res.json();
+    if (json.ok) {
+      edgarData = json.data;
+      const el = document.getElementById('edgar-status');
+      if (el) { el.textContent = '● LIVE DATA'; el.style.color = 'var(--green2)'; }
+    }
+  } catch(e) {}
+}
+
+function renderEdgar(sym) {
+  edgarSym = sym || edgarSym;
+  const d  = edgarData[edgarSym];
+
+  // Symbol tabs
+  const tabsEl = document.getElementById('edgar-stabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = Object.keys(STOCKS).map(s =>
+      `<button class="stab ${s===edgarSym?'active':''}" onclick="renderEdgar('${s}')">${s}</button>`
+    ).join('');
+  }
+
+  if (!d || d.error) {
+    const msg = '<div style="font-size:11px;color:var(--gray);padding:16px 0;">Loading SEC EDGAR data...</div>';
+    ['edgar-facts','edgar-filings','edgar-insiders'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = msg;
+    });
+    return;
+  }
+
+  // ── Facts ──
+  const f  = d.facts;
+  const factsEl = document.getElementById('edgar-facts');
+  if (factsEl && f) {
+    factsEl.innerHTML = [
+      { lbl: 'Annual Revenue',  val: f.revenue   || '—' },
+      { lbl: 'Net Income',      val: f.netIncome  || '—' },
+      { lbl: 'EPS (Diluted)',   val: f.eps ? '$'+f.eps : '—' },
+      { lbl: 'Long-Term Debt',  val: f.debt      || '—' },
+    ].map(c => `<div class="ef-card">
+      <div class="ef-lbl">${c.lbl}</div>
+      <div class="ef-val">${c.val}</div>
+      <div class="ef-src">SEC 10-K · ${f.period || 'Latest'}</div>
+    </div>`).join('');
+  } else if (factsEl) {
+    factsEl.innerHTML = '<div style="font-size:11px;color:var(--gray);">Financials loading...</div>';
+  }
+
+  // ── Filings ──
+  const filingsEl = document.getElementById('edgar-filings');
+  if (filingsEl) {
+    if (!d.filings?.length) {
+      filingsEl.innerHTML = '<div style="font-size:11px;color:var(--gray);">No recent filings found.</div>';
+    } else {
+      filingsEl.innerHTML = d.filings.slice(0, 8).map(f => `
+        <div class="filing-row">
+          <div class="filing-badge ${f.significance}">${f.form}</div>
+          <div class="filing-date">${f.date}</div>
+          <div class="filing-label">${f.label}</div>
+        </div>`).join('');
+    }
+  }
+
+  // ── Insiders ──
+  const insidersEl = document.getElementById('edgar-insiders');
+  if (insidersEl) {
+    if (!d.insiders?.length) {
+      insidersEl.innerHTML = '<div style="font-size:11px;color:var(--gray);">No recent Form 4 filings found.</div>';
+    } else {
+      insidersEl.innerHTML = d.insiders.slice(0, 8).map(i => `
+        <div class="insider-row">
+          <div class="insider-name">${i.filerName}</div>
+          <div class="insider-date">${i.filedAt || '—'}</div>
+        </div>`).join('');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  FRED — Federal Reserve Economic Data
 //  Server proxy: /api/fred/:series  (FRED_API_KEY in Railway env)
 //  Get free key: https://fred.stlouisfed.org/docs/api/api_key.html
@@ -2303,6 +2437,10 @@ async function init() {
   // Render FRED placeholder cards immediately, then load live data
   renderFredMacro();
   fetchFredMacro().then(renderFredMacro);
+
+  // SEC EDGAR — load in background, no key needed
+  renderEdgar();
+  fetchEdgar().then(() => renderEdgar());
 
   renderTicker();
   renderOvBar();
