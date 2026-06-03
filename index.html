@@ -799,8 +799,8 @@ canvas{max-height:300px;}
       </div>
 
       <!-- AGREE CHECKBOX -->
-      <label class="beta-agree" onclick="betaCheckToggle()">
-        <input type="checkbox" id="beta-check">
+      <label class="beta-agree">
+        <input type="checkbox" id="beta-check" onchange="betaCheckToggle()">
         <span class="beta-agree-txt">I understand this is a Beta app. I accept full responsibility for any real investment decisions I make. I will not hold VESTEX responsible for any financial losses.</span>
       </label>
 
@@ -1328,9 +1328,8 @@ function friendlyError(code) {
 function betaCheckToggle() {
   const checked = document.getElementById('beta-check').checked;
   const btn     = document.getElementById('beta-btn');
-  // checkbox fires before state updates — so flip it
-  if (!checked) btn.classList.add('ready');
-  else          btn.classList.remove('ready');
+  if (checked) btn.classList.add('ready');
+  else         btn.classList.remove('ready');
 }
 function closeBeta() {
   if (window._betaKey) localStorage.setItem(window._betaKey, '1');
