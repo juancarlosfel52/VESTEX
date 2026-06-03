@@ -1187,9 +1187,53 @@ function renderDashPreds() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  SENTIMENT — fetch from server, fall back to mock NEWS
+// ═══════════════════════════════════════════════════════════
+let liveSentiment = null;
+
+async function fetchSentiment() {
+  try {
+    const res  = await fetch('/api/sentiment');
+    const data = await res.json();
+    if (data.ok && Object.keys(data.data).length) {
+      liveSentiment = data.data;
+      console.log('[SENTIMENT] Live sentiment loaded');
+    }
+  } catch(e) { /* fall back to mock */ }
+}
+
+function sentimentClass(overall) {
+  if (overall === 'positive') return 'pos';
+  if (overall === 'negative') return 'neg';
+  return 'neu';
+}
+function sentimentLabel(overall) {
+  if (overall === 'positive') return '▲ Good News';
+  if (overall === 'negative') return '▼ Bad News';
+  return '◆ Neutral';
+}
+
+// ═══════════════════════════════════════════════════════════
 //  DASHBOARD NEWS (mini)
 // ═══════════════════════════════════════════════════════════
 function renderDashNews() {
+  // If we have live sentiment from Claude, use it
+  if (liveSentiment) {
+    const items = Object.values(liveSentiment).slice(0, 5);
+    document.getElementById('d-news').innerHTML = items.map(s => {
+      const sc = sentimentClass(s.overall);
+      return `<div class="news-item">
+        <div class="sbar ${sc}"></div>
+        <div>
+          <div class="news-hl">${s.summary}</div>
+          <div class="news-meta">${s.symbol} ◆ AI Analysis ◆ Today</div>
+        </div>
+        <div class="spill ${sc}">${sentimentLabel(s.overall)}</div>
+      </div>`;
+    }).join('');
+    return;
+  }
+  // Fall back to mock
   document.getElementById('d-news').innerHTML = NEWS.slice(0,5).map(n=>`
     <div class="news-item">
       <div class="sbar ${n.s}"></div>
@@ -1288,6 +1332,43 @@ function renderPredsFull() {
 //  NEWS PAGE (full)
 // ═══════════════════════════════════════════════════════════
 function renderNewsFull() {
+  // Live sentiment from Claude API
+  if (liveSentiment) {
+    document.getElementById('news-full').innerHTML = Object.values(liveSentiment).map(s => {
+      const sc = sentimentClass(s.overall);
+      const headlines = (s.headlines || []).map(h => {
+        const hsc = sentimentClass(h.sentiment);
+        return `<div class="news-item" style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div class="sbar ${hsc}" style="min-height:28px;"></div>
+          <div>
+            <div class="news-hl" style="font-size:12px;">${h.text}</div>
+            ${h.why ? `<div class="news-meta" style="margin-top:3px;">${h.why}</div>` : ''}
+          </div>
+          <div class="spill ${hsc}">${hsc==='pos'?'Good':hsc==='neg'?'Bad':'Neutral'}</div>
+        </div>`;
+      }).join('');
+
+      return `<div class="panel" style="margin-bottom:14px;">
+        <div class="ph">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:var(--red);border:1px solid var(--red);padding:3px 9px;">${s.symbol}</div>
+            <div><div class="ph-title">${s.company}</div><div class="ph-sub">${s.summary}</div></div>
+          </div>
+          <div class="spill ${sc}" style="font-size:10px;padding:7px 14px;">${sentimentLabel(s.overall)}</div>
+        </div>
+        <div class="pb">
+          <div style="font-size:11px;color:var(--gray);line-height:1.6;background:var(--off);padding:10px 14px;border-left:3px solid var(--gold);margin-bottom:14px;">
+            <strong style="color:var(--dark);">What this means for you:</strong> ${s.impact}
+          </div>
+          ${headlines}
+          <div style="font-size:9px;letter-spacing:1px;color:#bbb;margin-top:10px;">◆ Analyzed by Claude AI · ${s.fetchedAt ? new Date(s.fetchedAt).toLocaleString() : 'Today'}</div>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // Fall back to mock
   document.getElementById('news-full').innerHTML = NEWS.map(n=>`
     <div class="panel" style="margin-bottom:12px;">
       <div style="padding:18px 22px;display:grid;grid-template-columns:4px 1fr auto;gap:16px;align-items:start;">
@@ -1427,6 +1508,7 @@ async function init() {
 
   // Fetch live quotes — fall back to mock if blocked
   try { await fetchQuotes(); } catch(e) { setLiveStatus(false); }
+  await fetchSentiment();
 
   renderTicker();
   renderOvBar();

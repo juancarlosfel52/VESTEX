@@ -2,6 +2,7 @@ const express = require('express');
 const path    = require('path');
 const cron    = require('node-cron');
 const admin   = require('firebase-admin');
+const { runSentimentAnalysis, storeSentiment } = require('./sentiment');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -88,6 +89,28 @@ app.get('/api/accuracy', async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── API: Get sentiment ──
+app.get('/api/sentiment', async (req, res) => {
+  if (!pipelineReady) return notReady(res);
+  try {
+    const snap = await admin.firestore().collection('sentiment').get();
+    const out  = {};
+    snap.forEach(doc => { out[doc.id] = doc.data(); });
+    res.json({ ok: true, data: out });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// ── API: Refresh sentiment now ──
+app.post('/api/sentiment/refresh', async (req, res) => {
+  if (!pipelineReady) return notReady(res);
+  if (req.headers['x-pipeline-secret'] !== process.env.PIPELINE_SECRET)
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  res.json({ ok: true, message: 'Sentiment refresh started' });
+  runSentimentAnalysis()
+    .then(results => storeSentiment(admin, results))
+    .catch(console.error);
+});
+
 // ── API: Manual pipeline trigger ──
 app.post('/api/pipeline/run', async (req, res) => {
   if (!pipelineReady) return notReady(res);
@@ -109,15 +132,28 @@ app.get('*', (req, res) => {
 
 // Only schedule cron if pipeline is ready
 if (pipelineReady) {
+  // Daily data + predictions — 5pm ET after market close
   cron.schedule('0 21 * * 1-5', () => {
     console.log('[CRON] Daily pipeline triggered');
     runPipeline().catch(console.error);
   }, { timezone: 'America/New_York' });
 
+  // Weekly prediction verification — Monday 6pm ET
   cron.schedule('0 18 * * 1', () => {
     console.log('[CRON] Weekly prediction verification triggered');
     verifyPredictions().catch(console.error);
   }, { timezone: 'America/New_York' });
+
+  // Sentiment analysis — every morning 8am ET before market open
+  if (process.env.CLAUDE_API_KEY) {
+    cron.schedule('0 8 * * 1-5', () => {
+      console.log('[CRON] Morning sentiment analysis triggered');
+      runSentimentAnalysis()
+        .then(results => storeSentiment(admin, results))
+        .catch(console.error);
+    }, { timezone: 'America/New_York' });
+    console.log('[SERVER] Sentiment cron scheduled: 8am ET Mon–Fri');
+  }
 }
 
 // ── Start server ──
