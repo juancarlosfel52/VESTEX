@@ -51,7 +51,7 @@ app.get('/api/predictions', async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// ── API: Get latest quotes ──
+// ── API: Get latest quotes (Firestore — legacy) ──
 app.get('/api/quotes', async (req, res) => {
   if (!pipelineReady) return notReady(res);
   try {
@@ -60,6 +60,83 @@ app.get('/api/quotes', async (req, res) => {
     snap.forEach(doc => { out[doc.id] = doc.data(); });
     res.json({ ok: true, data: out });
   } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// ── API: Live quotes — Alpaca snapshots (price + prevClose + chg + OHLCV) ──
+// Uses /v2/stocks/snapshots which returns dailyBar, prevDailyBar, latestTrade in one call.
+// 30-second in-memory cache so rapid page refreshes don't hammer Alpaca.
+let _lqCache = {}, _lqCachedAt = 0;
+const LQ_SYMBOLS = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN'];
+
+app.get('/api/live-quotes', async (req, res) => {
+  const key    = process.env.ALPACA_KEY;
+  const secret = process.env.ALPACA_SECRET;
+  const ageMs  = Date.now() - _lqCachedAt;
+
+  // Serve cache if fresh (< 30s)
+  if (ageMs < 30000 && Object.keys(_lqCache).length) {
+    return res.json({ ok: true, data: _lqCache, source: 'cache', cacheAgeMs: ageMs });
+  }
+
+  if (!key) return res.json({ ok: false, error: 'No Alpaca credentials configured' });
+
+  try {
+    const axios = require('axios');
+    const resp  = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+      params:  { symbols: LQ_SYMBOLS.join(','), feed: 'iex' },
+      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
+      timeout: 10000,
+    });
+
+    const out = {};
+    for (const sym of LQ_SYMBOLS) {
+      const snap     = resp.data[sym];
+      if (!snap) continue;
+      const trade    = snap.latestTrade;
+      const quote    = snap.latestQuote;
+      const daily    = snap.dailyBar;
+      const prevDay  = snap.prevDailyBar;
+      const price    = trade?.p ?? quote?.bp ?? null;
+      const prevClose = prevDay?.c ?? null;
+      const chgPct   = (price != null && prevClose) ? +((price - prevClose) / prevClose * 100).toFixed(2) : null;
+      out[sym] = {
+        price,
+        previousClose: prevClose,
+        changePercent: chgPct,
+        open:      daily?.o   ?? null,
+        high:      daily?.h   ?? null,
+        low:       daily?.l   ?? null,
+        volume:    daily?.v   ?? null,
+        timestamp: trade?.t   ?? quote?.t ?? null,
+        source:    'alpaca_live',
+      };
+    }
+
+    _lqCache     = out;
+    _lqCachedAt  = Date.now();
+    res.json({ ok: true, data: out, source: 'alpaca_live', cacheAgeMs: 0 });
+
+  } catch(e) {
+    // Firestore fallback — at least return stale price if pipeline has run
+    if (pipelineReady) {
+      try {
+        const snap = await admin.firestore().collection('quotes').get();
+        const out  = {};
+        snap.forEach(doc => {
+          const d = doc.data();
+          out[doc.id] = {
+            price:         d.bid || d.ask || null,
+            previousClose: null, changePercent: null,
+            open: null, high: null, low: null, volume: null,
+            timestamp:     d.time || d.updatedAt || null,
+            source:        'firestore_stale',
+          };
+        });
+        if (Object.keys(out).length) return res.json({ ok: true, data: out, source: 'firestore_fallback' });
+      } catch(fe) {}
+    }
+    res.json({ ok: false, error: e.message });
+  }
 });
 
 // ── API: Get price history for a symbol ──
