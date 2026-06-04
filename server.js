@@ -75,6 +75,49 @@ app.get('/api/history/:symbol', async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── API: Chart data — Firestore first, Alpaca fallback ──
+// Returns up to 90 daily OHLCV bars for the frontend chart.
+app.get('/api/chart/:symbol', async (req, res) => {
+  const sym = req.params.symbol.toUpperCase();
+
+  // Try Firestore first (populated by nightly pipeline run)
+  if (pipelineReady) {
+    try {
+      const snap = await admin.firestore().collection('market_data')
+        .where('symbol', '==', sym).orderBy('time', 'asc').limit(90).get();
+      const bars = [];
+      snap.forEach(doc => bars.push(doc.data()));
+      if (bars.length >= 5) {
+        return res.json({ ok: true, data: bars, source: 'firestore' });
+      }
+    } catch(e) { /* fall through to live fetch */ }
+  }
+
+  // Alpaca live fetch (works even before first pipeline run)
+  const key    = process.env.ALPACA_KEY;
+  const secret = process.env.ALPACA_SECRET;
+  if (!key) return res.json({ ok: false, error: 'No Alpaca credentials configured' });
+
+  try {
+    const axios  = require('axios');
+    const endDt  = new Date().toISOString();
+    const startDt = new Date();
+    startDt.setDate(startDt.getDate() - 95);
+    const resp = await axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`, {
+      params: { timeframe: '1Day', start: startDt.toISOString(), end: endDt, limit: 90, feed: 'iex' },
+      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
+      timeout: 12000,
+    });
+    const bars = (resp.data.bars || []).map(b => ({
+      symbol: sym, time: b.t,
+      open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v,
+    }));
+    res.json({ ok: true, data: bars, source: 'alpaca_live' });
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // ── API: Get prediction accuracy stats ──
 app.get('/api/accuracy', async (req, res) => {
   if (!pipelineReady) return notReady(res);

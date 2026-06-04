@@ -1306,7 +1306,14 @@ canvas{max-height:300px;}
 
     <!-- ═══ NEWS PAGE ═══ -->
     <div class="page" id="page-news">
-      <div class="sec-hdr"><div class="sec-title">Market <span>News</span></div><div class="sec-sub">◆ Latest headlines and how they affect your stocks</div></div>
+      <div class="sec-hdr">
+        <div>
+          <div class="sec-title">Market <span>News</span></div>
+          <div class="sec-sub">◆ AI-analyzed headlines — how today's news affects each stock</div>
+        </div>
+        <button id="news-refresh-btn" onclick="newsRefresh()" style="background:none;border:1px solid var(--border);color:var(--gray);font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:2px;padding:6px 14px;cursor:pointer;text-transform:uppercase;">↻ Refresh</button>
+      </div>
+      <div id="news-last-updated" style="font-size:10px;color:#bbb;margin:-4px 0 12px;letter-spacing:1px;"></div>
       <div class="info-box">
         <div class="info-icon">◉</div>
         <div><div class="info-title">Understanding News Sentiment</div><div class="info-body"><strong style="color:var(--green);">Good News</strong> makes investors feel confident — prices often go up. <strong style="color:var(--gold);">Neutral</strong> has no major impact. <strong style="color:var(--red);">Bad News</strong> may cause concern and push prices down.</div></div>
@@ -1633,40 +1640,90 @@ function fillColor(chg) { return chg >= 0 ? 'rgba(26,110,69,0.07)' : 'rgba(204,0
 
 async function buildChart(ctx, sym, per, old) {
   if (old) old.destroy();
-  const st = STOCKS[sym];
-  let prices, labels;
+  const st  = STOCKS[sym];
+  let prices, labels, highs, lows;
   try {
     const d = await fetchHistory(sym, per);
     prices = d.prices; labels = d.labels;
+    highs  = d.highs  || prices;
+    lows   = d.lows   || prices;
   } catch(e) {
-    // No live data — show empty chart with message
     return new Chart(ctx, {
-      type:'line',
-      data:{ labels:[], datasets:[{ data:[] }] },
-      options:{ responsive:true, plugins:{ legend:{display:false},
-        title:{ display:true, text:'Chart data unavailable — market may be closed', color:'#aaa', font:{ family:'Barlow Condensed', size:12 } }
+      type: 'line',
+      data: { labels: [], datasets: [{ data: [] }] },
+      options: { responsive: true, plugins: { legend: { display: false },
+        title: { display: true, text: 'Chart data loading… check back after 5pm ET', color: '#aaa',
+                 font: { family: 'Barlow Condensed', size: 12 } }
       }}
     });
   }
+
+  const isUp   = (prices[prices.length - 1] >= prices[0]);
+  const color  = isUp ? '#1A6E45' : '#CC0000';
+  const minP   = Math.min(...prices);
+  const maxP   = Math.max(...prices);
+  const pad    = (maxP - minP) * 0.08 || 1;
+
+  // Gradient fill under the line
+  const grad = ctx.createLinearGradient(0, 0, 0, ctx.canvas.parentElement?.offsetHeight || 220);
+  grad.addColorStop(0, isUp ? 'rgba(26,110,69,0.22)'  : 'rgba(204,0,0,0.22)');
+  grad.addColorStop(0.6, isUp ? 'rgba(26,110,69,0.06)' : 'rgba(204,0,0,0.06)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+
   return new Chart(ctx, {
-    type:'line',
-    data:{
+    type: 'line',
+    data: {
       labels,
-      datasets:[{
+      datasets: [{
+        label: sym,
         data: prices,
-        borderColor: lineColor(st.chg),
-        backgroundColor: fillColor(st.chg),
-        borderWidth:2,fill:true,tension:0.4,
-        pointRadius:0,pointHoverRadius:5,
-        pointHoverBackgroundColor: lineColor(st.chg),
+        borderColor: color,
+        backgroundColor: grad,
+        borderWidth: 2,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: color,
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
       }]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' $'+c.parsed.y.toFixed(2)}}},
-      scales:{
-        x:{grid:{color:'rgba(0,0,0,0.03)'},ticks:{font:{family:'Barlow Condensed',size:10},color:'#aaa',maxTicksLimit:8}},
-        y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{family:'Barlow Condensed',size:10},color:'#aaa',callback:v=>'$'+v.toFixed(0)}}
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(8,8,8,0.92)',
+          titleColor: '#aaa',
+          bodyColor: '#fff',
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            title: items => labels[items[0].dataIndex] || '',
+            label: c => {
+              const i   = c.dataIndex;
+              const hi  = highs[i] ? '  H $' + highs[i].toFixed(2) : '';
+              const lo  = lows[i]  ? '  L $' + lows[i].toFixed(2)  : '';
+              return '  Close $' + c.parsed.y.toFixed(2) + hi + lo;
+            },
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(0,0,0,0.03)' },
+          ticks: { font: { family: 'Barlow Condensed', size: 10 }, color: '#aaa', maxTicksLimit: 8 }
+        },
+        y: {
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          ticks: { font: { family: 'Barlow Condensed', size: 10 }, color: '#aaa',
+                   callback: v => '$' + v.toFixed(0) },
+          suggestedMin: minP - pad,
+          suggestedMax: maxP + pad,
+        }
       }
     }
   });
@@ -2292,49 +2349,105 @@ async function renderProgress() {
 }
 
 function renderNewsFull() {
-  // Live sentiment from Claude API
-  if (liveSentiment) {
+  const lastEl = document.getElementById('news-last-updated');
+
+  if (liveSentiment && Object.keys(liveSentiment).length) {
+    // Update last-refreshed timestamp
+    const timestamps = Object.values(liveSentiment).map(s => s.fetchedAt).filter(Boolean);
+    if (timestamps.length && lastEl) {
+      const latest = new Date(timestamps.sort().reverse()[0]);
+      const mins   = Math.round((Date.now() - latest.getTime()) / 60000);
+      lastEl.textContent = `◆ Last analyzed: ${mins < 2 ? 'just now' : mins + ' min ago'} · Powered by Claude AI`;
+    }
+
     document.getElementById('news-full').innerHTML = Object.values(liveSentiment).map(s => {
-      const sc = sentimentClass(s.overall);
+      const sc    = sentimentClass(s.overall);
+      const score = s.score || 0;
+      // Score bar: centered at 50%, spans left (bearish) or right (bullish)
+      const barPct  = Math.min(Math.abs(score) / 2, 50); // max 50% of bar width
+      const barLeft = score >= 0 ? '50%' : `${50 - barPct}%`;
+      const barColor = sc === 'pos' ? 'var(--green)' : sc === 'neg' ? 'var(--red)' : 'var(--gray)';
+
       const headlines = (s.headlines || []).map(h => {
-        const hsc = sentimentClass(h.sentiment);
-        return `<div class="news-item" style="padding:10px 0;border-bottom:1px solid var(--border);">
-          <div class="sbar ${hsc}" style="min-height:28px;"></div>
-          <div>
-            <div class="news-hl" style="font-size:12px;">${h.text}</div>
-            ${h.why ? `<div class="news-meta" style="margin-top:3px;">${h.why}</div>` : ''}
+        const hsc   = sentimentClass(h.sentiment);
+        const hIcon = hsc === 'pos' ? '▲' : hsc === 'neg' ? '▼' : '◆';
+        const hClr  = hsc === 'pos' ? 'var(--green)' : hsc === 'neg' ? 'var(--red)' : 'var(--gray)';
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+          <span style="color:${hClr};font-size:11px;margin-top:1px;flex-shrink:0;">${hIcon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;line-height:1.5;color:var(--dark);">${h.text || ''}</div>
+            ${h.why ? `<div style="font-size:10px;color:var(--gray);margin-top:3px;">◆ ${h.why}</div>` : ''}
           </div>
-          <div class="spill ${hsc}">${hsc==='pos'?'Good':hsc==='neg'?'Bad':'Neutral'}</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:${hClr};white-space:nowrap;flex-shrink:0;">${hsc==='pos'?'GOOD':hsc==='neg'?'BAD':'NEU'}</div>
         </div>`;
       }).join('');
 
       return `<div class="panel" style="margin-bottom:14px;">
         <div class="ph">
           <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:var(--red);border:1px solid var(--red);padding:3px 9px;">${s.symbol}</div>
-            <div><div class="ph-title">${s.company}</div><div class="ph-sub">${s.summary}</div></div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:2px;padding:4px 10px;
+                        border:1px solid ${sc==='pos'?'var(--green)':sc==='neg'?'var(--red)':'var(--gray)'};
+                        color:${sc==='pos'?'var(--green)':sc==='neg'?'var(--red)':'var(--gray)'};">${s.symbol}</div>
+            <div>
+              <div class="ph-title">${s.company}</div>
+              <div class="ph-sub" style="max-width:340px;">${s.summary || ''}</div>
+            </div>
           </div>
           <div class="spill ${sc}" style="font-size:10px;padding:7px 14px;">${sentimentLabel(s.overall)}</div>
         </div>
         <div class="pb">
-          <div style="font-size:11px;color:var(--gray);line-height:1.6;background:var(--off);padding:10px 14px;border-left:3px solid var(--gold);margin-bottom:14px;">
-            <strong style="color:var(--dark);">What this means for you:</strong> ${s.impact}
+          <!-- Sentiment score bar -->
+          <div style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;font-size:9px;letter-spacing:1px;color:#bbb;margin-bottom:5px;">
+              <span>BEARISH</span>
+              <span>SENTIMENT SCORE: ${score > 0 ? '+' : ''}${score}</span>
+              <span>BULLISH</span>
+            </div>
+            <div style="height:5px;background:var(--border);border-radius:3px;position:relative;overflow:hidden;">
+              <div style="position:absolute;height:5px;border-radius:3px;
+                          width:${barPct}%;left:${barLeft};
+                          background:${barColor};transition:width 0.4s ease;"></div>
+              <div style="position:absolute;left:50%;top:0;width:1px;height:100%;background:rgba(0,0,0,0.12);"></div>
+            </div>
           </div>
-          ${headlines}
-          <div style="font-size:9px;letter-spacing:1px;color:#bbb;margin-top:10px;">◆ Analyzed by Claude AI · ${s.fetchedAt ? new Date(s.fetchedAt).toLocaleString() : 'Today'}</div>
+          <!-- Impact summary -->
+          ${s.impact ? `<div style="font-size:11px;color:var(--gray);line-height:1.6;background:var(--off);
+                                    padding:10px 14px;border-left:3px solid var(--gold);margin-bottom:14px;">
+            <strong style="color:var(--dark);">What this means for you:</strong> ${s.impact}
+          </div>` : ''}
+          <!-- Individual headlines -->
+          <div style="margin-bottom:4px;">${headlines}</div>
+          <div style="font-size:9px;letter-spacing:1px;color:#bbb;margin-top:8px;padding-top:6px;border-top:1px solid var(--border);">
+            ◆ Claude AI Analysis · ${s.fetchedAt ? new Date(s.fetchedAt).toLocaleString() : 'Today'}
+          </div>
         </div>
       </div>`;
     }).join('');
     return;
   }
 
+  if (lastEl) lastEl.textContent = '';
   document.getElementById('news-full').innerHTML = `
     <div class="panel" style="margin-bottom:12px;">
       <div style="padding:32px;text-align:center;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">◆ News Sentiment Offline</div>
-        <div style="font-size:12px;color:var(--gray);line-height:1.7;">Add <strong style="color:var(--dark);">CLAUDE_API_KEY</strong> to Railway environment variables to activate AI-powered news analysis for AAPL, TSLA, GOOGL, MSFT and AMZN.</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">◆ News Sentiment Loading…</div>
+        <div style="font-size:12px;color:var(--gray);line-height:1.7;">
+          Sentiment runs automatically every morning at 8am ET.<br>
+          Add <strong>CLAUDE_API_KEY</strong> to Railway to enable AI analysis.
+        </div>
       </div>
     </div>`;
+}
+
+// Manual refresh — re-fetch sentiment and re-render news page
+async function newsRefresh() {
+  const btn = document.getElementById('news-refresh-btn');
+  const lastEl = document.getElementById('news-last-updated');
+  if (btn) { btn.textContent = '↻ Refreshing…'; btn.disabled = true; }
+  if (lastEl) lastEl.textContent = '◆ Refreshing…';
+  await fetchSentiment();
+  renderNewsFull();
+  if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2822,37 +2935,58 @@ async function fetchQuotes() {
   setLiveStatus(true);
 }
 
-// Historical price data from Stooq (free, no API key)
-// Endpoint: https://stooq.com/q/d/l/?s=aapl.us&d1=YYYYMMDD&d2=YYYYMMDD&i=d
+// Historical price data — server API (Alpaca) primary, Stooq CORS proxy fallback
 async function fetchHistory(sym, per) {
   const days = PERIODS[per];
+
+  // ── Primary: server-side chart endpoint (Firestore or Alpaca live) ──
+  try {
+    const res  = await fetch(`/api/chart/${sym}`);
+    const data = await res.json();
+    if (data.ok && data.data?.length >= 2) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const allBars  = data.data;
+      const filtered = allBars.filter(b => new Date(b.time) >= cutoff);
+      const toUse    = filtered.length >= 2 ? filtered : allBars.slice(-Math.min(days, allBars.length));
+      const prices = [], labels = [], highs = [], lows = [];
+      toUse.forEach(bar => {
+        const d   = new Date(bar.time);
+        const lbl = days <= 7
+          ? d.toLocaleDateString('en-US', { weekday: 'short' })
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        labels.push(lbl);
+        prices.push(+parseFloat(bar.close).toFixed(2));
+        highs.push(+parseFloat(bar.high).toFixed(2));
+        lows.push(+parseFloat(bar.low).toFixed(2));
+      });
+      if (prices.length >= 2) return { prices, labels, highs, lows };
+    }
+  } catch(e) { /* fall through */ }
+
+  // ── Fallback: Stooq via CORS proxy ──
   const now  = new Date();
   const from = new Date(now);
   from.setDate(from.getDate() - days);
-
   const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
   const url  = `https://stooq.com/q/d/l/?s=${sym.toLowerCase()}.us&d1=${fmt(from)}&d2=${fmt(now)}&i=d`;
   const res  = await fetch(PROXY + encodeURIComponent(url));
   const text = await res.text();
-
   const rows = text.trim().split('\n').slice(1).filter(r => r && !r.includes('No data'));
   if (rows.length < 2) throw new Error('no history');
-
-  const prices = [];
-  const labels = [];
+  const prices = [], labels = [];
   rows.forEach(row => {
     const cols  = row.split(',');
-    const date  = cols[0];   // YYYY-MM-DD
+    const date  = cols[0];
     const close = parseFloat(cols[4]);
     if (!date || isNaN(close)) return;
     const d = new Date(date);
     const lbl = days <= 7
-      ? d.toLocaleDateString('en-US', { weekday:'short' })
-      : d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      ? d.toLocaleDateString('en-US', { weekday: 'short' })
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     labels.push(lbl);
     prices.push(+close.toFixed(2));
   });
-
   if (prices.length < 2) throw new Error('no history');
   return { prices, labels };
 }

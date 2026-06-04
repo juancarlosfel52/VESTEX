@@ -21,28 +21,71 @@ const COMPANY_NAMES = {
 };
 
 // ═══════════════════════════════════════════════════════════
-//  FETCH HEADLINES — Yahoo Finance RSS (free, no key)
+//  FETCH HEADLINES — multi-source RSS (Google News primary,
+//  Yahoo Finance fallback; no API key needed)
 // ═══════════════════════════════════════════════════════════
+
+// Decode HTML entities from RSS titles
+function decodeEntities(str) {
+  return str
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'").replace(/&#x2F;/g, '/');
+}
+
+// Parse titles from RSS XML — handles both CDATA and plain text
+function parseTitlesFromRSS(text, skipPatterns) {
+  const cdata  = [...text.matchAll(/<title><!\[CDATA\[(.*?)\]\]><\/title>/gs)].map(m => m[1].trim());
+  const plain  = [...text.matchAll(/<title>([^<]{10,})<\/title>/gs)].map(m => m[1].trim());
+  const raw    = cdata.length ? cdata : plain;
+  return raw
+    .map(decodeEntities)
+    .filter(t => !skipPatterns.some(p => t.toLowerCase().includes(p)))
+    .filter(t => t.length > 15)
+    .slice(0, 6);
+}
+
 async function fetchHeadlines(symbol) {
   const company = COMPANY_NAMES[symbol];
-  const rssUrl  = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}&region=US&lang=en-US`;
+  const encoded = encodeURIComponent(`${company} stock`);
 
-  try {
-    const res  = await axios.get(rssUrl, { timeout: 8000 });
-    const text = res.data;
+  // Source list — try in order; first success with ≥3 titles wins
+  const sources = [
+    {
+      url:  `https://news.google.com/rss/search?q=${encoded}&hl=en-US&gl=US&ceid=US:en`,
+      skip: ['google news', 'google llc'],
+    },
+    {
+      url:  `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}&region=US&lang=en-US`,
+      skip: ['yahoo finance', 'yahoo!'],
+    },
+    {
+      url:  `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}`,
+      skip: ['yahoo finance', 'yahoo!'],
+    },
+  ];
 
-    // Parse titles from RSS XML
-    const matches = [...text.matchAll(/<title><!\[CDATA\[(.*?)\]\]><\/title>/g)];
-    const titles  = matches
-      .map(m => m[1].trim())
-      .filter(t => !t.includes('Yahoo Finance')) // skip feed title
-      .slice(0, 6); // take top 6 headlines
+  const HEADERS = {
+    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept':          'application/rss+xml, application/xml, text/xml, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
 
-    return titles.length ? titles : [`No recent headlines found for ${company}`];
-  } catch (e) {
-    console.warn(`[SENTIMENT] RSS fetch failed for ${symbol}:`, e.message);
-    return [`Unable to fetch news for ${company} at this time`];
+  for (const src of sources) {
+    try {
+      const res    = await axios.get(src.url, { timeout: 9000, headers: HEADERS });
+      const titles = parseTitlesFromRSS(res.data, src.skip);
+      if (titles.length >= 3) {
+        console.log(`[SENTIMENT] ${symbol}: ${titles.length} headlines from ${new URL(src.url).hostname}`);
+        return titles;
+      }
+    } catch (e) {
+      console.warn(`[SENTIMENT] ${symbol}: source ${new URL(src.url).hostname} failed —`, e.message);
+    }
   }
+
+  console.warn(`[SENTIMENT] ${symbol}: all RSS sources failed — using placeholder`);
+  return [`No recent headlines available for ${company}`];
 }
 
 // ═══════════════════════════════════════════════════════════
