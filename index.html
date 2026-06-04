@@ -3155,9 +3155,6 @@ async function fetchHistory(sym, per) {
         lows.push(+parseFloat(bar.low).toFixed(2));
       });
       if (prices.length >= 2) {
-        // Derive daily chg from last two bars for overview display
-        const last = prices[prices.length - 1], prev = prices[prices.length - 2];
-        if (prev && STOCKS[sym]) STOCKS[sym].chg = +((last - prev) / prev * 100).toFixed(2);
         return { prices, labels, highs, lows };
       }
     }
@@ -3527,11 +3524,6 @@ async function init() {
   const ctx = document.getElementById('dashChart').getContext('2d');
   dashChart = await buildChart(ctx, dashSym, dashPer, null);
 
-  // Batch-fetch history for all symbols to compute real % change
-  Promise.allSettled(
-    Object.keys(STOCKS).filter(s => s !== dashSym).map(s => fetchHistory(s, '1W').catch(() => {}))
-  ).then(() => { renderTicker(); renderOvBar(); });
-
   // Auto-refresh quotes every 60 seconds
   setInterval(async () => {
     try {
@@ -3782,12 +3774,16 @@ async function verifyLiveQuotes() {
   body.innerHTML = '<div style="padding:40px;text-align:center;color:#555;font-size:11px;letter-spacing:2px;">FETCHING LIVE DATA…</div>';
   overlay.classList.add('open');
 
-  let apiData = null, apiSource = 'unknown', apiErr = null;
+  let apiData = null, apiSource = 'unknown', apiErr = null, apiCacheAgeMs = 0, apiServerFetchedAt = null;
   try {
     const r = await fetch('/api/live-quotes');
     const d = await r.json();
-    if (d.ok) { apiData = d.data; apiSource = d.source || 'alpaca_live'; }
-    else apiErr = d.error || 'API returned ok:false';
+    if (d.ok) {
+      apiData = d.data;
+      apiSource = d.source || 'alpaca_live';
+      apiCacheAgeMs = d.cacheAgeMs ?? 0;
+      apiServerFetchedAt = d.serverFetchedAt ?? null;
+    } else apiErr = d.error || 'API returned ok:false';
   } catch(e) { apiErr = e.message; }
 
   const now       = Date.now();
@@ -3803,6 +3799,9 @@ async function verifyLiveQuotes() {
     return;
   }
 
+  // Cache age = how old our server's last Alpaca fetch is (the real freshness indicator)
+  const cacheAgeS = Math.floor(apiCacheAgeMs / 1000);
+
   const SYMS = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
   let allLive = true, anyError = false, anyStale = false;
 
@@ -3810,14 +3809,16 @@ async function verifyLiveQuotes() {
     const q = apiData[sym];
     if (!q) { anyError = true; return { sym, status: 'ERROR', q: null }; }
 
-    // Quote age
-    const ageMs  = q.timestamp ? now - new Date(q.timestamp).getTime() : null;
-    const ageS   = ageMs != null ? Math.floor(ageMs / 1000) : null;
+    // Trade age = how old the last actual trade is (can be hours outside market hours — NOT a freshness problem)
+    const tradeAgeMs = q.timestamp ? now - new Date(q.timestamp).getTime() : null;
+    const tradeAgeS  = tradeAgeMs != null ? Math.floor(tradeAgeMs / 1000) : null;
+
+    // Status based on SERVER cache age (not trade age — trade can be old outside market hours)
     let status;
-    if (!q.price || !q.previousClose || !q.timestamp) { status = 'ERROR'; anyError = true; }
-    else if (ageS === null || ageS > 120) { status = 'STALE'; anyStale = true; allLive = false; }
-    else if (ageS > 60)  { status = 'CACHED'; allLive = false; }
-    else                  { status = 'LIVE'; }
+    if (!q.price || !q.previousClose) { status = 'ERROR'; anyError = true; }
+    else if (apiSource === 'stale_cache' || cacheAgeS > 120) { status = 'STALE'; anyStale = true; allLive = false; }
+    else if (cacheAgeS > 60) { status = 'CACHED'; allLive = false; }
+    else                     { status = 'LIVE'; }
 
     // DOM vs API comparison
     const domPrice = STOCKS[sym]?.price;
@@ -3827,7 +3828,7 @@ async function verifyLiveQuotes() {
     const priceMismatch = priceDiff != null && priceDiff > 0.01;
     const chgMismatch   = chgDiff  != null && chgDiff  > 0.05;
 
-    return { sym, status, q, ageS, domPrice, domChg, priceMismatch, chgMismatch };
+    return { sym, status, q, cacheAgeS, tradeAgeS, domPrice, domChg, priceMismatch, chgMismatch };
   });
 
   const overallBadgeClass = anyError || anyStale ? 'fail' : allLive ? 'live' : 'warn';
@@ -3843,7 +3844,13 @@ async function verifyLiveQuotes() {
       <td><span class="vq-badge error">ERROR</span></td>
     </tr>`;
     const q = r.q;
-    const ageDisp = r.ageS != null ? r.ageS+'s' : '—';
+    // Cache age = how old the server's last Alpaca fetch is (shown in green/yellow/red)
+    const cacheDisp = r.cacheAgeS != null ? r.cacheAgeS + 's' : '0s';
+    const cacheColor = r.cacheAgeS < 30 ? '#22A05A' : r.cacheAgeS < 60 ? '#C9A84C' : '#CC0000';
+    // Trade age = last actual trade (informational only — old outside market hours is normal)
+    const tradeDisp = r.tradeAgeS != null
+      ? (r.tradeAgeS > 3600 ? Math.floor(r.tradeAgeS/3600)+'h' : r.tradeAgeS+'s')
+      : '—';
     const badgeCls = r.status.toLowerCase();
     const chgAmt   = (q.price != null && q.previousClose != null)
       ? ((q.price - q.previousClose) >= 0 ? '+$' : '−$') + Math.abs(q.price - q.previousClose).toFixed(2)
@@ -3874,8 +3881,8 @@ async function verifyLiveQuotes() {
       <td class="vq-num">${q.high  != null ? '$'+q.high.toFixed(2)  : '<span class="vq-gray">—</span>'}</td>
       <td class="vq-num">${q.low   != null ? '$'+q.low.toFixed(2)   : '<span class="vq-gray">—</span>'}</td>
       <td class="vq-num">${q.volume != null ? (q.volume/1e6).toFixed(2)+'M' : '<span class="vq-gray">—</span>'}</td>
-      <td class="vq-num" style="font-size:10px;">${tsFmt}</td>
-      <td class="vq-num" style="color:${r.ageS < 30 ? '#22A05A' : r.ageS < 60 ? '#C9A84C' : '#CC0000'}">${ageDisp}</td>
+      <td class="vq-num" style="font-size:10px;" title="Last actual trade (may be old outside market hours)">${tsFmt} <span style="color:#333;font-size:8px;">(${tradeDisp})</span></td>
+      <td class="vq-num" style="color:${cacheColor}" title="Server fetch age — the real freshness indicator">${cacheDisp}</td>
       <td style="font-size:9px;color:#444;">${q.source || '—'}</td>
       <td>
         <span class="vq-badge ${badgeCls}">${r.status}</span>
@@ -3884,20 +3891,24 @@ async function verifyLiveQuotes() {
     </tr>`;
   }).join('');
 
+  const serverFetchedStr = apiServerFetchedAt
+    ? new Date(apiServerFetchedAt).toLocaleTimeString('en-US', { hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    : null;
+
   document.getElementById('vq-verdict-badge').className = `vq-verdict-badge ${overallBadgeClass}`;
   document.getElementById('vq-verdict-badge').textContent = overallText;
-  document.getElementById('vq-verdict-source').textContent = `Source: ${apiSource}`;
+  document.getElementById('vq-verdict-source').textContent = `Source: ${apiSource}${serverFetchedStr ? ' · fetched ' + serverFetchedStr : ''} · cache ${cacheAgeS}s old`;
   body.innerHTML = `
     <table class="vq-table">
       <thead><tr>
         <th>Symbol</th><th>Live Price</th><th>Prev Close</th>
         <th>Chg $</th><th>Chg %</th>
         <th>Open</th><th>High</th><th>Low</th><th>Volume</th>
-        <th>Trade Time</th><th>Age</th><th>Source</th><th>Status / DOM Check</th>
+        <th>Trade Time (trade age)</th><th>Cache Age</th><th>Source</th><th>Status / DOM Check</th>
       </tr></thead>
       <tbody>${tableRows}</tbody>
     </table>`;
-  document.getElementById('vq-ts').textContent = `Verified at: ${verifiedAt}`;
+  document.getElementById('vq-ts').textContent = `Verified at: ${verifiedAt}  ·  Status = server cache age (trade age is informational only — old outside market hours is normal)`;
 }
 </script>
 
