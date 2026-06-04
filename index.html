@@ -1030,6 +1030,18 @@ canvas{max-height:300px;}
       </div>
 
       <!-- FRED MACRO CONDITIONS -->
+      <!-- Fear & Greed + VIX -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="ph">
+          <div><div class="ph-title">Market Sentiment</div><div class="ph-sub">Fear & Greed Index + VIX Volatility — live, no API key required</div></div>
+          <div id="mkt-sent-status" style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">◆ LIVE</div>
+        </div>
+        <div class="pb" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" id="mkt-sent-grid">
+          <div style="text-align:center;padding:10px 0;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">Fear &amp; Greed Index</div><div id="fng-value" style="font-family:'Bodoni Moda',serif;font-size:48px;">—</div><div id="fng-label" style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-top:4px;">Loading...</div></div>
+          <div style="text-align:center;padding:10px 0;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">VIX Volatility Index</div><div id="vix-value" style="font-family:'Bodoni Moda',serif;font-size:48px;">—</div><div id="vix-signal" style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-top:4px;">Loading...</div></div>
+        </div>
+      </div>
+
       <div class="panel" style="margin-bottom:20px;">
         <div class="ph">
           <div><div class="ph-title">Macro Conditions</div><div class="ph-sub">Live Federal Reserve economic data — signals behind your predictions</div></div>
@@ -2409,6 +2421,37 @@ function renderFredMacro() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  MARKET SENTIMENT — Fear & Greed + VIX (no API key)
+// ═══════════════════════════════════════════════════════════
+async function fetchMarketSentiment() {
+  const fngColors = { 'Extreme Fear':'var(--red)', 'Fear':'#e07b39', 'Neutral':'var(--gray)', 'Greed':'var(--green2)', 'Extreme Greed':'var(--green)' };
+  const vixColors = { calm:'var(--green2)', normal:'var(--gray)', elevated:'#e07b39', extreme:'var(--red)' };
+
+  try {
+    const fg = await fetch('/api/feargreed').then(r=>r.json());
+    if (fg.ok) {
+      const color = fngColors[fg.label] || 'var(--text)';
+      document.getElementById('fng-value').textContent = fg.value;
+      document.getElementById('fng-value').style.color = color;
+      document.getElementById('fng-label').textContent = fg.label;
+      document.getElementById('fng-label').style.color = color;
+    }
+  } catch(e) { console.warn('[FNG] Failed:', e.message); }
+
+  try {
+    const vix = await fetch('/api/vix').then(r=>r.json());
+    if (vix.ok) {
+      const color = vixColors[vix.signal] || 'var(--text)';
+      const chgStr = (vix.chg >= 0 ? '+' : '') + vix.chg + '%';
+      document.getElementById('vix-value').textContent = vix.value;
+      document.getElementById('vix-value').style.color = color;
+      document.getElementById('vix-signal').textContent = vix.signal.toUpperCase() + ' · ' + chgStr + ' today';
+      document.getElementById('vix-signal').style.color = color;
+    }
+  } catch(e) { console.warn('[VIX] Failed:', e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════
 async function init() {
@@ -2420,6 +2463,9 @@ async function init() {
   try { await fetchQuotes(); } catch(e) { setLiveStatus(false); console.warn('[QUOTES] Failed:', e.message); }
   await fetchSentiment();
   fetchServerPreds();
+
+  // Fear & Greed + VIX — no API key needed
+  fetchMarketSentiment();
 
   // Render FRED placeholder cards immediately, then load live data
   renderFredMacro();

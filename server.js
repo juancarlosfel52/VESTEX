@@ -179,6 +179,41 @@ app.get('/api/edgar', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── API: Fear & Greed Index (alternative.me — no key) ──
+app.get('/api/feargreed', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const resp  = await axios.get('https://api.alternative.me/fng/?limit=7', { timeout: 8000 });
+    const data  = resp.data.data || [];
+    const latest = data[0];
+    res.json({
+      ok: true,
+      value:      latest ? parseInt(latest.value) : null,
+      label:      latest ? latest.value_classification : null,
+      history:    data.map(d => ({ value: parseInt(d.value), label: d.value_classification, timestamp: d.timestamp })),
+    });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// ── API: VIX Volatility Index (CBOE CSV — no key) ──
+app.get('/api/vix', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const resp  = await axios.get('https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv', { timeout: 10000 });
+    const lines = resp.data.trim().split('\n');
+    // Last line = most recent trading day
+    const last  = lines[lines.length - 1].split(',');
+    const prev  = lines[lines.length - 2].split(',');
+    const value = parseFloat(last[4]); // Close
+    const prevVal = parseFloat(prev[4]);
+    const chg   = +((value - prevVal) / prevVal * 100).toFixed(2);
+    const date  = last[0];
+    // VIX signal: <15 calm, 15-25 normal, 25-35 elevated, >35 extreme fear
+    const signal = value < 15 ? 'calm' : value < 25 ? 'normal' : value < 35 ? 'elevated' : 'extreme';
+    res.json({ ok: true, value: +value.toFixed(2), chg, date, signal });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // ── Serve frontend ──
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
