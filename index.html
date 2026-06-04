@@ -1673,7 +1673,7 @@ function calcPred(sym) {
 
 function renderDashPreds() {
   document.getElementById('d-preds').innerHTML = Object.entries(STOCKS).slice(0,4).map(([s,st])=>{
-    const p = calcPred(s);
+    const p = getServerPred(s) || calcPred(s);
     return `<div class="pred-item">
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="pred-badge">${s}</div>
@@ -1803,21 +1803,34 @@ function updateChartStats() {
 // ═══════════════════════════════════════════════════════════
 function renderPredsFull() {
   document.getElementById('pred-full').innerHTML = Object.entries(STOCKS).map(([s,st])=>{
-    const p = calcPred(s);
+    const sp = getServerPred(s);
+    const p  = sp || calcPred(s);
+    const price = st.price ? `$${st.price.toFixed(2)}` : (sp ? `$${serverPreds[s].currentPrice?.toFixed(2) ?? '—'}` : '—');
+    const priceColor = st.chg >= 0 ? 'var(--green)' : 'var(--red)';
+    const genAt = sp?.generatedAt ? new Date(sp.generatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : null;
+    const reasonsHtml = sp?.reasons?.length
+      ? `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">◆ Signal Breakdown</div>
+          ${sp.reasons.map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:4px;">· ${r}</div>`).join('')}
+        </div>` : '';
     return `<div class="panel" style="margin-bottom:14px;">
       <div class="ph">
         <div style="display:flex;align-items:center;gap:14px;">
           <div style="width:44px;height:44px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:1px;color:var(--red);">${s}</div>
-          <div><div class="ph-title">${st.name}</div><div class="ph-sub">${st.desc}</div></div>
+          <div>
+            <div class="ph-title">${st.name}</div>
+            <div class="ph-sub">${genAt ? `◆ Updated ${genAt}` : st.desc}</div>
+          </div>
         </div>
         <div class="dir ${p.cls}" style="font-size:13px;padding:7px 16px;">${p.dir}</div>
       </div>
       <div class="pb" style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;">
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">$${st.price.toFixed(2)}</div></div>
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 7 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${st.chg>=0?'var(--green)':'var(--red)'};">$${p.t7}</div></div>
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 30 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${st.chg>=0?'var(--green)':'var(--red)'};">$${p.t30}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${price}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 7 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${priceColor};">$${p.t7}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 30 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${priceColor};">$${p.t30}</div></div>
         <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Confidence Level</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${p.conf}%</div><div class="conf-bar" style="width:100%;margin-top:8px;"><div class="conf-fill" style="width:${p.conf}%"></div></div></div>
       </div>
+      ${reasonsHtml}
     </div>`;
   }).join('');
 }
@@ -2152,6 +2165,42 @@ function setLiveStatus(ok) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  SERVER PREDICTIONS — real Firestore data from pipeline
+// ═══════════════════════════════════════════════════════════
+let serverPreds = {};
+
+async function fetchServerPreds() {
+  try {
+    const res  = await fetch('/api/predictions');
+    const data = await res.json();
+    if (data.ok && Object.keys(data.data).length) {
+      serverPreds = data.data;
+      console.log('[PREDS] Live predictions loaded:', Object.keys(serverPreds).length, 'symbols');
+      renderDashPreds();
+    }
+  } catch(e) { console.warn('[PREDS] Failed:', e.message); }
+}
+
+function getServerPred(sym) {
+  const sp = serverPreds[sym];
+  if (!sp) return null;
+  const dirMap = { UP: 'Going Up', DOWN: 'Going Down', FLAT: 'Staying Flat' };
+  const clsMap = { UP: 'bull', DOWN: 'bear', FLAT: 'flat' };
+  return {
+    dir:  dirMap[sp.direction] || 'Staying Flat',
+    cls:  clsMap[sp.direction] || 'flat',
+    conf: sp.confidence,
+    t7:   sp.target7d?.toFixed(2)  ?? '—',
+    t30:  sp.target30d?.toFixed(2) ?? '—',
+    reasons: sp.reasons || [],
+    rsi:  sp.indicators?.rsi,
+    macd: sp.indicators?.macd,
+    score: sp.indicators?.score,
+    generatedAt: sp.generatedAt,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
 //  SEC EDGAR — Real company filings & insider trades
 // ═══════════════════════════════════════════════════════════
 let edgarData   = {};
@@ -2380,6 +2429,7 @@ async function init() {
   // Fetch live quotes — fall back to mock if blocked
   try { await fetchQuotes(); } catch(e) { setLiveStatus(false); console.warn('[QUOTES] Failed:', e.message); }
   await fetchSentiment();
+  fetchServerPreds();
 
   // Render FRED placeholder cards immediately, then load live data
   renderFredMacro();
