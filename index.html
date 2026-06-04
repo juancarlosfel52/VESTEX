@@ -2092,35 +2092,22 @@ function removeStock(i) {
 // ═══════════════════════════════════════════════════════════
 const PROXY = 'https://corsproxy.io/?';
 
-async function fetchOneQuote(sym) {
-  const url = `https://stooq.com/q/l/?s=${sym.toLowerCase()}.us&f=sd2t2ohlcv&h&e=csv`;
-  const res  = await fetch(PROXY + encodeURIComponent(url));
-  const text = await res.text();
-  // Parse CSV — skip header line
-  const row  = text.trim().split('\n')[1];
-  if (!row || row.includes('N/D')) throw new Error('no data');
-  const cols = row.split(',');
-  // cols: 0=Symbol 1=Date 2=Time 3=Open 4=High 5=Low 6=Close 7=Volume
-  const open  = parseFloat(cols[3]);
-  const close = parseFloat(cols[6]);
-  const high  = parseFloat(cols[4]);
-  const low   = parseFloat(cols[5]);
-  const vol   = parseInt(cols[7]);
-  const chg   = +((close - open) / open * 100).toFixed(2);
-  return { price: +close.toFixed(2), chg, open, high, low, vol };
-}
-
 async function fetchQuotes() {
+  const res  = await fetch('/api/quotes');
+  const data = await res.json();
+  if (!data.ok) throw new Error('quotes API failed');
   const syms = Object.keys(STOCKS);
-  const results = await Promise.all(syms.map(s => fetchOneQuote(s)));
-  syms.forEach((s, i) => {
-    const r = results[i];
-    STOCKS[s].price = r.price;
-    STOCKS[s].chg   = r.chg;
-    STOCKS[s].open  = r.open;
-    STOCKS[s].high  = r.high;
-    STOCKS[s].low   = r.low;
-    STOCKS[s].vol   = r.vol;
+  syms.forEach(s => {
+    const r = data.data[s];
+    if (!r) return;
+    // Alpaca quote: bid=last price, ask=ask price
+    const price = r.bid || r.ask || null;
+    STOCKS[s].price = price;
+    STOCKS[s].chg   = r.chg  || 0;
+    STOCKS[s].open  = r.open || null;
+    STOCKS[s].high  = r.high || null;
+    STOCKS[s].low   = r.low  || null;
+    STOCKS[s].vol   = r.vol  || null;
   });
   setLiveStatus(true);
 }
