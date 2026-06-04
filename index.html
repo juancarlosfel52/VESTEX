@@ -49,6 +49,77 @@ body.dark-mode .auth-inp{background:#1A1A1A;color:#F0ECE4;border-color:#333;}
 body.dark-mode .beta-disclaimer{background:#0A0A0A;border-color:#2C2C2C;}
 body.dark-mode .beta-disclaimer strong{color:#F0ECE4;}
 
+/* ══════════════════════════════════════════════════
+   MASTER INTELLIGENCE PAGE
+══════════════════════════════════════════════════ */
+.mi-health-bar{background:var(--white);border:1px solid var(--border);padding:20px 28px;margin-bottom:20px;display:flex;align-items:center;gap:24px;position:relative;overflow:hidden;}
+.mi-health-bar::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--gold));}
+.mi-health-score{font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;color:var(--dark);line-height:1;min-width:60px;}
+.mi-health-label{font-family:'Manrope',sans-serif;font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;min-width:100px;}
+.mi-health-track{flex:1;height:8px;background:rgba(0,0,0,.06);position:relative;}
+.mi-health-fill{height:100%;border-radius:0;transition:width 1.2s cubic-bezier(.22,1,.36,1);}
+.mi-health-desc{font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;}
+
+.mi-stabs{display:flex;gap:0;margin-bottom:18px;border:1px solid var(--border);}
+.mi-stab{flex:1;padding:10px 0;background:var(--white);border:none;border-right:1px solid var(--border);cursor:pointer;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gray);text-transform:uppercase;transition:all .15s;font-family:'Inter',sans-serif;}
+.mi-stab:last-child{border-right:none;}
+.mi-stab:hover{background:var(--cream);color:var(--dark);}
+.mi-stab.active{background:var(--dark);color:#fff;}
+
+.mi-card{background:var(--white);border:1px solid var(--border);padding:28px;margin-bottom:18px;position:relative;overflow:hidden;}
+.mi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.mi-card.bull::before{background:linear-gradient(90deg,#1A6E45,#22A05A);}
+.mi-card.hold::before{background:linear-gradient(90deg,var(--gold),#E8C97A);}
+.mi-card.wait::before{background:linear-gradient(90deg,#888,#aaa);}
+.mi-card.bear::before{background:linear-gradient(90deg,var(--red),#ff4444);}
+
+.mi-top{display:grid;grid-template-columns:180px 1fr;gap:32px;align-items:center;margin-bottom:24px;}
+.mi-meter-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.mi-meter svg{filter:drop-shadow(0 0 0px #000);transition:filter .8s ease;}
+.mi-meter.glow-bull svg{filter:drop-shadow(0 0 14px rgba(34,160,90,.45));}
+.mi-meter.glow-hold svg{filter:drop-shadow(0 0 14px rgba(201,168,76,.45));}
+.mi-meter.glow-bear svg{filter:drop-shadow(0 0 14px rgba(204,0,0,.45));}
+.mi-decision-badge{font-family:'Manrope',sans-serif;font-size:18px;font-weight:900;letter-spacing:1px;padding:8px 22px;display:inline-block;margin-bottom:10px;}
+.mi-decision-badge.bull{color:#22A05A;background:rgba(26,110,69,.1);border:2px solid rgba(34,160,90,.35);}
+.mi-decision-badge.hold{color:var(--gold);background:rgba(201,168,76,.1);border:2px solid rgba(201,168,76,.3);}
+.mi-decision-badge.wait{color:#888;background:rgba(136,136,136,.08);border:2px solid rgba(136,136,136,.2);}
+.mi-decision-badge.bear{color:#CC0000;background:rgba(204,0,0,.08);border:2px solid rgba(204,0,0,.25);}
+.mi-meta{font-size:10px;color:var(--gray);letter-spacing:1px;line-height:2.0;}
+.mi-meta span{color:var(--dark);font-weight:600;}
+
+.mi-breakdown{margin-top:20px;border-top:1px solid var(--border);padding-top:18px;}
+.mi-breakdown-title{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:12px;}
+.mi-cat-row{display:grid;grid-template-columns:120px 40px 1fr 36px;gap:10px;align-items:center;margin-bottom:8px;}
+.mi-cat-name{font-size:10px;font-weight:600;letter-spacing:.5px;color:var(--dark);}
+.mi-cat-score{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gray);text-align:right;}
+.mi-cat-bar-track{height:5px;background:rgba(0,0,0,.06);position:relative;}
+.mi-cat-bar-fill{height:100%;width:0;transition:width 1s cubic-bezier(.22,1,.36,1);}
+.mi-cat-max{font-size:9px;color:var(--gray);text-align:right;}
+
+.mi-patterns{margin-top:18px;border-top:1px solid var(--border);padding-top:16px;}
+.mi-pattern-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.04);}
+.mi-pattern-row:last-child{border-bottom:none;}
+.mi-pattern-check{font-size:12px;color:#22A05A;flex-shrink:0;margin-top:1px;}
+.mi-pattern-name{font-size:11px;font-weight:600;color:var(--dark);}
+.mi-pattern-cat{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);}
+.mi-pattern-wr{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;margin-left:auto;flex-shrink:0;}
+
+.mi-explain{margin-top:18px;border-top:1px solid var(--border);padding-top:16px;font-size:12px;color:var(--gray);line-height:1.7;}
+.mi-explain-title{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:8px;}
+
+.mi-warnings{margin-top:14px;}
+.mi-warn-item{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;margin-bottom:6px;font-size:11px;}
+.mi-warn-item.high{background:rgba(204,0,0,.07);border-left:3px solid var(--red);color:var(--dark);}
+.mi-warn-item.medium{background:rgba(201,168,76,.07);border-left:3px solid var(--gold);color:var(--dark);}
+.mi-warn-item.low{background:rgba(26,110,69,.06);border-left:3px solid #22A05A;color:var(--dark);}
+.mi-warn-icon{flex-shrink:0;font-size:13px;}
+@keyframes warnPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+.mi-warn-item.high .mi-warn-icon{animation:warnPulse 2s ease infinite;}
+
+.mi-loading{padding:60px 28px;text-align:center;color:var(--gray);font-size:11px;letter-spacing:2px;}
+.mi-loading::after{content:'';display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;margin-left:12px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
 /* ── VERIFY LIVE QUOTES MODAL ── */
 .vq-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9000;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px;}
 .vq-overlay.open{display:flex;}
@@ -1151,6 +1222,7 @@ canvas{max-height:300px;}
   <div class="nav-item" data-page="portfolio" onclick="nav(this,'portfolio')"><span class="ni">◈</span> My Portfolio</div>
   <div class="nav-item" data-page="news" onclick="nav(this,'news')"><span class="ni">◉</span> Market News</div>
   <div class="nav-item" data-page="progress" onclick="nav(this,'progress')"><span class="ni">◈</span> Model Progress</div>
+  <div class="nav-item" data-page="master" onclick="nav(this,'master')" style="border-left-color:var(--gold);color:var(--gold);"><span class="ni" style="color:var(--gold);">◆</span> Master Intelligence</div>
 
   <div class="nav-lbl" style="margin-top:16px;">Market Index</div>
   <div class="idx-block"><div class="idx-lbl">S&P 500</div><div class="idx-val">5,248.80</div><div class="idx-chg up">▲ +0.43%</div></div>
@@ -1505,6 +1577,41 @@ canvas{max-height:300px;}
       </div>
     </div>
 
+    <!-- ═══ MASTER INTELLIGENCE ═══ -->
+    <div class="page" id="page-master">
+      <div class="banner" style="background:linear-gradient(135deg,#0A0A0A 0%,#1A0A00 100%);">
+        <div class="banner-title">Master <em>Intelligence</em></div>
+        <div class="banner-sub">◆ Every System · One Score · One Decision</div>
+        <div class="gold-bar"></div>
+      </div>
+
+      <!-- Market Health -->
+      <div class="mi-health-bar" id="mi-health-bar">
+        <div>
+          <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:4px;">Market Health</div>
+          <div class="mi-health-score" id="mi-health-score">—</div>
+          <div style="font-size:9px;color:var(--gray);margin-top:2px;">/ 100</div>
+        </div>
+        <div class="mi-health-label" id="mi-health-label" style="color:var(--gold);">LOADING…</div>
+        <div class="mi-health-track" style="flex:1;">
+          <div class="mi-health-fill" id="mi-health-fill" style="width:0%;background:var(--gold);"></div>
+        </div>
+        <div style="text-align:right;">
+          <div id="mi-health-fg" style="font-size:10px;color:var(--gray);"></div>
+          <div id="mi-health-vix" style="font-size:10px;color:var(--gray);margin-top:3px;"></div>
+        </div>
+      </div>
+
+      <!-- Symbol tabs -->
+      <div class="mi-stabs" id="mi-stabs"></div>
+
+      <!-- Decision card -->
+      <div id="mi-card-container">
+        <div class="mi-loading">LOADING MASTER INTELLIGENCE</div>
+      </div>
+
+    </div><!-- /page-master -->
+
   </div><!-- /content -->
 
   <div class="footer">
@@ -1816,6 +1923,7 @@ function nav(el, id) {
   if (id==='portfolio')   renderPortfolio();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    renderProgress();
+  if (id==='master')      renderMasterPage();
 }
 
 function mobNav(el, id) {
@@ -1827,6 +1935,7 @@ function mobNav(el, id) {
   if (id==='charts')      renderChartPage();
   if (id==='predictions') { renderPredsFull(); renderEdgar(); }
   if (id==='portfolio')   renderPortfolio();
+  if (id==='master')      renderMasterPage();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    renderProgress();
 }
@@ -3433,6 +3542,233 @@ async function init() {
       renderPortfolio();
     } catch(e) {}
   }, 60000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MASTER INTELLIGENCE ENGINE — Frontend
+// ═══════════════════════════════════════════════════════════
+
+const MI_SYMS = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
+let miActiveSym  = 'AAPL';
+let miCache      = {};
+
+function miScoreColor(s) {
+  return s>=85?'#22A05A':s>=70?'#4aa870':s>=60?'#8BC34A':s>=45?'#C9A84C':s>=35?'#e07b39':'#CC0000';
+}
+function miDecisionCls(d) {
+  if (d==='STRONG BUY'||d==='BUY') return 'bull';
+  if (d==='BUY SMALL') return 'bull';
+  if (d==='HOLD')      return 'hold';
+  if (d==='WAIT')      return 'wait';
+  return 'bear';
+}
+
+// Count-up animation
+function miCountUp(el, target, ms=1200) {
+  const start=performance.now();
+  const tick=now=>{
+    const p=Math.min((now-start)/ms,1);
+    const ease=1-Math.pow(1-p,3);
+    el.textContent=Math.round(ease*target);
+    if(p<1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// SVG circular meter
+function miMeterSVG(score, color) {
+  const R=40, C=2*Math.PI*R, offset=C*(1-score/100);
+  return `<svg viewBox="0 0 100 100" width="160" height="160">
+    <circle cx="50" cy="50" r="${R}" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="8"/>
+    <circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="8"
+      stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"
+      stroke-linecap="round" transform="rotate(-90 50 50)"
+      id="mi-arc" style="transition:stroke-dashoffset 1.3s cubic-bezier(.22,1,.36,1);"/>
+    <text x="50" y="44" text-anchor="middle" fill="currentColor" font-family="JetBrains Mono,monospace"
+      font-size="22" font-weight="700" id="mi-score-num">0</text>
+    <text x="50" y="60" text-anchor="middle" fill="#777" font-family="Inter,sans-serif"
+      font-size="7" letter-spacing="2">MASTER SCORE</text>
+  </svg>`;
+}
+
+function miRenderCard(d) {
+  const color   = miScoreColor(d.masterScore);
+  const dcls    = miDecisionCls(d.decision);
+  const C       = 2*Math.PI*40;
+
+  const breakdownRows = [
+    { label:'Technical',     score:d.scoreBreakdown.technical?.score,    max:25, color:'#4aa870' },
+    { label:'Brain Vault',   score:d.scoreBreakdown.brainVault?.score,   max:20, color:'#C9A84C' },
+    { label:'Signal Perf',   score:d.scoreBreakdown.signalPerf?.score,   max:15, color:'#8BC34A' },
+    { label:'Market Regime', score:d.scoreBreakdown.regime?.score,       max:10, color:'#e07b39' },
+    { label:'Macro Economy', score:d.scoreBreakdown.macro?.score,        max:10, color:'#CC0000' },
+    { label:'Sentiment',     score:d.scoreBreakdown.sentiment?.score,    max:10, color:'#22A05A' },
+    { label:'Fundamentals',  score:d.scoreBreakdown.fundamentals?.score, max:10, color:'#C9A84C' },
+  ].map(r=>{
+    const s = r.score ?? 0;
+    const pct = Math.round(s / r.max * 100);
+    return `<div class="mi-cat-row">
+      <div class="mi-cat-name">${r.label}</div>
+      <div class="mi-cat-score">${s.toFixed(0)}</div>
+      <div class="mi-cat-bar-track"><div class="mi-cat-bar-fill" style="background:${r.color};" data-w="${pct}"></div></div>
+      <div class="mi-cat-max" style="color:${r.color};font-family:'JetBrains Mono',monospace;font-size:9px;">/${r.max}</div>
+    </div>`;
+  }).join('');
+
+  const patternsHtml = d.topPatterns?.length
+    ? d.topPatterns.map(p=>`
+      <div class="mi-pattern-row">
+        <span class="mi-pattern-check">✓</span>
+        <div>
+          <div class="mi-pattern-name">${p.name}</div>
+          <div class="mi-pattern-cat">${p.category}</div>
+        </div>
+        ${p.winRate ? `<div class="mi-pattern-wr" style="color:#22A05A;">${p.winRate}% win rate</div>` : ''}
+      </div>`).join('')
+    : '<div style="font-size:11px;color:var(--gray);padding:8px 0;">No active patterns matched for current conditions.</div>';
+
+  const warningsHtml = d.warnings?.length
+    ? d.warnings.map(w=>`
+      <div class="mi-warn-item ${w.level}">
+        <span class="mi-warn-icon">${w.level==='high'?'🔴':w.level==='medium'?'⚠':'ℹ'}</span>
+        <span>${w.text}</span>
+      </div>`).join('')
+    : '<div style="font-size:10px;color:var(--gray);letter-spacing:1px;padding:4px 0;">◆ No major warnings for current conditions.</div>';
+
+  const st = STOCKS[d.symbol];
+  const priceStr = st?.price ? `$${st.price.toFixed(2)}` : '—';
+  const chgStr   = st?.chg != null ? `${st.chg>=0?'▲ +':'▼ '}${Math.abs(st.chg).toFixed(2)}%` : '—';
+  const chgCls   = st?.chg != null ? (st.chg>=0?'up':'dn') : '';
+
+  return `
+  <div class="mi-card ${dcls}" id="mi-main-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;">${d.symbol}</div>
+        <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;color:var(--dark);">${STOCKS[d.symbol]?.name || d.symbol}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--dark);">${priceStr}</div>
+        <div class="${chgCls}" style="font-size:11px;">${chgStr}</div>
+      </div>
+    </div>
+
+    <div class="mi-top">
+      <div class="mi-meter-wrap">
+        <div class="mi-meter glow-${dcls}" id="mi-meter-el">
+          ${miMeterSVG(d.masterScore, color)}
+        </div>
+      </div>
+      <div>
+        <div class="mi-decision-badge ${dcls}">${d.decision}</div>
+        <div class="mi-meta">
+          Confidence: <span>${d.confidence}%</span><br>
+          Risk: <span>${d.risk}</span><br>
+          Recommended Hold: <span>${d.holdTime}</span><br>
+          Market Health: <span id="mi-mh-inline">${d.marketHealth?.score} — ${d.marketHealth?.label}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mi-breakdown">
+      <div class="mi-breakdown-title">◆ Score Breakdown</div>
+      ${breakdownRows}
+    </div>
+
+    <div class="mi-patterns" style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+      <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Active Brain Vault Patterns</div>
+      ${patternsHtml}
+    </div>
+
+    <div class="mi-explain" id="mi-explain">
+      <div class="mi-explain-title">◆ Why VESTEX Says ${d.decision}</div>
+      <div id="mi-explain-text" style="opacity:0;transition:opacity .6s ease .4s;">${d.explanation}</div>
+    </div>
+
+    <div class="mi-warnings" style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Risks to Watch</div>
+      ${warningsHtml}
+    </div>
+
+    <div style="font-size:9px;color:var(--gray);margin-top:18px;padding-top:12px;border-top:1px solid var(--border);letter-spacing:.5px;">
+      Generated: ${new Date(d.generatedAt).toLocaleString()} · VESTEX Master Intelligence v1.0
+    </div>
+  </div>`;
+}
+
+async function renderMasterSym(sym) {
+  miActiveSym = sym;
+  document.querySelectorAll('.mi-stab').forEach(b=>b.classList.toggle('active', b.dataset.sym===sym));
+  const container = document.getElementById('mi-card-container');
+  container.innerHTML = '<div class="mi-loading">ANALYZING ' + sym + '</div>';
+
+  let data = miCache[sym];
+  if (!data) {
+    try {
+      const res = await fetch(`/api/master-intelligence/${sym}`);
+      const j   = await res.json();
+      if (j.ok) { data = j.data; miCache[sym] = data; }
+      else throw new Error(j.error || 'API error');
+    } catch(e) {
+      container.innerHTML = `<div class="panel" style="padding:28px;"><div style="color:var(--red);font-size:12px;">⚠ ${e.message}</div><div style="font-size:11px;color:var(--gray);margin-top:8px;">Make sure ALPACA_KEY and ALPACA_SECRET are set in Railway.</div></div>`;
+      return;
+    }
+  }
+
+  container.innerHTML = miRenderCard(data);
+
+  // Animate arc after paint
+  requestAnimationFrame(() => {
+    const arc = document.getElementById('mi-arc');
+    const C   = 2*Math.PI*40;
+    if (arc) setTimeout(() => { arc.style.strokeDashoffset = (C * (1 - data.masterScore / 100)).toFixed(1); }, 60);
+
+    // Count-up score
+    const numEl = document.getElementById('mi-score-num');
+    if (numEl) miCountUp(numEl, data.masterScore);
+
+    // Fade in explanation
+    setTimeout(() => {
+      const ex = document.getElementById('mi-explain-text');
+      if (ex) ex.style.opacity = '1';
+    }, 500);
+
+    // Animate breakdown bars
+    document.querySelectorAll('.mi-cat-bar-fill[data-w]').forEach((el, i) => {
+      setTimeout(() => { el.style.width = el.dataset.w + '%'; }, 200 + i * 80);
+    });
+  });
+}
+
+async function renderMasterPage() {
+  // Build symbol tabs
+  const tabsEl = document.getElementById('mi-stabs');
+  tabsEl.innerHTML = MI_SYMS.map(s => `
+    <button class="mi-stab${s===miActiveSym?' active':''}" data-sym="${s}" onclick="renderMasterSym('${s}')">${s}</button>
+  `).join('');
+
+  // Load market health
+  try {
+    const r = await fetch('/api/market-health');
+    const d = await r.json();
+    if (d.ok) {
+      const scoreEl = document.getElementById('mi-health-score');
+      const labelEl = document.getElementById('mi-health-label');
+      const fillEl  = document.getElementById('mi-health-fill');
+      const fgEl    = document.getElementById('mi-health-fg');
+      const vixEl   = document.getElementById('mi-health-vix');
+      const col = d.score>=81?'#22A05A':d.score>=61?'#4aa870':d.score>=41?'#C9A84C':d.score>=21?'#e07b39':'#CC0000';
+      labelEl.textContent = d.label;
+      labelEl.style.color = col;
+      if (fgEl && d.fearGreed)  fgEl.textContent  = `Fear & Greed: ${d.fearGreed.value} — ${d.fearGreed.label}`;
+      if (vixEl && d.vix)       vixEl.textContent  = `VIX: ${d.vix.value} — ${d.vix.signal}`;
+      miCountUp(scoreEl, d.score);
+      setTimeout(() => { fillEl.style.width = d.score + '%'; fillEl.style.background = col; }, 60);
+    }
+  } catch(e) {}
+
+  // Load active symbol
+  renderMasterSym(miActiveSym);
 }
 
 init();

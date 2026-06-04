@@ -2,8 +2,9 @@ const express = require('express');
 const path    = require('path');
 const cron    = require('node-cron');
 const admin   = require('firebase-admin');
-const { runSentimentAnalysis, storeSentiment } = require('./sentiment');
-const { fetchEdgarData, fetchAllEdgarData }    = require('./edgar');
+const { runSentimentAnalysis, storeSentiment }          = require('./sentiment');
+const { fetchEdgarData, fetchAllEdgarData }             = require('./edgar');
+const { buildMasterIntelligence, calcMarketHealth, healthLabel } = require('./masterIntelligence');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -371,6 +372,173 @@ app.get('/api/vix', async (req, res) => {
     // VIX signal: <15 calm, 15-25 normal, 25-35 elevated, >35 extreme fear
     const signal = value < 15 ? 'calm' : value < 25 ? 'normal' : value < 35 ? 'elevated' : 'extreme';
     res.json({ ok: true, value: +value.toFixed(2), chg, date, signal });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  MASTER INTELLIGENCE ENGINE
+// ═══════════════════════════════════════════════════════════
+
+// ── Inline indicator computation (mirrors pipeline.js logic) ──
+function _ema(c, p) {
+  if (c.length < p) return null;
+  const k = 2 / (p + 1);
+  let e = c.slice(0, p).reduce((a, b) => a + b, 0) / p;
+  for (let i = p; i < c.length; i++) e = c[i] * k + e * (1 - k);
+  return +e.toFixed(4);
+}
+function _computeIndicators(bars) {
+  if (!bars || bars.length < 5) return null;
+  const cl = bars.map(b => b.close), vo = bars.map(b => b.volume);
+  const sma7  = cl.length>=7  ? cl.slice(-7).reduce((a,b)=>a+b,0)/7   : null;
+  const sma21 = cl.length>=21 ? cl.slice(-21).reduce((a,b)=>a+b,0)/21 : null;
+  const e12   = _ema(cl,12), e26 = _ema(cl,26);
+  const macd  = e12&&e26 ? +(e12-e26).toFixed(4) : null;
+  let rsi=null;
+  if (cl.length>=15) {
+    let g=0,l=0;
+    for (let i=cl.length-14;i<cl.length;i++){const d=cl[i]-cl[i-1];if(d>0)g+=d;else l-=d;}
+    const ag=g/14,al=l/14; rsi=al===0?100:+(100-100/(1+ag/al)).toFixed(2);
+  }
+  let atr=null;
+  if (bars.length>=15){
+    let sum=0; const r=bars.slice(-15);
+    for(let i=1;i<r.length;i++) sum+=Math.max(r[i].high-r[i].low,Math.abs(r[i].high-r[i-1].close),Math.abs(r[i].low-r[i-1].close));
+    atr=+(sum/14).toFixed(4);
+  }
+  const price=cl[cl.length-1], atrPct=atr&&price?+(atr/price*100).toFixed(2):null;
+  const volSpike=vo.length>=10?vo[vo.length-1]>vo.slice(-10,-1).reduce((a,b)=>a+b,0)/9*1.5:false;
+  let streak=0;
+  if(cl.length>=2){const dir=cl[cl.length-1]>=cl[cl.length-2]?1:-1;streak=1;for(let i=cl.length-2;i>0;i--){if((cl[i]>=cl[i-1]?1:-1)===dir)streak++;else break;}streak*=dir;}
+  return {sma7:sma7?+sma7.toFixed(2):null,sma21:sma21?+sma21.toFixed(2):null,rsi,macd,volSpike,atr,atrPct,streak,score:0};
+}
+
+// ── Caches: Master intelligence (5min), Fear&Greed/VIX (10min) ──
+const _miCache = {}, _miFetchedAt = {};
+let _fgCache = null, _fgAt = 0;
+let _vixCache = null, _vixAt = 0;
+const MI_TTL = 300000, FG_TTL = 600000;
+
+async function _getFearGreed() {
+  if (_fgCache && Date.now() - _fgAt < FG_TTL) return _fgCache;
+  try {
+    const axios = require('axios');
+    const r = await axios.get('https://api.alternative.me/fng/?limit=1', { timeout: 8000 });
+    const d = r.data.data?.[0];
+    _fgCache = d ? { value: parseInt(d.value), label: d.value_classification } : null;
+    _fgAt = Date.now();
+    return _fgCache;
+  } catch(e) { return _fgCache; }
+}
+
+async function _getVix() {
+  if (_vixCache && Date.now() - _vixAt < FG_TTL) return _vixCache;
+  try {
+    const axios = require('axios');
+    const r = await axios.get('https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv', { timeout: 10000 });
+    const lines = r.data.trim().split('\n');
+    const last  = lines[lines.length-1].split(',');
+    _vixCache = { value: +parseFloat(last[4]).toFixed(2), signal: parseFloat(last[4])<15?'calm':parseFloat(last[4])<25?'normal':parseFloat(last[4])<35?'elevated':'extreme' };
+    _vixAt = Date.now();
+    return _vixCache;
+  } catch(e) { return _vixCache; }
+}
+
+// ── API: Master Intelligence — single symbol ──
+app.get('/api/master-intelligence/:symbol', async (req, res) => {
+  const sym  = req.params.symbol.toUpperCase();
+  const key  = process.env.ALPACA_KEY;
+  const sec  = process.env.ALPACA_SECRET;
+  const now  = Date.now();
+
+  // Serve cache if fresh
+  if (_miCache[sym] && now - (_miFetchedAt[sym]||0) < MI_TTL)
+    return res.json({ ok: true, data: _miCache[sym], source: 'cache' });
+
+  if (!key) return res.json({ ok: false, error: 'No Alpaca credentials configured' });
+
+  try {
+    const axios = require('axios');
+
+    // 1. Fetch 40 days of bars → compute indicators
+    const end = new Date(), start = new Date();
+    start.setDate(start.getDate() - 45);
+    const barsResp = await axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`, {
+      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
+      params:  { timeframe:'1Day', start:start.toISOString().split('T')[0], end:end.toISOString().split('T')[0], limit:40, feed:'iex' },
+      timeout: 12000,
+    });
+    const bars = (barsResp.data.bars||[]).map(b=>({close:b.c,high:b.h,low:b.l,open:b.o,volume:b.v}));
+    const indicators = _computeIndicators(bars);
+
+    // 2. Brain analysis
+    let brainResult = null;
+    try {
+      const { runBrainAnalysis } = require('./brain');
+      brainResult = await runBrainAnalysis(indicators || {rsi:null,macd:null,sma7:null,sma21:null,volSpike:false,streak:0,atrPct:null,score:0});
+    } catch(e) { console.warn('[MI] Brain failed:', e.message); }
+
+    // 3. Signal performance
+    let signals = [];
+    try {
+      const { SIGNAL_DEFAULTS, loadSignalPerformanceFull } = require('./signalPerformance');
+      if (pipelineReady) { signals = await loadSignalPerformanceFull(admin.firestore()); }
+      else { signals = Object.entries(SIGNAL_DEFAULTS).map(([id,def])=>({id,label:def.label,totalUses:0,correct:0,accuracy:null,multiplier:1.0})); }
+    } catch(e) {}
+
+    // 4. Sentiment (in-memory cache first)
+    const sentiment = sentimentCache[sym] || null;
+
+    // 5. EDGAR
+    let edgar = null;
+    try { edgar = await fetchEdgarData(sym); } catch(e) {}
+
+    // 6. Macro snapshot — try Firestore latest prediction, else null
+    let macroSnapshot = null;
+    if (pipelineReady) {
+      try {
+        const snap = await admin.firestore().collection('latest_predictions').doc(sym).get();
+        if (snap.exists) macroSnapshot = snap.data()?.macroSnapshot || null;
+      } catch(e) {}
+    }
+
+    // 7. Fear & Greed + VIX (shared caches)
+    const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
+
+    // 8. Build master score
+    const result = buildMasterIntelligence(sym, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
+
+    // 9. Store to Firestore for history tracking
+    if (pipelineReady) {
+      try {
+        const db = admin.firestore();
+        await db.collection('master_intelligence').doc(sym).set(result);
+        await db.collection('master_intelligence_history').add({ ...result, sym });
+      } catch(e) { /* non-critical */ }
+    }
+
+    _miCache[sym]     = result;
+    _miFetchedAt[sym] = now;
+    res.json({ ok: true, data: result, source: 'live' });
+
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// ── API: Market Health — all systems combined ──
+app.get('/api/market-health', async (req, res) => {
+  try {
+    const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
+    let macro = null;
+    if (pipelineReady) {
+      try {
+        const snap = await admin.firestore().collection('latest_predictions').limit(1).get();
+        if (!snap.empty) macro = snap.docs[0].data()?.macroSnapshot || null;
+      } catch(e) {}
+    }
+    const score = calcMarketHealth(macro, fearGreed, vix, Object.keys(sentimentCache).length ? Object.values(sentimentCache)[0] : null);
+    res.json({ ok: true, score, label: healthLabel(score), fearGreed, vix });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
