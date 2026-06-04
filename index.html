@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VESTEX — Luxury Stock Intelligence</title>
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400;1,6..96,700&family=Barlow+Condensed:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="typography.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- Firebase v9 Compat -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -27,7 +27,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{font-size:16px;}
-body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--off);color:var(--dark);display:flex;min-height:100vh;overflow-x:hidden;}
+body{font-family:'Inter',sans-serif;font-weight:400;background:var(--off);color:var(--dark);display:flex;min-height:100vh;overflow-x:hidden;}
 
 /* ── GREEK KEY PATTERN (CSS only) ── */
 .gk {
@@ -83,7 +83,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 
 .idx-block{padding:10px 24px;}
 .idx-lbl{font-size:9px;letter-spacing:2px;color:#444;text-transform:uppercase;margin-bottom:2px;}
-.idx-val{font-family:'Bodoni Moda',serif;font-size:18px;color:#fff;}
+.idx-val{font-family:'JetBrains Mono',monospace;font-size:16px;color:#fff;}
 .idx-chg{font-size:10px;margin-top:1px;}
 
 .sb-bot{padding:18px 24px;border-top:1px solid #222;margin-top:auto;}
@@ -131,7 +131,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
   font-family:'Bodoni Moda',serif;font-size:150px;font-weight:900;
   color:#fff;opacity:.03;letter-spacing:-8px;
 }
-.banner-title{font-family:'Bodoni Moda',serif;font-size:34px;font-weight:700;color:#fff;letter-spacing:1px;}
+.banner-title{font-family:'Manrope',sans-serif;font-size:32px;font-weight:800;color:#fff;letter-spacing:-0.02em;}
 .banner-title em{color:var(--gold);font-style:italic;}
 .banner-sub{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.35);text-transform:uppercase;margin-top:6px;}
 .gold-bar{width:50px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:14px 0;}
@@ -141,7 +141,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 .kpi{background:var(--white);border:1px solid var(--border);padding:20px;position:relative;overflow:hidden;}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--gold));}
 .kpi-lbl{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;}
-.kpi-val{font-family:'Bodoni Moda',serif;font-size:28px;font-weight:700;color:var(--dark);line-height:1;}
+.kpi-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;color:var(--dark);line-height:1;}
 .kpi-note{font-size:10px;margin-top:7px;letter-spacing:.5px;}
 
 /* ── STOCK OVERVIEW BAR ── */
@@ -152,32 +152,32 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 .ov-item.sel{background:var(--cream);}
 .ov-item.sel::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--red);}
 .ov-sym{font-size:10px;font-weight:700;letter-spacing:3px;color:var(--dark);}
-.ov-price{font-family:'Bodoni Moda',serif;font-size:19px;color:var(--dark);margin:3px 0;}
+.ov-price{font-family:'JetBrains Mono',monospace;font-size:17px;color:var(--dark);margin:3px 0;}
 .ov-chg{font-size:10px;letter-spacing:.5px;}
 
 /* ── PANEL ── */
 .panel{background:var(--white);border:1px solid var(--border);margin-bottom:20px;position:relative;overflow:hidden;}
 .panel::after{content:'VX';position:absolute;bottom:10px;right:20px;font-family:'Bodoni Moda',serif;font-size:100px;font-weight:900;color:var(--red);opacity:.02;pointer-events:none;}
 .ph{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.ph-title{font-family:'Bodoni Moda',serif;font-size:15px;font-weight:600;color:var(--dark);letter-spacing:.5px;}
+.ph-title{font-family:'Manrope',sans-serif;font-size:15px;font-weight:700;color:var(--dark);letter-spacing:-0.01em;}
 .ph-sub{font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;margin-top:2px;}
 .pb{padding:22px;}
 
 /* ── PERIOD TABS ── */
 .period-tabs{display:flex;gap:2px;}
-.ptab{padding:4px 10px;font-size:10px;letter-spacing:1px;cursor:pointer;border:none;background:transparent;color:var(--gray);font-family:'Barlow Condensed',sans-serif;transition:all .2s;}
+.ptab{padding:4px 10px;font-size:10px;letter-spacing:1px;cursor:pointer;border:none;background:transparent;color:var(--gray);font-family:'Inter',sans-serif;transition:all .2s;}
 .ptab.active{color:var(--red);font-weight:700;}
 
 /* ── STOCK TABS ── */
 .stabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;}
-.stab{padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--gray);font-family:'Barlow Condensed',sans-serif;transition:all .2s;}
+.stab{padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--gray);font-family:'Inter',sans-serif;transition:all .2s;}
 .stab:hover{border-color:var(--red);color:var(--red);}
 .stab.active{background:var(--red);border-color:var(--red);color:#fff;}
 
 /* ── CHART INFO ── */
 .chart-info{display:flex;gap:28px;margin-bottom:18px;align-items:flex-end;}
 .ci-sym{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:4px;}
-.ci-price{font-family:'Bodoni Moda',serif;font-size:38px;font-weight:700;color:var(--dark);}
+.ci-price{font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:600;color:var(--dark);}
 .ci-chg{font-size:13px;margin-top:4px;}
 
 /* ── TWO COL ── */
@@ -227,11 +227,11 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 
 /* ── ADD BAR ── */
 .add-bar{padding:14px 22px;background:var(--cream);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;}
-.add-sel,.add-inp{padding:9px 12px;border:1px solid var(--border);background:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;color:var(--dark);outline:none;}
+.add-sel,.add-inp{padding:9px 12px;border:1px solid var(--border);background:var(--white);font-family:'Inter',sans-serif;font-size:11px;letter-spacing:1px;color:var(--dark);outline:none;}
 .add-sel:focus,.add-inp:focus{border-color:var(--red);}
 .add-sel{flex:1;}
 .add-inp{width:130px;}
-.btn-add{padding:9px 22px;background:var(--red);color:#fff;border:none;font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:background .2s;white-space:nowrap;}
+.btn-add{padding:9px 22px;background:var(--red);color:#fff;border:none;font-family:'Inter',sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:background .2s;white-space:nowrap;}
 .btn-add:hover{background:var(--red-dark);}
 
 /* ── INFO BOX ── */
@@ -242,7 +242,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 
 /* ── SECTION HEADER ── */
 .sec-hdr{margin-bottom:22px;}
-.sec-title{font-family:'Bodoni Moda',serif;font-size:26px;font-weight:700;color:var(--dark);}
+.sec-title{font-family:'Manrope',sans-serif;font-size:24px;font-weight:800;color:var(--dark);letter-spacing:-0.02em;}
 .sec-title span{color:var(--red);}
 .sec-sub{font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-top:3px;}
 
@@ -265,7 +265,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
   color:#fff;opacity:.03;
 }
 .prog-hero-label{font-size:9px;letter-spacing:4px;color:var(--gold);text-transform:uppercase;margin-bottom:8px;}
-.prog-hero-pct{font-family:'Bodoni Moda',serif;font-size:72px;font-weight:900;color:#fff;line-height:1;}
+.prog-hero-pct{font-family:'JetBrains Mono',monospace;font-size:60px;font-weight:600;color:#fff;line-height:1;letter-spacing:-0.02em;}
 .prog-hero-pct span{font-size:28px;color:var(--gold);}
 .prog-hero-sub{font-size:11px;color:rgba(255,255,255,.35);letter-spacing:1px;margin-top:8px;}
 
@@ -290,7 +290,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 .prog-stat{background:var(--white);border:1px solid var(--border);padding:18px;position:relative;overflow:hidden;}
 .prog-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--gold));}
 .prog-stat-lbl{font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;}
-.prog-stat-val{font-family:'Bodoni Moda',serif;font-size:26px;font-weight:700;color:var(--dark);}
+.prog-stat-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--dark);}
 .prog-stat-note{font-size:10px;color:var(--gray);margin-top:5px;}
 
 .week-row{
@@ -313,7 +313,7 @@ body{font-family:'Barlow Condensed',sans-serif;font-weight:500;background:var(--
 .signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
 .signal-card{background:var(--white);border:1px solid var(--border);padding:18px 20px;}
 .signal-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;font-weight:700;}
-.signal-val{font-family:'Bodoni Moda',serif;font-size:22px;font-weight:700;margin-bottom:4px;}
+.signal-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;margin-bottom:4px;}
 .signal-bar{height:4px;background:var(--border);margin:8px 0;}
 .signal-desc{font-size:11px;color:var(--gray);line-height:1.5;}
 
@@ -358,7 +358,7 @@ canvas{max-height:300px;}
 .mob-nav-item{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:3px;cursor:pointer;color:#666;font-size:8px;letter-spacing:2px;text-transform:uppercase;
-  font-family:'Barlow Condensed',sans-serif;font-weight:600;
+  font-family:'Inter',sans-serif;font-weight:600;
   border-left:1px solid #222;transition:all .2s;
   padding:8px 4px;
 }
@@ -532,7 +532,7 @@ canvas{max-height:300px;}
 .auth-logo-sub{font-size:10px;letter-spacing:5px;color:var(--gold);text-transform:uppercase;margin-top:8px;}
 .auth-gold-bar{width:60px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:28px 0;}
 .auth-tagline{
-  font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:500;
+  font-family:'Inter',sans-serif;font-size:15px;font-weight:500;
   color:rgba(255,255,255,.35);letter-spacing:2px;line-height:1.7;
 }
 .auth-tagline strong{color:rgba(255,255,255,.7);font-weight:700;}
@@ -563,7 +563,7 @@ canvas{max-height:300px;}
 .auth-input{
   width:100%;padding:13px 16px;
   border:1px solid var(--border);background:var(--off);
-  font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:500;
+  font-family:'Inter',sans-serif;font-size:14px;font-weight:500;
   color:var(--dark);outline:none;transition:border .2s;letter-spacing:.5px;
 }
 .auth-input:focus{border-color:var(--red);background:var(--white);}
@@ -572,7 +572,7 @@ canvas{max-height:300px;}
 .auth-btn{
   width:100%;margin-top:24px;padding:14px;
   background:var(--red);color:#fff;border:none;
-  font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:700;
   letter-spacing:4px;text-transform:uppercase;cursor:pointer;
   transition:background .2s;
 }
@@ -588,7 +588,7 @@ canvas{max-height:300px;}
 .auth-google{
   width:100%;padding:12px;
   background:var(--white);border:1px solid var(--border);
-  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
   letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--dark);
   display:flex;align-items:center;justify-content:center;gap:10px;
   transition:border-color .2s;
@@ -619,7 +619,7 @@ canvas{max-height:300px;}
 .logout-btn{
   font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:700;
   color:var(--gray);background:transparent;border:1px solid var(--border);
-  padding:5px 12px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+  padding:5px 12px;cursor:pointer;font-family:'Inter',sans-serif;
   transition:all .2s;
 }
 .logout-btn:hover{border-color:var(--red);color:var(--red);}
@@ -666,8 +666,8 @@ canvas{max-height:300px;}
   padding:5px 14px;margin-bottom:14px;text-transform:uppercase;
 }
 .beta-title{
-  font-family:'Bodoni Moda',serif;font-size:26px;font-weight:900;
-  color:#fff;line-height:1.2;
+  font-family:'Manrope',sans-serif;font-size:24px;font-weight:800;
+  color:#fff;line-height:1.2;letter-spacing:-0.02em;
 }
 .beta-title em{color:var(--gold);font-style:italic;}
 .beta-sub{font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.35);margin-top:6px;text-transform:uppercase;}
@@ -707,7 +707,7 @@ canvas{max-height:300px;}
   padding:18px;margin-bottom:22px;display:flex;align-items:center;gap:16px;
 }
 .beta-money-icon{font-size:32px;}
-.beta-money-title{font-family:'Bodoni Moda',serif;font-size:20px;color:#fff;font-weight:700;}
+.beta-money-title{font-family:'Manrope',sans-serif;font-size:18px;color:#fff;font-weight:700;letter-spacing:-0.01em;}
 .beta-money-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;line-height:1.5;}
 
 .beta-agree{
@@ -718,7 +718,7 @@ canvas{max-height:300px;}
 
 .beta-btn{
   width:100%;padding:14px;background:var(--red);color:#fff;border:none;
-  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
   letter-spacing:4px;text-transform:uppercase;cursor:pointer;
   transition:background .2s;opacity:.5;pointer-events:none;
 }
@@ -745,7 +745,7 @@ canvas{max-height:300px;}
 .fred-card.warn::before{background:var(--gold);}
 .fred-card.neutral::before{background:var(--border);}
 .fc-lbl{font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;}
-.fc-val{font-family:'Bodoni Moda',serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px;}
+.fc-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;line-height:1;margin-bottom:4px;}
 .fc-sig{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
 .fc-desc{font-size:10px;color:var(--gray);line-height:1.55;}
 .fc-bar{height:3px;background:var(--border);margin:10px 0 6px;}
@@ -759,7 +759,7 @@ canvas{max-height:300px;}
 .edgar-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
 .ef-card{background:var(--off);border:1px solid var(--border);padding:14px;}
 .ef-lbl{font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:6px;}
-.ef-val{font-family:'Bodoni Moda',serif;font-size:20px;font-weight:700;}
+.ef-val{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;}
 .ef-src{font-size:8px;color:#bbb;margin-top:4px;}
 .filing-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
 .filing-row:last-child{border-bottom:none;}
@@ -1037,8 +1037,8 @@ canvas{max-height:300px;}
           <div id="mkt-sent-status" style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">◆ LIVE</div>
         </div>
         <div class="pb" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" id="mkt-sent-grid">
-          <div style="text-align:center;padding:10px 0;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">Fear &amp; Greed Index</div><div id="fng-value" style="font-family:'Bodoni Moda',serif;font-size:48px;">—</div><div id="fng-label" style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-top:4px;">Loading...</div></div>
-          <div style="text-align:center;padding:10px 0;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">VIX Volatility Index</div><div id="vix-value" style="font-family:'Bodoni Moda',serif;font-size:48px;">—</div><div id="vix-signal" style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-top:4px;">Loading...</div></div>
+          <div style="text-align:center;padding:10px 0;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">Fear &amp; Greed Index</div><div id="fng-value" style="font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:600;">—</div><div id="fng-label" style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-top:4px;">Loading...</div></div>
+          <div style="text-align:center;padding:10px 0;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">VIX Volatility Index</div><div id="vix-value" style="font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:600;">—</div><div id="vix-signal" style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-top:4px;">Loading...</div></div>
         </div>
       </div>
 
@@ -1806,7 +1806,7 @@ function updateChartStats() {
   const priceStr = st.price != null ? '$'+st.price.toFixed(2) : '—';
   const chgVal = st.chg || 0;
   document.getElementById('chart-stats').innerHTML = `
-    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${priceStr}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;">${priceStr}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Change Today</div><div style="font-size:16px;color:${chgVal>=0?'var(--green)':'var(--red)'};">${chgVal>=0?'▲ +':'▼ '}${Math.abs(chgVal)}%</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's High Price</div><div style="font-size:16px;">${hi}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's Low Price</div><div style="font-size:16px;">${lo}</div></div>
@@ -1840,10 +1840,10 @@ function renderPredsFull() {
         <div class="dir ${p.cls}" style="font-size:13px;padding:7px 16px;">${p.dir}</div>
       </div>
       <div class="pb" style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;">
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${price}</div></div>
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 7 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${priceColor};">$${p.t7}</div></div>
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 30 Days</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;color:${priceColor};">$${p.t30}</div></div>
-        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Confidence Level</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${p.conf}%</div><div class="conf-bar" style="width:100%;margin-top:8px;"><div class="conf-fill" style="width:${p.conf}%"></div></div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Price Right Now</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;">${price}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 7 Days</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;color:${priceColor};">$${p.t7}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Expected in 30 Days</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;color:${priceColor};">$${p.t30}</div></div>
+        <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Confidence Level</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;">${p.conf}%</div><div class="conf-bar" style="width:100%;margin-top:8px;"><div class="conf-fill" style="width:${p.conf}%"></div></div></div>
       </div>
       ${reasonsHtml}
     </div>`;
@@ -1930,7 +1930,7 @@ async function renderProgress() {
       <div class="season-title" style="color:${sTone};">Seasonal Signal — ${month}</div>
       <div class="season-desc">${note} Our model adjusts confidence scores automatically based on 100 years of Dow Jones seasonal data.</div>
     </div>
-    <div style="font-family:'Bodoni Moda',serif;font-size:22px;font-weight:700;color:${sTone};white-space:nowrap;margin-left:auto;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;font-weight:700;color:${sTone};white-space:nowrap;margin-left:auto;">
       ${sw >= 0 ? '+' : ''}${(sw * 10).toFixed(0)} pts
     </div>`;
 
