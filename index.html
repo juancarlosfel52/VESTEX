@@ -27,7 +27,33 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{font-size:16px;}
-body{font-family:'Inter',sans-serif;font-weight:400;background:var(--off);color:var(--dark);display:flex;min-height:100vh;overflow-x:hidden;}
+body{font-family:'Inter',sans-serif;font-weight:400;background:var(--off);color:var(--dark);display:flex;min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s;}
+
+/* ── DARK MODE ── */
+body.dark-mode{
+  --off:#0A0A0A;--white:#111111;--cream:#1A1A1A;
+  --dark:#F0ECE4;--dark2:#0D0D0D;--border:#2C2C2C;--gray:#888;
+}
+body.dark-mode .topbar{background:#0D0D0D;border-color:#2C2C2C;}
+body.dark-mode .sidebar{background:#0D0D0D;}
+body.dark-mode .logo-wrap{border-color:#1A1A1A;}
+body.dark-mode .nav-lbl{color:#333;}
+body.dark-mode .nav-item{color:#555;}
+body.dark-mode .nav-item:hover,body.dark-mode .nav-item.active{color:#fff;}
+body.dark-mode .idx-lbl,body.dark-mode .idx-chg.up,body.dark-mode .idx-chg.dn{opacity:.85;}
+body.dark-mode .sb-bot{border-color:#1A1A1A;}
+body.dark-mode .add-sel,body.dark-mode .add-inp{background:#1A1A1A;color:#F0ECE4;border-color:#2C2C2C;}
+body.dark-mode .auth-wrap{background:#111;}
+body.dark-mode .auth-card{background:#0D0D0D;border-color:#2C2C2C;}
+body.dark-mode .auth-inp{background:#1A1A1A;color:#F0ECE4;border-color:#333;}
+body.dark-mode .beta-disclaimer{background:#0A0A0A;border-color:#2C2C2C;}
+body.dark-mode .beta-disclaimer strong{color:#F0ECE4;}
+
+/* ── CHART GLOW ANIMATION ── */
+@keyframes chartGlowUp{0%,100%{box-shadow:0 0 10px rgba(26,110,69,.3),0 0 30px rgba(26,110,69,.1);}50%{box-shadow:0 0 20px rgba(26,110,69,.65),0 0 55px rgba(26,110,69,.22);}}
+@keyframes chartGlowDn{0%,100%{box-shadow:0 0 10px rgba(204,0,0,.3),0 0 30px rgba(204,0,0,.1);}50%{box-shadow:0 0 20px rgba(204,0,0,.65),0 0 55px rgba(204,0,0,.22);}}
+.chart-glow-up{animation:chartGlowUp 2.8s ease-in-out infinite;}
+.chart-glow-dn{animation:chartGlowDn 2.8s ease-in-out infinite;}
 
 /* ── GREEK KEY PATTERN (CSS only) ── */
 .gk {
@@ -1113,6 +1139,7 @@ canvas{max-height:300px;}
     <div class="tb-right">
       <div id="live-status" style="font-size:9px;letter-spacing:2px;font-weight:700;color:var(--gold);">● CONNECTING...</div>
       <div class="tb-date" id="tb-date"></div>
+      <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" style="background:none;border:1px solid var(--border);color:var(--dark);padding:5px 10px;cursor:pointer;font-size:14px;letter-spacing:0;transition:all .2s;line-height:1;">🌙</button>
       <div class="user-name" id="user-name"></div>
       <button class="logout-btn" onclick="signOut()" style="display:none;" id="logout-btn">Sign Out</button>
       <div class="av" id="user-av">VX</div>
@@ -1660,6 +1687,9 @@ async function buildChart(ctx, sym, per, old) {
 
   const isUp   = (prices[prices.length - 1] >= prices[0]);
   const color  = isUp ? '#1A6E45' : '#CC0000';
+  // Apply glow to canvas
+  ctx.canvas.classList.remove('chart-glow-up','chart-glow-dn');
+  ctx.canvas.classList.add(isUp ? 'chart-glow-up' : 'chart-glow-dn');
   const minP   = Math.min(...prices);
   const maxP   = Math.max(...prices);
   const pad    = (maxP - minP) * 0.08 || 1;
@@ -1732,6 +1762,13 @@ async function buildChart(ctx, sym, per, old) {
 function fmt$(n){ return '$'+Math.abs(n).toFixed(2); }
 function fmtPct(n){ return (n>=0?'+':'')+n.toFixed(1)+'%'; }
 
+// ── THEME TOGGLE ──
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  document.getElementById('theme-toggle').textContent = isDark ? '☀' : '🌙';
+  localStorage.setItem('vestex_theme', isDark ? 'dark' : 'light');
+}
+
 // ═══════════════════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════════════════
@@ -1768,7 +1805,9 @@ function renderTicker() {
     <div class="ti">
       <span class="ti-sym">${s}</span>
       <span class="ti-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</span>
-      <span class="ti-chg ${(st.chg||0)>=0?'up':'dn'}">${(st.chg||0)>=0?'▲':'▼'} ${Math.abs(st.chg||0)}%</span>
+      <span class="ti-chg ${st.chg!=null&&st.chg!==0?(st.chg>=0?'up':'dn'):''}">
+        ${st.chg!=null&&st.chg!==0?(st.chg>=0?'▲ +':'▼ ')+Math.abs(st.chg).toFixed(2)+'%':'—'}
+      </span>
     </div>`).join('');
 }
 
@@ -1780,7 +1819,9 @@ function renderOvBar() {
     <div class="ov-item ${i===0?'sel':''}" onclick="selectDashStock('${s}',this)">
       <div class="ov-sym">${s}</div>
       <div class="ov-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
-      <div class="ov-chg ${(st.chg||0)>=0?'up':'dn'}">${(st.chg||0)>=0?'▲':'▼'} ${Math.abs(st.chg||0)}% today</div>
+      <div class="ov-chg ${st.chg!=null&&st.chg!==0?(st.chg>=0?'up':'dn'):''}">
+        ${st.chg!=null&&st.chg!==0?(st.chg>=0?'▲ +':'▼ ')+Math.abs(st.chg).toFixed(2)+'% today':'<span style="color:#888;font-size:9px;">loading…</span>'}
+      </div>
     </div>`).join('');
 }
 
@@ -2960,7 +3001,12 @@ async function fetchHistory(sym, per) {
         highs.push(+parseFloat(bar.high).toFixed(2));
         lows.push(+parseFloat(bar.low).toFixed(2));
       });
-      if (prices.length >= 2) return { prices, labels, highs, lows };
+      if (prices.length >= 2) {
+        // Derive daily chg from last two bars for overview display
+        const last = prices[prices.length - 1], prev = prices[prices.length - 2];
+        if (prev && STOCKS[sym]) STOCKS[sym].chg = +((last - prev) / prev * 100).toFixed(2);
+        return { prices, labels, highs, lows };
+      }
     }
   } catch(e) { /* fall through */ }
 
@@ -3287,6 +3333,12 @@ async function fetchMarketSentiment() {
 //  INIT
 // ═══════════════════════════════════════════════════════════
 async function init() {
+  // Restore saved theme
+  if (localStorage.getItem('vestex_theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+    document.getElementById('theme-toggle').textContent = '☀';
+  }
+
   const now = new Date();
   document.getElementById('tb-date').textContent = now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('banner-date').textContent = now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
@@ -3317,6 +3369,11 @@ async function init() {
   // Dashboard chart
   const ctx = document.getElementById('dashChart').getContext('2d');
   dashChart = await buildChart(ctx, dashSym, dashPer, null);
+
+  // Batch-fetch history for all symbols to compute real % change
+  Promise.allSettled(
+    Object.keys(STOCKS).filter(s => s !== dashSym).map(s => fetchHistory(s, '1W').catch(() => {}))
+  ).then(() => { renderTicker(); renderOvBar(); });
 
   // Auto-refresh quotes every 60 seconds
   setInterval(async () => {
