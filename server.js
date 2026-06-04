@@ -195,6 +195,30 @@ app.get('/api/signal-performance', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── API: Brain Vault Diagnostics ──
+app.get('/api/brain-diagnostics', async (req, res) => {
+  try {
+    const { runBrainAnalysis } = require('./brain');
+    // Run with empty indicators + no extraContext to get static diagnostics
+    const result = await runBrainAnalysis({
+      rsi: null, macd: null, sma7: null, sma21: null,
+      volSpike: false, streak: 0, atrPct: null, score: 0,
+    });
+    const bv = result.brainVault;
+    res.json({
+      ok: true,
+      activePercent:     bv.diagnostics.activePercent,
+      evaluatedPatterns: bv.diagnostics.evaluatedPatterns,
+      matchedPatterns:   bv.diagnostics.matchedPatterns,
+      loadedPatterns:    bv.diagnostics.loadedPatterns,
+      categoryBreakdown: bv.diagnostics.categoryBreakdown,
+      scoreBreakdown:    bv.scoreBreakdown,
+      regime:            result.regime,
+      runAt:             bv.diagnostics.runAt,
+    });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // ── API: Fear & Greed Index (alternative.me — no key) ──
 app.get('/api/feargreed', async (req, res) => {
   try {

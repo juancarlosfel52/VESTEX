@@ -9,6 +9,7 @@ const admin = require('firebase-admin');
 const { runBrainAnalysis } = require('./brain');
 const { loadSignalWeights, updateSignalPerformance, calcSignalConfAdj } = require('./signalPerformance');
 const { fetchMacroSnapshot } = require('./macro');
+const { fetchEdgarData } = require('./edgar');
 
 const ALPACA_KEY    = process.env.ALPACA_KEY;
 const ALPACA_SECRET = process.env.ALPACA_SECRET;
@@ -480,15 +481,32 @@ async function runPipeline() {
       }
       prediction.signalAdj = sigAdj;
 
+      // ── Fetch symbol-specific context for Brain Vault ──
+      let edgarData   = null;
+      let sentimentData = null;
+      try {
+        edgarData = await fetchEdgarData(symbol);
+      } catch(ee) { /* silent — edgar optional */ }
+      try {
+        const sentSnap = await getDB().collection('sentiment').doc(symbol).get();
+        if (sentSnap.exists) sentimentData = sentSnap.data();
+      } catch(se) { /* silent — sentiment optional */ }
+
       // ── Brain Vault analysis ──
       let brain = null;
       try {
-        brain = await runBrainAnalysis(prediction.indicators);
+        brain = await runBrainAnalysis(prediction.indicators, {
+          symbol,
+          macroSnapshot: fredSnapshot,
+          sentiment:     sentimentData,
+          edgar:         edgarData,
+        });
         // Apply brain confidence adjustment (capped ±10)
         const adj = Math.max(-10, Math.min(10, brain.confidence_adj.total));
         prediction.confidence = Math.max(35, Math.min(90, prediction.confidence + adj));
         prediction.brain = brain;
-        console.log(`[BRAIN] ${symbol}: ${brain.active_patterns.length} patterns | regime:${brain.regime.name} | brain_score:${brain.brain_score} | adj:${adj >= 0 ? '+' : ''}${adj}`);
+        const bv = brain.brainVault;
+        console.log(`[BRAIN] ${symbol}: ${brain.active_patterns.length} patterns active | ${bv?.diagnostics?.activePercent ?? '?'}% vault active | regime:${brain.regime.name} | score:${brain.brain_score} | adj:${adj >= 0 ? '+' : ''}${adj}`);
       } catch(be) {
         console.warn(`[BRAIN] ${symbol} analysis failed:`, be.message);
       }
