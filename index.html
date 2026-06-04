@@ -1828,6 +1828,33 @@ function renderPredsFull() {
           <div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:8px;">◆ Signal Breakdown</div>
           ${sp.reasons.map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:4px;">· ${r}</div>`).join('')}
         </div>` : '';
+    const brain = sp?.brain;
+    const brainHtml = brain ? (() => {
+      const regColor = {fear:'var(--green2)',panic:'var(--green)',cautious:'#e07b39',euphoria:'var(--red)',greed:'var(--gold)',neutral:'var(--gray)'}[brain.regime?.name] || 'var(--gray)';
+      const patternsHtml = (brain.active_patterns||[]).slice(0,5).map(p=>{
+        const pColor = p.direction==='bullish'?'var(--green2)':p.direction==='bearish'?'var(--red)':'var(--gold)';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:11px;color:var(--dark);font-weight:500;">${p.name}</div>
+            <div style="font-size:9px;color:var(--gray);letter-spacing:1px;text-transform:uppercase;">${p.category}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${pColor};">${p.direction.toUpperCase()}</div>
+            ${p.win_rate ? `<div style="font-size:9px;color:var(--gray);">${p.win_rate}% win rate</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      return `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;">◆ Brain Vault Analysis</div>
+          <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:${regColor};">${(brain.regime?.name||'').toUpperCase()} · VIX ${brain.regime?.vix??'—'}</div>
+        </div>
+        ${patternsHtml}
+        ${brain.seasonal ? `<div style="margin-top:8px;padding:8px;background:var(--cream);font-size:11px;color:var(--gray);">
+          <span style="color:var(--dark);font-weight:500;">${brain.seasonal.name}</span> — ${brain.seasonal.note} <span style="font-family:'JetBrains Mono',monospace;color:var(--gray);">(${brain.seasonal.win_rate}% win rate)</span>
+        </div>` : ''}
+      </div>`;
+    })() : '';
     return `<div class="panel" style="margin-bottom:14px;">
       <div class="ph">
         <div style="display:flex;align-items:center;gap:14px;">
@@ -1846,6 +1873,7 @@ function renderPredsFull() {
         <div><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:7px;">Confidence Level</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;">${p.conf}%</div><div class="conf-bar" style="width:100%;margin-top:8px;"><div class="conf-fill" style="width:${p.conf}%"></div></div></div>
       </div>
       ${reasonsHtml}
+      ${brainHtml}
     </div>`;
   }).join('');
 }

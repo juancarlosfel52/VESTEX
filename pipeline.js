@@ -6,6 +6,7 @@
 
 const axios = require('axios');
 const admin = require('firebase-admin');
+const { runBrainAnalysis } = require('./brain');
 
 const ALPACA_KEY    = process.env.ALPACA_KEY;
 const ALPACA_SECRET = process.env.ALPACA_SECRET;
@@ -418,6 +419,20 @@ async function runPipeline() {
       await storeQuote(symbol, quote);
 
       const prediction = generatePrediction(bars, symbol);
+
+      // ── Brain Vault analysis ──
+      let brain = null;
+      try {
+        brain = await runBrainAnalysis(prediction.indicators);
+        // Apply brain confidence adjustment (capped ±10)
+        const adj = Math.max(-10, Math.min(10, brain.confidence_adj.total));
+        prediction.confidence = Math.max(35, Math.min(90, prediction.confidence + adj));
+        prediction.brain = brain;
+        console.log(`[BRAIN] ${symbol}: ${brain.active_patterns.length} patterns | regime:${brain.regime.name} | brain_score:${brain.brain_score} | adj:${adj >= 0 ? '+' : ''}${adj}`);
+      } catch(be) {
+        console.warn(`[BRAIN] ${symbol} analysis failed:`, be.message);
+      }
+
       await storePrediction(symbol, prediction, bars[bars.length - 1].close);
 
       results.push({ symbol, status: 'ok', prediction });
