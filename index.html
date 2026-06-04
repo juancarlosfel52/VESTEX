@@ -1541,8 +1541,8 @@ function renderTicker() {
   document.getElementById('ticker-tape').innerHTML = Object.entries(STOCKS).map(([s,st])=>`
     <div class="ti">
       <span class="ti-sym">${s}</span>
-      <span class="ti-price">$${st.price.toFixed(2)}</span>
-      <span class="ti-chg ${st.chg>=0?'up':'dn'}">${st.chg>=0?'▲':'▼'} ${Math.abs(st.chg)}%</span>
+      <span class="ti-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</span>
+      <span class="ti-chg ${(st.chg||0)>=0?'up':'dn'}">${(st.chg||0)>=0?'▲':'▼'} ${Math.abs(st.chg||0)}%</span>
     </div>`).join('');
 }
 
@@ -1787,12 +1787,14 @@ async function chartPeriod(p, el) {
 
 function updateChartStats() {
   const st  = STOCKS[chartSym];
-  const hi  = st.high  ? '$'+st.high.toFixed(2)  : '$'+(st.price*1.04).toFixed(2);
-  const lo  = st.low   ? '$'+st.low.toFixed(2)   : '$'+(st.price*0.97).toFixed(2);
+  const hi  = st.high  ? '$'+st.high.toFixed(2)  : (st.price ? '$'+(st.price*1.04).toFixed(2) : '—');
+  const lo  = st.low   ? '$'+st.low.toFixed(2)   : (st.price ? '$'+(st.price*0.97).toFixed(2) : '—');
   const vol = st.vol   ? (st.vol/1e6).toFixed(1)+'M shares' : '—';
+  const priceStr = st.price != null ? '$'+st.price.toFixed(2) : '—';
+  const chgVal = st.chg || 0;
   document.getElementById('chart-stats').innerHTML = `
-    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">$${st.price.toFixed(2)}</div></div>
-    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Change Today</div><div style="font-size:16px;color:${st.chg>=0?'var(--green)':'var(--red)'};">${st.chg>=0?'▲ +':'▼ '}${Math.abs(st.chg)}%</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now</div><div style="font-family:'Bodoni Moda',serif;font-size:22px;">${priceStr}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Change Today</div><div style="font-size:16px;color:${chgVal>=0?'var(--green)':'var(--red)'};">${chgVal>=0?'▲ +':'▼ '}${Math.abs(chgVal)}%</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's High Price</div><div style="font-size:16px;">${hi}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's Low Price</div><div style="font-size:16px;">${lo}</div></div>
     <div><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Shares Traded Today</div><div style="font-size:16px;">${vol}</div><div style="font-size:10px;color:var(--gray);">High volume = big news happening</div></div>`;
