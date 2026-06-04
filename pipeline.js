@@ -7,6 +7,8 @@
 const axios = require('axios');
 const admin = require('firebase-admin');
 const { runBrainAnalysis } = require('./brain');
+const { loadSignalWeights, updateSignalPerformance, calcSignalConfAdj } = require('./signalPerformance');
+const { fetchMacroSnapshot } = require('./macro');
 
 const ALPACA_KEY    = process.env.ALPACA_KEY;
 const ALPACA_SECRET = process.env.ALPACA_SECRET;
@@ -166,6 +168,7 @@ function generatePrediction(bars, symbol = null) {
 
   let score = 0;
   const reasons = [];
+  const signalsUsed = [];  // named signal tracker
 
   // ── TREND SIGNALS ──
 
@@ -174,9 +177,11 @@ function generatePrediction(bars, symbol = null) {
     if (sma7 > sma21) {
       score += 2;
       reasons.push('7-day MA above 21-day MA — uptrend active');
+      signalsUsed.push({ name: 'SMA_UPTREND', direction: 'UP' });
     } else {
       score -= 2;
       reasons.push('7-day MA below 21-day MA — downtrend active');
+      signalsUsed.push({ name: 'SMA_DOWNTREND', direction: 'DOWN' });
     }
   }
 
@@ -185,9 +190,11 @@ function generatePrediction(bars, symbol = null) {
     if (macd > 0) {
       score += 1.5;
       reasons.push('MACD positive — momentum favors buyers');
+      signalsUsed.push({ name: 'MACD_BULLISH', direction: 'UP' });
     } else {
       score -= 1.5;
       reasons.push('MACD negative — momentum favors sellers');
+      signalsUsed.push({ name: 'MACD_BEARISH', direction: 'DOWN' });
     }
   }
 
@@ -198,21 +205,27 @@ function generatePrediction(bars, symbol = null) {
     if (rsi < 25) {
       score += 3.5;
       reasons.push(`RSI ${rsi} — deeply oversold, strong bounce signal`);
+      signalsUsed.push({ name: 'RSI_DEEPLY_OVERSOLD', direction: 'UP' });
     } else if (rsi < 35) {
       score += 2.5;
       reasons.push(`RSI ${rsi} — oversold territory, likely bounce`);
+      signalsUsed.push({ name: 'RSI_OVERSOLD', direction: 'UP' });
     } else if (rsi < 45) {
       score += 1;
       reasons.push(`RSI ${rsi} — below midpoint, mild bullish lean`);
+      signalsUsed.push({ name: 'RSI_MILD_BULLISH', direction: 'UP' });
     } else if (rsi > 80) {
       score -= 3.5;
       reasons.push(`RSI ${rsi} — severely overbought, pullback likely`);
+      signalsUsed.push({ name: 'RSI_SEVERELY_OVERBOUGHT', direction: 'DOWN' });
     } else if (rsi > 70) {
       score -= 2.5;
       reasons.push(`RSI ${rsi} — overbought, momentum may stall`);
+      signalsUsed.push({ name: 'RSI_OVERBOUGHT', direction: 'DOWN' });
     } else if (rsi > 60) {
       score -= 1;
       reasons.push(`RSI ${rsi} — above midpoint, mild bearish lean`);
+      signalsUsed.push({ name: 'RSI_MILD_BEARISH', direction: 'DOWN' });
     }
   }
 
@@ -222,15 +235,19 @@ function generatePrediction(bars, symbol = null) {
     if (mom3 > 3) {
       score += 1.5;
       reasons.push(`+${mom3.toFixed(1)}% over 3 days — strong upward momentum`);
+      signalsUsed.push({ name: 'MOMENTUM_STRONG_BULLISH', direction: 'UP' });
     } else if (mom3 > 1) {
       score += 0.5;
       reasons.push(`+${mom3.toFixed(1)}% over 3 days — mild upward momentum`);
+      signalsUsed.push({ name: 'MOMENTUM_MILD_BULLISH', direction: 'UP' });
     } else if (mom3 < -3) {
       score -= 1.5;
       reasons.push(`${mom3.toFixed(1)}% over 3 days — strong downward momentum`);
+      signalsUsed.push({ name: 'MOMENTUM_STRONG_BEARISH', direction: 'DOWN' });
     } else if (mom3 < -1) {
       score -= 0.5;
       reasons.push(`${mom3.toFixed(1)}% over 3 days — mild downward momentum`);
+      signalsUsed.push({ name: 'MOMENTUM_MILD_BEARISH', direction: 'DOWN' });
     }
   }
 
@@ -240,9 +257,11 @@ function generatePrediction(bars, symbol = null) {
     if (score > 0) {
       score += 1;
       reasons.push('Volume spike confirms bullish move');
+      signalsUsed.push({ name: 'VOLUME_SPIKE_BULLISH', direction: 'UP' });
     } else if (score < 0) {
       score -= 1;
       reasons.push('Volume spike confirms bearish move');
+      signalsUsed.push({ name: 'VOLUME_SPIKE_BEARISH', direction: 'DOWN' });
     }
   }
 
@@ -253,11 +272,16 @@ function generatePrediction(bars, symbol = null) {
     const exhaustion = (streak > 0 && rsi !== null && rsi > 65) ||
                        (streak < 0 && rsi !== null && rsi < 35);
     if (exhaustion) {
+      const exDir = streak > 0 ? 'DOWN' : 'UP';
       score -= Math.sign(streak) * 1.5;
       reasons.push(`${Math.abs(streak)}-day streak with extreme RSI — exhaustion likely`);
+      signalsUsed.push({ name: 'STREAK_EXHAUSTION', direction: exDir });
     } else {
+      const contDir = streak > 0 ? 'UP' : 'DOWN';
+      const contName = streak > 0 ? 'STREAK_CONTINUATION_BULL' : 'STREAK_CONTINUATION_BEAR';
       score += Math.sign(streak) * 1;
       reasons.push(`${Math.abs(streak)}-day streak — strong trend continuation signal`);
+      signalsUsed.push({ name: contName, direction: contDir });
     }
   }
 
@@ -329,6 +353,7 @@ function generatePrediction(bars, symbol = null) {
       score:    +score.toFixed(2),
     },
     reasons,
+    signalsUsed,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -390,12 +415,21 @@ async function verifyPredictions() {
       (pred.direction === 'DOWN' && actualPct < -0.5) ||
       (pred.direction === 'FLAT' && Math.abs(actualPct) <= 0.5);
 
+    // Determine actual market direction for signal learning
+    const actualDirection = actualPct > 0.5 ? 'UP' : actualPct < -0.5 ? 'DOWN' : 'FLAT';
+
     await ref.update({
       checkedAt:   new Date().toISOString(),
       actualPct:   +actualPct.toFixed(2),
       actualPrice: current,
       wasCorrect,
     });
+
+    // Feed signal performance tracker (include regime from stored brain data)
+    if (pred.signalsUsed && pred.signalsUsed.length) {
+      const regime = pred.brain?.regime?.name || null;
+      await updateSignalPerformance(getDB(), pred.signalsUsed, actualDirection, symbol, regime);
+    }
 
     console.log(`[VERIFY] ${symbol} ${pred.direction} → actual ${actualPct.toFixed(2)}% → ${wasCorrect ? 'CORRECT ✓' : 'WRONG ✗'}`);
   }
@@ -407,6 +441,24 @@ async function verifyPredictions() {
 async function runPipeline() {
   console.log(`[PIPELINE] Starting — ${new Date().toISOString()}`);
   const results = [];
+
+  // ── Fetch macro snapshot once — shared across all symbols ──
+  // Brain regime (F&G + VIX) will be merged in after brain analysis below
+  let fredSnapshot = null;
+  try {
+    fredSnapshot = await fetchMacroSnapshot(null); // regime filled in per-symbol below
+    console.log(`[MACRO] Snapshot captured — FRED:${process.env.FRED_API_KEY ? 'yes' : 'no'}`);
+  } catch(me) {
+    console.warn(`[MACRO] Snapshot failed:`, me.message);
+  }
+
+  // Signal weights — load once, reuse for all symbols
+  let sigWeights = {};
+  try {
+    sigWeights = await loadSignalWeights(getDB());
+  } catch(se) {
+    console.warn(`[SIGNALS] Weight load failed:`, se.message);
+  }
 
   for (const symbol of SYMBOLS) {
     try {
@@ -420,6 +472,14 @@ async function runPipeline() {
 
       const prediction = generatePrediction(bars, symbol);
 
+      // ── Signal performance adjustment ──
+      const sigAdj = calcSignalConfAdj(prediction.signalsUsed, sigWeights);
+      if (sigAdj !== 0) {
+        prediction.confidence = Math.max(35, Math.min(90, prediction.confidence + sigAdj));
+        console.log(`[SIGNALS] ${symbol}: signal adj ${sigAdj >= 0 ? '+' : ''}${sigAdj} → conf ${prediction.confidence}%`);
+      }
+      prediction.signalAdj = sigAdj;
+
       // ── Brain Vault analysis ──
       let brain = null;
       try {
@@ -431,6 +491,16 @@ async function runPipeline() {
         console.log(`[BRAIN] ${symbol}: ${brain.active_patterns.length} patterns | regime:${brain.regime.name} | brain_score:${brain.brain_score} | adj:${adj >= 0 ? '+' : ''}${adj}`);
       } catch(be) {
         console.warn(`[BRAIN] ${symbol} analysis failed:`, be.message);
+      }
+
+      // ── Macro snapshot — merge FRED data with brain regime ──
+      if (fredSnapshot) {
+        prediction.macroSnapshot = {
+          ...fredSnapshot,
+          fearGreed: brain?.regime?.fng  ? { value: brain.regime.fng.value, label: brain.regime.fng.label } : { value: null, label: null },
+          vix:       brain?.regime?.vix  != null ? { value: brain.regime.vix } : { value: null },
+          regime:    brain?.regime?.name || null,
+        };
       }
 
       await storePrediction(symbol, prediction, bars[bars.length - 1].close);

@@ -179,6 +179,22 @@ app.get('/api/edgar', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── API: Signal Performance Leaderboard (with per-regime breakdown) ──
+app.get('/api/signal-performance', async (req, res) => {
+  try {
+    const { SIGNAL_DEFAULTS, loadSignalPerformanceFull } = require('./signalPerformance');
+    if (!pipelineReady) {
+      // Return seeded defaults with empty regimes when pipeline not ready
+      const signals = Object.entries(SIGNAL_DEFAULTS).map(([id, def]) => ({
+        id, label: def.label, totalUses: 0, correct: 0, accuracy: null, multiplier: 1.0, regimes: {},
+      }));
+      return res.json({ ok: true, signals });
+    }
+    const signals = await loadSignalPerformanceFull(admin.firestore());
+    res.json({ ok: true, signals });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // ── API: Fear & Greed Index (alternative.me — no key) ──
 app.get('/api/feargreed', async (req, res) => {
   try {
