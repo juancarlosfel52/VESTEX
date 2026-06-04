@@ -1553,8 +1553,8 @@ function renderOvBar() {
   document.getElementById('ov-bar').innerHTML = Object.entries(STOCKS).map(([s,st],i)=>`
     <div class="ov-item ${i===0?'sel':''}" onclick="selectDashStock('${s}',this)">
       <div class="ov-sym">${s}</div>
-      <div class="ov-price">$${st.price.toFixed(2)}</div>
-      <div class="ov-chg ${st.chg>=0?'up':'dn'}">${st.chg>=0?'▲':'▼'} ${Math.abs(st.chg)}% today</div>
+      <div class="ov-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
+      <div class="ov-chg ${(st.chg||0)>=0?'up':'dn'}">${(st.chg||0)>=0?'▲':'▼'} ${Math.abs(st.chg||0)}% today</div>
     </div>`).join('');
 }
 
@@ -1564,10 +1564,11 @@ async function selectDashStock(sym, el) {
   dashSym = sym;
   const st = STOCKS[sym];
   document.getElementById('d-sym-lbl').textContent = sym+' — '+st.name.toUpperCase();
-  document.getElementById('d-price').textContent = '$'+st.price.toFixed(2);
-  const dc = (st.price * st.chg / 100).toFixed(2);
-  document.getElementById('d-chg').textContent = (st.chg>=0?'▲ +$':'▼ −$')+Math.abs(dc)+' today ('+fmtPct(st.chg)+')';
-  document.getElementById('d-chg').className = 'ci-chg '+(st.chg>=0?'up':'dn');
+  document.getElementById('d-price').textContent = st.price != null ? '$'+st.price.toFixed(2) : '—';
+  const chg = st.chg || 0;
+  const dc = st.price ? (st.price * chg / 100).toFixed(2) : '0.00';
+  document.getElementById('d-chg').textContent = (chg>=0?'▲ +$':'▼ −$')+Math.abs(dc)+' today ('+fmtPct(chg)+')';
+  document.getElementById('d-chg').className = 'ci-chg '+(chg>=0?'up':'dn');
   const ctx = document.getElementById('dashChart').getContext('2d');
   dashChart = await buildChart(ctx, sym, dashPer, dashChart);
 }
@@ -2056,7 +2057,7 @@ function renderPortfolio() {
       <div><div class="pt-sym">${p.sym}</div><div class="pt-co">${st.name}</div></div>
       <div class="pt-c">${p.shares} shares</div>
       <div class="pt-c">$${p.buy.toFixed(2)}</div>
-      <div class="pt-c">$${st.price.toFixed(2)}</div>
+      <div class="pt-c">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
       <div class="pt-c">$${pinv.toFixed(2)}</div>
       <div class="pt-c ${ppnl>=0?'win':'lose'}">${ppnl>=0?'+':'-'}$${Math.abs(ppnl).toFixed(2)}<br><span style="font-size:10px;">(${ppnl>=0?'+':''}${ppct}%)</span></div>
       <button class="pt-rm" onclick="removeStock(${i})">×</button>
