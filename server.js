@@ -645,6 +645,114 @@ app.get('/api/market-health', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ═══════════════════════════════════════════════════════════
+//  LIVE PATTERN PREDICTION
+//  Full formula: LPMS × historicalWinRate × returnQuality ×
+//  regimeCompatibility × dataConfidence → Consensus Score
+// ═══════════════════════════════════════════════════════════
+
+// Per-symbol cache — 5min TTL (same as master intelligence)
+const _lpCache = {}, _lpFetchedAt = {};
+const LP_TTL   = 300000;
+
+app.get('/api/live-prediction/:symbol', async (req, res) => {
+  const sym = req.params.symbol.toUpperCase();
+  const key = process.env.ALPACA_KEY;
+  const sec = process.env.ALPACA_SECRET;
+  const now = Date.now();
+
+  // Serve cache if fresh
+  if (_lpCache[sym] && now - (_lpFetchedAt[sym] || 0) < LP_TTL) {
+    return res.json({ ok: true, data: _lpCache[sym], source: 'cache' });
+  }
+
+  if (!key) return res.json({ ok: false, error: 'No Alpaca credentials configured' });
+
+  try {
+    const axios = require('axios');
+
+    // 1. Fetch up to 1 year of bars for chart structure analysis
+    const endDt   = new Date();
+    const startDt = new Date();
+    startDt.setFullYear(startDt.getFullYear() - 1);
+
+    const barsResp = await axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`, {
+      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
+      params:  { timeframe: '1Day', start: startDt.toISOString().split('T')[0], end: endDt.toISOString().split('T')[0], limit: 252, feed: 'iex' },
+      timeout: 15000,
+    });
+    const bars = (barsResp.data.bars || []).map(b => ({
+      close: b.c, high: b.h, low: b.l, open: b.o, volume: b.v, time: b.t,
+    }));
+    const indicators = _computeIndicators(bars);
+
+    // 2. Brain analysis (with macro + sentiment context)
+    let brainResult = null;
+    try {
+      const { runBrainAnalysis } = require('./brain');
+      brainResult = await runBrainAnalysis(
+        indicators || { rsi: null, macd: null, sma7: null, sma21: null, volSpike: false, streak: 0, atrPct: null, score: 0 },
+        { symbol: sym, macroSnapshot: null, sentiment: sentimentCache[sym] || null, edgar: null }
+      );
+    } catch(e) { console.warn('[LP] Brain failed:', e.message); }
+
+    // 3. Signal performance
+    let signals = [];
+    try {
+      const { SIGNAL_DEFAULTS, loadSignalPerformanceFull } = require('./signalPerformance');
+      signals = pipelineReady
+        ? await loadSignalPerformanceFull(admin.firestore())
+        : Object.entries(SIGNAL_DEFAULTS).map(([id, def]) => ({ id, label: def.label, totalUses: 0, correct: 0, accuracy: null }));
+    } catch(e) {}
+
+    // 4. Sentiment (memory cache)
+    const sentiment = sentimentCache[sym] || null;
+
+    // 5. EDGAR
+    let edgar = null;
+    try { edgar = await fetchEdgarData(sym); } catch(e) {}
+
+    // 6. Macro snapshot (from Firestore latest prediction)
+    let macroSnapshot = null;
+    if (pipelineReady) {
+      try {
+        const snap = await admin.firestore().collection('latest_predictions').doc(sym).get();
+        if (snap.exists) macroSnapshot = snap.data()?.macroSnapshot || null;
+      } catch(e) {}
+    }
+
+    // 7. Fear & Greed + VIX (shared cache)
+    const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
+
+    // 8. Master intelligence scores (pass as hints for more accurate consensus)
+    const miResult = buildMasterIntelligence(sym, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
+
+    // 9. Build live prediction
+    const { buildLivePrediction } = require('./livePatternMatcher');
+    const result = buildLivePrediction(
+      sym, bars, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix,
+      miResult?.scoreBreakdown || null
+    );
+
+    // Attach master intelligence score for UI context
+    result.masterIntelligence = {
+      masterScore:  miResult.masterScore,
+      decision:     miResult.decision,
+      marketHealth: miResult.marketHealth,
+      scoreBreakdown: miResult.scoreBreakdown,
+    };
+
+    _lpCache[sym]     = result;
+    _lpFetchedAt[sym] = now;
+
+    res.json({ ok: true, data: result, source: 'live' });
+
+  } catch(e) {
+    console.error('[LP] Error:', e.message);
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // ── Serve frontend ──
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
