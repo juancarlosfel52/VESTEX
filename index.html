@@ -366,6 +366,30 @@ body.dark-mode .beta-disclaimer strong{color:#F0ECE4;}
 .lp-conflict{padding:7px 10px;margin-bottom:6px;font-size:10px;color:#e07b39;background:rgba(224,123,57,.05);border-left:2px solid #e07b39;}
 @media(max-width:640px){.lp-scores{grid-template-columns:repeat(2,1fr);}}
 
+/* ── SMART HELP TOOLTIPS ── */
+.sh-btn{width:18px;height:18px;border-radius:50%;background:none;border:1px solid var(--gold);color:var(--gold);font-size:9px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;flex-shrink:0;font-family:'JetBrains Mono',monospace;vertical-align:middle;margin-left:6px;}
+.sh-btn:hover{background:var(--gold);color:#000;transform:scale(1.15);}
+.sh-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;}
+.sh-overlay.open{opacity:1;pointer-events:all;}
+.sh-card{background:var(--white);border:1px solid var(--border);max-width:440px;width:90%;padding:28px 28px 16px;position:relative;transform:scale(.93) translateY(10px);transition:transform .25s cubic-bezier(.22,1,.36,1),opacity .25s;opacity:0;box-shadow:0 20px 60px rgba(0,0,0,.22);outline:none;}
+.sh-overlay.open .sh-card{transform:scale(1) translateY(0);opacity:1;}
+.sh-card-bar{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--gold));}
+.sh-close{position:absolute;top:10px;right:12px;background:none;border:none;font-size:14px;color:var(--gray);cursor:pointer;line-height:1;padding:4px 6px;transition:color .15s;}
+.sh-close:hover{color:var(--dark);}
+.sh-title{font-family:'Manrope',sans-serif;font-size:15px;font-weight:800;letter-spacing:.3px;color:var(--dark);margin-bottom:2px;}
+.sh-subtitle{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:14px;font-weight:700;}
+.sh-body{font-size:12px;color:var(--gray);line-height:1.75;margin-bottom:12px;}
+.sh-bullets{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.sh-bullet{display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--dark);line-height:1.5;}
+.sh-bullet-dot{color:var(--gold);font-size:9px;margin-top:3px;flex-shrink:0;}
+.sh-tip{background:var(--cream);border-left:2px solid var(--gold);padding:8px 12px;font-size:10px;color:var(--gray);line-height:1.6;margin-bottom:14px;}
+.sh-tip strong{color:var(--dark);}
+.sh-prog-wrap{height:2px;background:var(--border);}
+.sh-prog-bar{height:100%;background:linear-gradient(90deg,var(--red),var(--gold));transform-origin:left;transform:scaleX(1);}
+body.dark-mode .sh-card{background:#111;border-color:#2C2C2C;}
+body.dark-mode .sh-tip{background:#1A1A1A;}
+@media(prefers-reduced-motion:reduce){.sh-card,.sh-prog-bar{transition:none!important;}.sh-btn:hover{transform:none;}}
+
 /* ── NEWS ── */
 .news-item{padding:14px 22px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:4px 1fr auto;gap:14px;align-items:start;}
 .news-item:last-child{border-bottom:none;}
@@ -1283,7 +1307,7 @@ canvas{max-height:300px;}
     <div class="tb-right">
       <div id="live-status" style="font-size:9px;letter-spacing:2px;font-weight:700;color:var(--gold);">● CONNECTING...</div>
       <div class="tb-date" id="tb-date"></div>
-      <button onclick="verifyLiveQuotes()" title="Audit live quote accuracy" style="background:none;border:1px solid var(--border);color:var(--gray);padding:5px 11px;cursor:pointer;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;transition:all .2s;font-family:'Inter',sans-serif;">◈ Verify Live Quotes</button>
+      <button onclick="verifyLiveQuotes()" title="Audit live quote accuracy" style="background:none;border:1px solid var(--border);color:var(--gray);padding:5px 11px;cursor:pointer;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;transition:all .2s;font-family:'Inter',sans-serif;">◈ Verify Live Quotes</button><button class="sh-btn" onclick="showSmartHelp('verify_quotes')" aria-label="Help: Verify Quotes" style="margin-left:4px;">?</button>
       <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" style="background:none;border:1px solid var(--border);color:var(--dark);padding:5px 10px;cursor:pointer;font-size:14px;letter-spacing:0;transition:all .2s;line-height:1;">🌙</button>
       <div class="user-name" id="user-name"></div>
       <button class="logout-btn" onclick="signOut()" style="display:none;" id="logout-btn">Sign Out</button>
@@ -1312,7 +1336,7 @@ canvas{max-height:300px;}
 
       <div class="panel">
         <div class="ph">
-          <div><div class="ph-title">Price History</div><div class="ph-sub">How the price has moved over time</div></div>
+          <div style="display:flex;align-items:center;"><div><div class="ph-title">Price History</div><div class="ph-sub">How the price has moved over time</div></div><button class="sh-btn" onclick="showSmartHelp('price_chart')" aria-label="Help: Price History">?</button></div>
           <div style="display:flex;gap:16px;align-items:center;">
             <div class="period-tabs" id="dash-ptabs">
               <button class="ptab active" onclick="dashPeriod('1W',this)">1W</button>
@@ -1349,7 +1373,7 @@ canvas{max-height:300px;}
       <!-- Fear & Greed + VIX -->
       <div class="panel" style="margin-bottom:20px;">
         <div class="ph">
-          <div><div class="ph-title">Market Sentiment</div><div class="ph-sub">Fear & Greed Index + VIX Volatility — live, no API key required</div></div>
+          <div style="display:flex;align-items:center;"><div><div class="ph-title">Market Sentiment</div><div class="ph-sub">Fear & Greed Index + VIX Volatility — live, no API key required</div></div><button class="sh-btn" onclick="showSmartHelp('market_health')" aria-label="Help: Market Sentiment">?</button></div>
           <div id="mkt-sent-status" style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">◆ LIVE</div>
         </div>
         <div class="pb" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" id="mkt-sent-grid">
@@ -1360,7 +1384,7 @@ canvas{max-height:300px;}
 
       <div class="panel" style="margin-bottom:20px;">
         <div class="ph">
-          <div><div class="ph-title">Macro Conditions</div><div class="ph-sub">Live Federal Reserve economic data — signals behind your predictions</div></div>
+          <div style="display:flex;align-items:center;"><div><div class="ph-title">Macro Conditions</div><div class="ph-sub">Live Federal Reserve economic data — signals behind your predictions</div></div><button class="sh-btn" onclick="showSmartHelp('macro_conditions')" aria-label="Help: Macro Conditions">?</button></div>
           <div id="fred-status" style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">◆ FRED API</div>
         </div>
         <div class="pb">
@@ -1441,7 +1465,7 @@ canvas{max-height:300px;}
 
     <!-- ═══ PORTFOLIO PAGE ═══ -->
     <div class="page" id="page-portfolio">
-      <div class="sec-hdr"><div class="sec-title">My <span>Portfolio</span></div><div class="sec-sub">◆ All the stocks you own in one place</div></div>
+      <div class="sec-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;"><div><div class="sec-title">My <span>Portfolio</span></div><div class="sec-sub">◆ All the stocks you own in one place</div></div><button class="sh-btn" onclick="showSmartHelp('portfolio_kpis')" aria-label="Help: Portfolio" style="width:22px;height:22px;font-size:11px;">?</button></div>
       <div id="pi-container" style="display:none;margin-bottom:24px;"></div>
       <div class="kpi-3">
         <div class="kpi"><div class="kpi-lbl">Total Money Invested</div><div class="kpi-val" id="p-invested">$0.00</div></div>
@@ -1627,7 +1651,7 @@ canvas{max-height:300px;}
       <!-- Market Health -->
       <div class="mi-health-bar" id="mi-health-bar">
         <div>
-          <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:4px;">Market Health</div>
+          <div style="display:flex;align-items:center;gap:6px;"><div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);">Market Health</div><button class="sh-btn" onclick="showSmartHelp('market_health')" aria-label="Help: Market Health">?</button></div>
           <div class="mi-health-score" id="mi-health-score">—</div>
           <div style="font-size:9px;color:var(--gray);margin-top:2px;">/ 100</div>
         </div>
@@ -2293,7 +2317,7 @@ function renderPredsFull() {
       }).join('');
       return `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;">◆ Brain Vault Analysis</div>
+          <div style="display:flex;align-items:center;gap:6px;"><div style="font-size:8px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;">◆ Brain Vault Analysis</div><button class="sh-btn" onclick="showSmartHelp('brain_vault')" aria-label="Help: Brain Vault">?</button></div>
           <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:${regColor};">${(brain.regime?.name||'').toUpperCase()} · VIX ${brain.regime?.vix??'—'}</div>
         </div>
         ${patternsHtml}
@@ -2347,7 +2371,7 @@ function renderPredsFull() {
         <div style="display:flex;align-items:center;gap:14px;">
           <div style="width:44px;height:44px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:1px;color:var(--red);">${s}</div>
           <div>
-            <div class="ph-title">${st.name}</div>
+            <div style="display:flex;align-items:center;"><div class="ph-title">${st.name}</div><button class="sh-btn" onclick="showSmartHelp('prediction_card')" aria-label="Help: Prediction Card">?</button></div>
             <div class="ph-sub">${genAt ? `◆ Updated ${genAt}` : st.desc}</div>
           </div>
         </div>
@@ -2364,6 +2388,7 @@ function renderPredsFull() {
       ${macroHtml}
       <div class="lp-trigger">
         <button class="lp-btn" id="lp-btn-${s}" onclick="fetchLivePrediction('${s}')">◆ Run Live Pattern Analysis</button>
+        <button class="sh-btn" onclick="showSmartHelp('live_prediction')" aria-label="Help: Live Pattern Analysis">?</button>
         <div style="font-size:9px;color:var(--gray);">Match current live data against historical patterns · ~3 sec</div>
       </div>
       <div class="lp-wrap" id="lp-wrap-${s}"></div>
@@ -3033,7 +3058,7 @@ function renderPortfolioIntelligence() {
 
   el.innerHTML = `
     <div class="pi-section-hdr">
-      <div class="pi-section-title">Portfolio Intelligence</div>
+      <div style="display:flex;align-items:center;gap:8px;"><div class="pi-section-title">Portfolio Intelligence</div><button class="sh-btn" onclick="showSmartHelp('portfolio_intel')" aria-label="Help: Portfolio Intelligence">?</button></div>
       <div class="pi-section-badge">◆ AI-Powered Analysis</div>
     </div>
 
@@ -3913,7 +3938,7 @@ function miRenderCard(d) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
       <div>
         <div style="font-size:10px;font-weight:700;letter-spacing:3px;color:var(--gray);text-transform:uppercase;">${d.symbol}</div>
-        <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;color:var(--dark);">${STOCKS[d.symbol]?.name || d.symbol}</div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;color:var(--dark);">${STOCKS[d.symbol]?.name || d.symbol}</div><button class="sh-btn" onclick="showSmartHelp('master_intelligence')" aria-label="Help: Master Intelligence">?</button></div>
       </div>
       <div style="text-align:right;">
         <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--dark);">${priceStr}</div>
@@ -4186,7 +4211,162 @@ async function verifyLiveQuotes() {
     </table>`;
   document.getElementById('vq-ts').textContent = `Verified at: ${verifiedAt}  ·  Status = server cache age (trade age is informational only — old outside market hours is normal)`;
 }
+
+// ═══════════════════════════════════════════════════════════
+//  SMART HELP TOOLTIPS
+// ═══════════════════════════════════════════════════════════
+const HELP_CONTENT = {
+  price_chart: {
+    title: 'Price History Chart',
+    subtitle: 'How stock prices move over time',
+    body: 'This chart shows how the price of a stock has moved over your selected time window. Each point represents a day\'s closing price — the final price before the market closed.',
+    bullets: ['Green means price went up that day','Red means price went down','The trend line shows where prices are heading','Use 1W for short-term, 1Y for the big picture'],
+    tip: '<strong>Beginner Tip:</strong> Short-term dips are totally normal. What matters most is the direction over weeks — not hours.'
+  },
+  master_intelligence: {
+    title: 'Master Intelligence Score',
+    subtitle: 'Every system · one score · one decision',
+    body: 'Master Intelligence combines 7 separate analysis systems into one weighted number. It looks at technical indicators, economic data, news sentiment, historical patterns, company filings, and live market behavior.',
+    bullets: ['65–100 = Bullish — most systems pointing up','45–64 = Neutral — wait for more clarity','0–44 = Bearish — caution or reduce exposure','All 7 must broadly agree to hit the extremes'],
+    tip: '<strong>Beginner Tip:</strong> A score of 72 means most signals point upward — but no score is ever a guarantee. Always use it as a guide.'
+  },
+  market_health: {
+    title: 'Market Health Index',
+    subtitle: 'How healthy is the stock market right now',
+    body: 'Market Health (0–100) measures the overall investment environment. It factors in the VIX fear index, Fear & Greed reading, yield curve shape, and economic stress indicators from the Federal Reserve.',
+    bullets: ['80–100 = Very healthy — favorable for stocks','60–79 = Normal — markets functioning well','40–59 = Caution — uncertainty is elevated','0–39 = Stress — protect your capital first'],
+    tip: '<strong>Beginner Tip:</strong> Even in stressed markets, individual great stocks can rise. Market Health tells you how much extra risk the environment adds on top.'
+  },
+  portfolio_kpis: {
+    title: 'Portfolio Overview Cards',
+    subtitle: 'Your money at a glance',
+    body: 'These three cards show a snapshot of your entire portfolio right now — how much you put in, what it\'s worth today, and whether you\'re ahead or behind.',
+    bullets: ['Total Invested = the cash you originally spent','Current Value = what those shares are worth today','Profit / Loss = the difference (green = winning)','Click the Invested cell in the table to correct your cost'],
+    tip: '<strong>Beginner Tip:</strong> Profit and Loss only matter when you sell. A paper loss today can easily become a gain next month — don\'t panic.'
+  },
+  portfolio_intel: {
+    title: 'Portfolio Intelligence',
+    subtitle: 'AI analysis of your specific holdings',
+    body: 'Portfolio Intelligence analyzes only the stocks you actually own and surfaces prediction signals most relevant to your positions — not the whole market.',
+    bullets: ['Ranks your holdings by bullish vs bearish outlook','Highlights stocks with the most signal disagreement','Flags if too much of your money is in one sector','Updates automatically when predictions refresh'],
+    tip: '<strong>Beginner Tip:</strong> If all your stocks are in tech, a tech crash could wipe out the whole portfolio at once. Spreading across sectors reduces that risk.'
+  },
+  brain_vault: {
+    title: 'Brain Vault Patterns',
+    subtitle: 'Historical patterns matched against live data',
+    body: 'The Brain Vault contains 125+ patterns built from decades of stock market data. When today\'s price behavior resembles a historical pattern, it fires and adds its weight to the prediction.',
+    bullets: ['Each pattern has a real historical win rate','Bullish patterns favor buying, bearish favor caution','Seasonal patterns track time-of-year effects (like "Sell in May")','The market regime (fear vs greed) adjusts each pattern\'s weight'],
+    tip: '<strong>Beginner Tip:</strong> No single pattern is reliable alone. The system looks for multiple patterns firing together before making a strong call.'
+  },
+  live_prediction: {
+    title: 'Live Pattern Analysis',
+    subtitle: 'Real-time scoring against today\'s market data',
+    body: 'When you click Run Live Pattern Analysis, VESTEX fetches 252 bars of live price data, recalculates all technical indicators, and scores every known pattern against the current market state.',
+    bullets: ['LPMS = Live Pattern Match Score (0–10 per pattern)','Consensus Score = all 7 systems combined (0–100)','Conflicts = when two systems strongly disagree','Decision = the final call: BUY / HOLD / SELL / WAIT'],
+    tip: '<strong>Beginner Tip:</strong> A HOLD result isn\'t bad — it means the system sees no clear edge right now. Patience is a legitimate strategy.'
+  },
+  verify_quotes: {
+    title: 'Verify Live Quotes',
+    subtitle: 'Audit the accuracy of your price data',
+    body: 'This tool opens an audit panel showing every stock\'s current price, where it came from, how fresh the data is, and whether the price shown in VESTEX matches what the server fetched.',
+    bullets: ['Cache Age = how old the stored price is on the server','Trade Age = how long since the last actual trade','Old trade age outside market hours is completely normal','Red status = data may be stale or unavailable'],
+    tip: '<strong>Beginner Tip:</strong> After 4pm ET (market close), prices won\'t update until the next trading day. That\'s expected — not a bug.'
+  },
+  macro_conditions: {
+    title: 'Macro Conditions Panel',
+    subtitle: 'Federal Reserve economic data behind your predictions',
+    body: 'Macro Conditions shows live data from the Federal Reserve\'s FRED database — the same economic signals professional fund managers check every morning.',
+    bullets: ['Yield Curve < 0 = inverted (historically precedes recessions)','VIX > 25 = elevated fear, expect more price swings','Sahm Rule triggered = unemployment rising dangerously fast','These signals automatically reduce prediction confidence'],
+    tip: '<strong>Beginner Tip:</strong> You don\'t need to understand every indicator. VESTEX reads them all and adjusts the confidence score for you automatically.'
+  },
+  prediction_card: {
+    title: 'Prediction Card',
+    subtitle: 'What VESTEX thinks will happen to this stock',
+    body: 'Each card shows the current price, 7-day and 30-day price targets, a confidence percentage, and the exact signals that drove the decision — all generated by the live prediction engine.',
+    bullets: ['Higher confidence = more systems pointing the same way','7-day target = short-term price estimate','30-day target = medium-term outlook','Signal Breakdown = the specific reasons for this prediction','Brain Vault = historical pattern matches that contributed'],
+    tip: '<strong>Beginner Tip:</strong> A 65% confidence prediction is not 65% accurate — it means the model is moderately sure. Use it as one input, not the only input.'
+  }
+};
+
+let _shTimer = null;
+const _SH_DURATION = 90000;
+
+function showSmartHelp(topicKey) {
+  const c = HELP_CONTENT[topicKey];
+  if (!c) return;
+  document.getElementById('sh-card-title').textContent    = c.title;
+  document.getElementById('sh-card-subtitle').textContent = c.subtitle;
+  document.getElementById('sh-card-body').textContent     = c.body;
+  document.getElementById('sh-card-bullets').innerHTML    = c.bullets.map(b=>
+    `<div class="sh-bullet"><span class="sh-bullet-dot">◆</span><span>${b}</span></div>`
+  ).join('');
+  const tipEl = document.getElementById('sh-card-tip');
+  if (c.tip) { tipEl.innerHTML = c.tip; tipEl.style.display = ''; }
+  else        { tipEl.style.display = 'none'; }
+  document.getElementById('sh-overlay').classList.add('open');
+  _shStartTimer();
+  document.getElementById('sh-card').focus();
+}
+
+function closeSmartHelp() {
+  document.getElementById('sh-overlay').classList.remove('open');
+  _shClearTimer();
+}
+
+function _shStartTimer() {
+  _shClearTimer();
+  const bar = document.getElementById('sh-prog-bar');
+  bar.style.transition = 'none';
+  bar.style.transform  = 'scaleX(1)';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    bar.style.transition = `transform ${_SH_DURATION}ms linear`;
+    bar.style.transform  = 'scaleX(0)';
+  }));
+  _shTimer = setTimeout(closeSmartHelp, _SH_DURATION);
+}
+
+function _shClearTimer() {
+  clearTimeout(_shTimer);
+  _shTimer = null;
+}
+
+// Pause auto-close on hover / touch
+(function() {
+  function _attachShHover() {
+    const card = document.getElementById('sh-card');
+    if (!card) return;
+    card.addEventListener('mouseenter', () => {
+      _shClearTimer();
+      document.getElementById('sh-prog-bar').style.transition = 'none';
+    });
+    card.addEventListener('mouseleave', _shStartTimer);
+    card.addEventListener('touchstart', _shClearTimer, {passive:true});
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _attachShHover);
+  else _attachShHover();
+})();
+
+// ESC closes help
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('sh-overlay').classList.contains('open')) {
+    closeSmartHelp();
+  }
+});
 </script>
+
+<!-- ═══ SMART HELP OVERLAY ═══ -->
+<div class="sh-overlay" id="sh-overlay" onclick="if(event.target===this)closeSmartHelp()" role="dialog" aria-modal="true" aria-labelledby="sh-card-title">
+  <div class="sh-card" id="sh-card" tabindex="-1">
+    <div class="sh-card-bar"></div>
+    <button class="sh-close" onclick="closeSmartHelp()" aria-label="Close help">✕</button>
+    <div class="sh-title" id="sh-card-title"></div>
+    <div class="sh-subtitle" id="sh-card-subtitle"></div>
+    <div class="sh-body" id="sh-card-body"></div>
+    <div class="sh-bullets" id="sh-card-bullets"></div>
+    <div class="sh-tip" id="sh-card-tip"></div>
+    <div class="sh-prog-wrap"><div class="sh-prog-bar" id="sh-prog-bar"></div></div>
+  </div>
+</div>
 
 <!-- ═══ VERIFY LIVE QUOTES MODAL ═══ -->
 <div class="vq-overlay" id="vq-overlay" onclick="if(event.target===this)this.classList.remove('open')">
