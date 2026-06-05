@@ -204,17 +204,113 @@ app.get('/api/chart/:symbol', async (req, res) => {
 });
 
 // ── API: Get prediction accuracy stats ──
+// Single-field query only — no composite index required.
+// All filtering/sorting/grouping done in memory.
 app.get('/api/accuracy', async (req, res) => {
   if (!pipelineReady) return notReady(res);
   try {
+    // Fetch recent predictions ordered by generatedAt only (no composite index needed)
     const snap = await admin.firestore().collection('predictions')
-      .where('wasCorrect', '!=', null).orderBy('wasCorrect')
-      .orderBy('generatedAt', 'desc').limit(100).get();
-    const preds = [];
-    snap.forEach(doc => preds.push(doc.data()));
-    const total   = preds.length;
-    const correct = preds.filter(p => p.wasCorrect).length;
-    res.json({ ok: true, total, correct, accuracy: total ? +(correct/total*100).toFixed(1) : null, recent: preds.slice(0,20) });
+      .orderBy('generatedAt', 'desc').limit(500).get();
+
+    const all = [];
+    snap.forEach(doc => all.push(doc.data()));
+
+    // Split verified vs pending in memory
+    const verified = all.filter(p => p.wasCorrect !== null && p.wasCorrect !== undefined);
+    const pending  = all.filter(p => p.wasCorrect === null || p.wasCorrect === undefined);
+
+    if (!verified.length) {
+      return res.json({
+        ok: true,
+        totalVerified: 0,
+        pending: pending.length,
+        message: 'No verified predictions yet. Accuracy will populate after the first verification cycle.',
+      });
+    }
+
+    const correct   = verified.filter(p => p.wasCorrect === true).length;
+    const incorrect = verified.filter(p => p.wasCorrect === false).length;
+    const accuracyPct = +(correct / verified.length * 100).toFixed(1);
+
+    // By symbol
+    const bySymbol = {};
+    for (const p of verified) {
+      if (!bySymbol[p.symbol]) bySymbol[p.symbol] = { total: 0, correct: 0 };
+      bySymbol[p.symbol].total++;
+      if (p.wasCorrect) bySymbol[p.symbol].correct++;
+    }
+    Object.keys(bySymbol).forEach(sym => {
+      bySymbol[sym].accuracy = +(bySymbol[sym].correct / bySymbol[sym].total * 100).toFixed(1);
+    });
+
+    // By direction
+    const byDecision = {};
+    for (const p of verified) {
+      const dir = p.direction || 'UNKNOWN';
+      if (!byDecision[dir]) byDecision[dir] = { total: 0, correct: 0 };
+      byDecision[dir].total++;
+      if (p.wasCorrect) byDecision[dir].correct++;
+    }
+    Object.keys(byDecision).forEach(d => {
+      byDecision[d].accuracy = +(byDecision[d].correct / byDecision[d].total * 100).toFixed(1);
+    });
+
+    // By confidence bucket (0-49, 50-59, 60-69, 70-79, 80+)
+    const byConfidenceBucket = {};
+    for (const p of verified) {
+      const c = p.confidence || 0;
+      const bucket = c >= 80 ? '80+' : c >= 70 ? '70-79' : c >= 60 ? '60-69' : c >= 50 ? '50-59' : '0-49';
+      if (!byConfidenceBucket[bucket]) byConfidenceBucket[bucket] = { total: 0, correct: 0 };
+      byConfidenceBucket[bucket].total++;
+      if (p.wasCorrect) byConfidenceBucket[bucket].correct++;
+    }
+    Object.keys(byConfidenceBucket).forEach(b => {
+      byConfidenceBucket[b].accuracy = +(byConfidenceBucket[b].correct / byConfidenceBucket[b].total * 100).toFixed(1);
+    });
+
+    // By master score bucket (if available)
+    const byMasterScoreBucket = {};
+    for (const p of verified) {
+      const ms = p.masterScore ?? null;
+      if (ms === null) continue;
+      const bucket = ms >= 70 ? '70-100' : ms >= 55 ? '55-69' : ms >= 40 ? '40-54' : '0-39';
+      if (!byMasterScoreBucket[bucket]) byMasterScoreBucket[bucket] = { total: 0, correct: 0 };
+      byMasterScoreBucket[bucket].total++;
+      if (p.wasCorrect) byMasterScoreBucket[bucket].correct++;
+    }
+    Object.keys(byMasterScoreBucket).forEach(b => {
+      byMasterScoreBucket[b].accuracy = +(byMasterScoreBucket[b].correct / byMasterScoreBucket[b].total * 100).toFixed(1);
+    });
+
+    // Recent results — last 20 verified, sorted newest first
+    const recentResults = verified
+      .sort((a, b) => new Date(b.generatedAt || 0) - new Date(a.generatedAt || 0))
+      .slice(0, 20)
+      .map(p => ({
+        symbol:     p.symbol,
+        direction:  p.direction,
+        confidence: p.confidence,
+        wasCorrect: p.wasCorrect,
+        actualPct:  p.actualPct ?? null,
+        generatedAt: p.generatedAt,
+        checkedAt:   p.checkedAt,
+      }));
+
+    res.json({
+      ok: true,
+      totalVerified: verified.length,
+      correct,
+      incorrect,
+      accuracyPercent: accuracyPct,
+      pending: pending.length,
+      bySymbol,
+      byDecision,
+      byConfidenceBucket,
+      byMasterScoreBucket,
+      recentResults,
+    });
+
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
