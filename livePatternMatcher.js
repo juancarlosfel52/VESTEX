@@ -229,6 +229,7 @@ function analyzeChartStructure(bars, livePrice) {
     patterns.push({
       pattern_id: 'CHART_ATH',
       name: 'Price at Period High — No Overhead Resistance',
+      category: 'chart',
       direction: 'bullish',
       strength: +(1.0 - (pctFromHigh / 2.5) * 0.25).toFixed(3),
       note: `${pctFromHigh.toFixed(1)}% off period high — price making new highs, no sellers above`,
@@ -247,6 +248,7 @@ function analyzeChartStructure(bars, livePrice) {
       patterns.push({
         pattern_id: 'CHART_BLOWOFF_TOP',
         name: 'Blow-Off Top / Failed Breakout',
+        category: 'chart',
         direction: 'bearish',
         strength: +Math.min(1, spikeUp / 15).toFixed(3),
         note: `+${spikeUp.toFixed(1)}% spike then ${peakToNow.toFixed(1)}% reversal — distribution in progress`,
@@ -266,6 +268,7 @@ function analyzeChartStructure(bars, livePrice) {
         patterns.push({
           pattern_id: 'CHART_RETURN_TO_RESISTANCE',
           name: 'Return to Prior Resistance Zone',
+          category: 'chart',
           direction: 'bearish',
           strength: 0.68,
           note: `Approaching resistance $${periodHigh.toFixed(2)} — prior high hit ${barsSincePeak} bars ago, ${pullbackPct.toFixed(1)}% pullback since`,
@@ -291,6 +294,7 @@ function analyzeChartStructure(bars, livePrice) {
       patterns.push({
         pattern_id: 'CHART_DISTRIBUTION',
         name: 'Distribution Under Supply',
+        category: 'chart',
         direction: 'bearish',
         strength: +Math.min(1, (avgDown / avgUp - 1) * 1.8).toFixed(3),
         note: `${lowerHighs}/11 lower-highs + ${(avgDown / avgUp).toFixed(1)}x heavier volume on down days`,
@@ -310,6 +314,7 @@ function analyzeChartStructure(bars, livePrice) {
       patterns.push({
         pattern_id: 'CHART_BULL_TREND',
         name: 'Healthy Bull Trend — Institutional Accumulation',
+        category: 'chart',
         direction: 'bullish',
         strength: +Math.min(1, higherLows / 19).toFixed(3),
         note: `${higherLows}/19 higher lows — smart money consistently buying every dip`,
@@ -330,6 +335,7 @@ function analyzeChartStructure(bars, livePrice) {
       patterns.push({
         pattern_id: 'CHART_VRECOVERY',
         name: 'Post-Crash V-Recovery In Progress',
+        category: 'chart',
         direction: 'bullish',
         strength: +Math.min(1, recovery / 100).toFixed(3),
         note: `Crashed ${crashDepth.toFixed(0)}% from peak, now ${recovery.toFixed(0)}% recovered — sellers exhausted`,
@@ -357,6 +363,7 @@ function analyzeChartStructure(bars, livePrice) {
       patterns.push({
         pattern_id: 'CHART_HIGH_ATR',
         name: 'High Volatility Stock',
+        category: 'chart',
         direction: 'neutral',
         strength: +Math.min(1, (atrPct - 2.5) / 3).toFixed(3),
         note: `ATR = ${atrPct.toFixed(1)}% of price — signals less reliable, reduce position size`,
@@ -550,7 +557,7 @@ function buildTopReasons(lpms, chartStructure, macro, sentiment, fearGreed, vix,
   // Top 3 active live patterns
   for (const p of lpms.scoredPatterns.slice(0, 3)) {
     const wrLabel = p.winRatePct ? ` (${p.winRatePct}% historical win rate)` : '';
-    reasons.push(`[${p.category.toUpperCase()}] ${p.name}${wrLabel}${p.reason ? ' — ' + p.reason : ''}`);
+    reasons.push(`[${(p.category || 'chart').toUpperCase()}] ${p.name}${wrLabel}${p.reason ? ' — ' + p.reason : ''}`);
   }
 
   // Chart patterns (non-volatility)
