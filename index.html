@@ -1395,7 +1395,7 @@ canvas{max-height:300px;}
       <div class="kpi-grid">
         <div class="kpi"><div class="kpi-lbl">Total Value of Your Stocks</div><div class="kpi-val" id="kpi-total">$0.00</div><div class="kpi-note" style="color:var(--gray);">Across your portfolio</div></div>
         <div class="kpi"><div class="kpi-lbl">Money Made Today</div><div class="kpi-val" id="kpi-today">+$0.00</div><div class="kpi-note" style="color:var(--gray);">Since market opened</div></div>
-        <div class="kpi"><div class="kpi-lbl">Best Stock Today</div><div class="kpi-val" id="kpi-best" style="font-size:22px;">AMZN</div><div class="kpi-note up">▲ +3.1% today</div></div>
+        <div class="kpi"><div class="kpi-lbl">Best Stock Today</div><div class="kpi-val" id="kpi-best" style="font-size:22px;">—</div><div class="kpi-note" id="kpi-best-note" style="color:var(--gray);">Loading…</div></div>
         <div class="kpi"><div class="kpi-lbl">Stocks You Own</div><div class="kpi-val" id="kpi-count">0</div><div class="kpi-note" style="color:var(--gray);">In your portfolio</div></div>
       </div>
 
@@ -2088,14 +2088,19 @@ function renderTicker() {
 //  OVERVIEW BAR (Dashboard)
 // ═══════════════════════════════════════════════════════════
 function renderOvBar() {
-  document.getElementById('ov-bar').innerHTML = Object.entries(STOCKS).map(([s,st],i)=>`
-    <div class="ov-item ${i===0?'sel':''}" onclick="selectDashStock('${s}',this)">
+  // Show only portfolio stocks; fall back to all STOCKS if portfolio empty
+  const syms = portfolio.length > 0 ? portfolio.map(p=>p.sym) : Object.keys(STOCKS);
+  document.getElementById('ov-bar').innerHTML = syms.map((s,i)=>{
+    const st = STOCKS[s];
+    if (!st) return '';
+    return `<div class="ov-item ${s===dashSym?'sel':''}" onclick="selectDashStock('${s}',this)">
       <div class="ov-sym">${s}</div>
       <div class="ov-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
       <div class="ov-chg ${st.chg!=null?(st.chg>=0?'up':'dn'):''}">
         ${st.chg!=null?(st.chg>=0?'▲ +':'▼ ')+Math.abs(st.chg).toFixed(2)+'% today':'<span style="color:#888;font-size:9px;">loading…</span>'}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function selectDashStock(sym, el) {
@@ -2294,16 +2299,55 @@ function renderDashNews() {
 //  DASHBOARD KPIs
 // ═══════════════════════════════════════════════════════════
 function updateDashKPIs() {
-  let total=0, todayGain=0;
+  let total=0, todayGain=0, totalInvested=0;
+  let bestSym=null, bestChg=-Infinity;
   portfolio.forEach(p=>{
-    const val = p.shares * STOCKS[p.sym].price;
+    const st = STOCKS[p.sym];
+    if (!st || st.price == null) return;
+    const val = p.shares * st.price;
     total     += val;
-    todayGain += val * ((STOCKS[p.sym].chg ?? 0) / 100);
+    todayGain += val * ((st.chg ?? 0) / 100);
+    totalInvested += p.invested || (p.shares * p.buy);
+    const chg = st.chg ?? null;
+    if (chg !== null && chg > bestChg) { bestChg = chg; bestSym = p.sym; }
   });
+
+  // Total value + total P&L note
   document.getElementById('kpi-total').textContent = '$'+total.toFixed(2);
+  const totalPnl = total - totalInvested;
+  const totalPct = totalInvested > 0 ? (totalPnl / totalInvested * 100) : 0;
+  const totalNote = document.querySelector('#kpi-total').closest('.kpi').querySelector('.kpi-note');
+  if (totalNote) {
+    totalNote.textContent = (totalPnl >= 0 ? '▲ +$' : '▼ −$') + Math.abs(totalPnl).toFixed(2) + ' total (' + (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%)';
+    totalNote.style.color = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+
+  // Today's gain
   document.getElementById('kpi-today').textContent = (todayGain>=0?'+$':'-$')+Math.abs(todayGain).toFixed(2);
   document.getElementById('kpi-today').style.color = todayGain>=0?'var(--green)':'var(--red)';
+
+  // Count
   document.getElementById('kpi-count').textContent = portfolio.length;
+
+  // Best stock today
+  const bestEl   = document.getElementById('kpi-best');
+  const bestNote = document.getElementById('kpi-best-note');
+  if (bestSym) {
+    bestEl.textContent = bestSym;
+    bestNote.textContent = (bestChg >= 0 ? '▲ +' : '▼ ') + Math.abs(bestChg).toFixed(2) + '% today';
+    bestNote.className = 'kpi-note ' + (bestChg >= 0 ? 'up' : 'dn');
+    bestNote.style.color = '';
+  } else if (portfolio.length === 0) {
+    bestEl.textContent = '—';
+    bestNote.textContent = 'Add stocks to track';
+    bestNote.className = 'kpi-note';
+    bestNote.style.color = 'var(--gray)';
+  } else {
+    bestEl.textContent = portfolio[0]?.sym || '—';
+    bestNote.textContent = 'Loading quotes…';
+    bestNote.className = 'kpi-note';
+    bestNote.style.color = 'var(--gray)';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4108,6 +4152,17 @@ async function init() {
   renderDashNews();
   updateDashKPIs();
   renderPortfolio();
+
+  // Default dashboard chart to top portfolio holding by value (or first owned)
+  if (portfolio.length > 0) {
+    const top = portfolio.reduce((a,b) => {
+      const va = (STOCKS[a.sym]?.price ?? a.buy) * a.shares;
+      const vb = (STOCKS[b.sym]?.price ?? b.buy) * b.shares;
+      return vb > va ? b : a;
+    });
+    dashSym = top.sym;
+    renderOvBar(); // re-render to highlight correct stock
+  }
 
   // Dashboard chart
   const ctx = document.getElementById('dashChart').getContext('2d');
