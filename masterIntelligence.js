@@ -10,16 +10,18 @@ function calcTechnicalScore(indicators) {
   let score = 0;
   const detail = {};
 
-  // RSI (0-7 pts)
+  // RSI (0-7 pts) — strictly monotonic: lower RSI = more oversold = higher score
+  // RSI <25: deeply oversold (7) → <35 oversold (5) → <45 mild (3) → <55 neutral (2)
+  // → <65 mild bearish lean (1) → <75 approaching overbought (0) → ≥75 overbought (0)
   const rsi = indicators.rsi;
   if (rsi != null) {
     if      (rsi < 25) { score += 7; detail.rsi = { val: rsi, pts: 7, note: 'Deeply oversold — strong reversal signal' }; }
     else if (rsi < 35) { score += 5; detail.rsi = { val: rsi, pts: 5, note: 'Oversold — buy signal' }; }
     else if (rsi < 45) { score += 3; detail.rsi = { val: rsi, pts: 3, note: 'Approaching oversold' }; }
     else if (rsi < 55) { score += 2; detail.rsi = { val: rsi, pts: 2, note: 'Neutral zone' }; }
-    else if (rsi < 65) { score += 2; detail.rsi = { val: rsi, pts: 2, note: 'Mild bullish momentum' }; }
-    else if (rsi < 75) { score += 1; detail.rsi = { val: rsi, pts: 1, note: 'Approaching overbought' }; }
-    else               { score += 0; detail.rsi = { val: rsi, pts: 0, note: 'Overbought — caution' }; }
+    else if (rsi < 65) { score += 1; detail.rsi = { val: rsi, pts: 1, note: 'Mild bearish lean — above midpoint' }; }
+    else if (rsi < 75) { score += 0; detail.rsi = { val: rsi, pts: 0, note: 'Approaching overbought — caution' }; }
+    else               { score += 0; detail.rsi = { val: rsi, pts: 0, note: 'Overbought — pullback risk' }; }
   }
 
   // SMA crossover (0-6 pts)
@@ -318,8 +320,31 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   else if (masterScore >= 21) { decision = 'SELL';          holdTime = 'Exit Position'; }
   else                        { decision = 'STRONG SELL';  holdTime = 'Exit Immediately'; }
 
-  const dataCount  = [indicators, brainResult, sentiment, edgar, macroSnapshot, fearGreed, vix].filter(Boolean).length;
-  const confidence = Math.min(95, Math.round(40 + dataCount * 7 + Math.abs(masterScore - 50) * 0.4));
+  // Confidence: based on data completeness + signal agreement (not just presence)
+  // Data completeness: each source adds up to 10 pts (max 35 base)
+  const dataCount = [indicators, brainResult, sentiment, edgar, macroSnapshot, fearGreed, vix].filter(Boolean).length;
+  const dataBase  = Math.round(dataCount / 7 * 35); // 0–35 pts
+
+  // Signal agreement: how much do all 7 components agree vs diverge?
+  // Normalize each to 0–1 scale, compute std deviation — low spread = high agreement
+  const components = [
+    tech.score   / 25,
+    brain.score  / 20,
+    signal.score / 15,
+    regime.score / 10,
+    macro.score  / 10,
+    sent.score   / 10,
+    fund.score   / 10,
+  ];
+  const mean   = components.reduce((a, b) => a + b, 0) / components.length;
+  const stdDev = Math.sqrt(components.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / components.length);
+  // Low stdDev (signals agree) → high agreement bonus; high stdDev → low bonus
+  const agreementBonus = Math.round((1 - Math.min(1, stdDev * 3)) * 30); // 0–30 pts
+
+  // Score conviction: strong score (far from 50) adds up to 25 pts
+  const conviction = Math.round(Math.abs(masterScore - 50) / 50 * 25); // 0–25 pts
+
+  const confidence = Math.min(92, Math.max(25, dataBase + agreementBonus + conviction));
 
   let risk;
   const v = vix?.value, ap = indicators?.atrPct;
