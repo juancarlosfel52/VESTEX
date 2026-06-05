@@ -1469,7 +1469,7 @@ canvas{max-height:300px;}
             <option value="AMZN">AMZN — Amazon.com Inc.</option>
           </select>
           <input class="add-inp" id="add-shares" type="number" placeholder="$ Amount Invested (e.g. 500)" min="0.01" step="0.01">
-          <input class="add-inp" id="add-price" type="number" placeholder="Price per share you paid ($)">
+          <input class="add-inp" id="add-price" type="number" placeholder="Price per share (e.g. 311.28)">
           <button class="btn-add" onclick="addStock()">◆ Add Stock</button>
         </div>
       </div>
@@ -3128,7 +3128,7 @@ function renderPortfolio() {
       <div class="pt-c">${p.shares} shares</div>
       <div class="pt-c">$${p.buy.toFixed(2)}</div>
       <div class="pt-c">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
-      <div class="pt-c">$${pinv.toFixed(2)}</div>
+      <div class="pt-c" title="Click to edit invested amount" onclick="editInvested(${i},this)" style="cursor:pointer;text-decoration:underline dotted var(--gray);">$${pinv.toFixed(2)}</div>
       <div class="pt-c ${ppnl>=0?'win':'lose'}">${ppnl>=0?'+':'-'}$${Math.abs(ppnl).toFixed(2)}<br><span style="font-size:10px;">(${ppnl>=0?'+':''}${ppct}%)</span></div>
       <button class="pt-rm" onclick="removeStock(${i})">×</button>
     </div>`;
@@ -3155,6 +3155,34 @@ function removeStock(i) {
   portfolio.splice(i,1);
   localStorage.setItem('vestex_portfolio', JSON.stringify(portfolio));
   renderPortfolio();
+}
+
+// Inline edit for the Invested cell — click to type the real dollar amount
+function editInvested(i, cell) {
+  const current = portfolio[i].invested ?? (portfolio[i].shares * portfolio[i].buy);
+  const inp = document.createElement('input');
+  inp.type  = 'number';
+  inp.value = current.toFixed(2);
+  inp.min   = '0.01';
+  inp.step  = '0.01';
+  inp.style.cssText = 'width:80px;font-family:inherit;font-size:12px;border:1px solid var(--red);background:var(--white);color:var(--dark);padding:2px 6px;';
+  cell.innerHTML = '';
+  cell.appendChild(inp);
+  inp.focus();
+  inp.select();
+
+  function save() {
+    const val = parseFloat(inp.value);
+    if (!isNaN(val) && val > 0) {
+      portfolio[i].invested = val;
+      // Recalculate shares based on new invested amount and original buy price
+      portfolio[i].shares   = +(val / portfolio[i].buy).toFixed(6);
+      localStorage.setItem('vestex_portfolio', JSON.stringify(portfolio));
+    }
+    renderPortfolio();
+  }
+  inp.addEventListener('blur',  save);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') renderPortfolio(); });
 }
 
 // ═══════════════════════════════════════════════════════════
