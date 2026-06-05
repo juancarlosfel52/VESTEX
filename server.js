@@ -647,8 +647,8 @@ app.get('/api/market-health', async (req, res) => {
         if (!snap.empty) macro = snap.docs[0].data()?.macroSnapshot || null;
       } catch(e) {}
     }
-    const score = calcMarketHealth(macro, fearGreed, vix, Object.keys(sentimentCache).length ? Object.values(sentimentCache)[0] : null);
-    res.json({ ok: true, score, label: healthLabel(score), fearGreed, vix });
+    const mhResult = calcMarketHealth(macro, fearGreed, vix, Object.keys(sentimentCache).length ? Object.values(sentimentCache)[0] : null);
+    res.json({ ok: true, score: mhResult.score, label: healthLabel(mhResult.score), contributions: mhResult.contributions, fearGreed, vix });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 

@@ -1732,6 +1732,9 @@ canvas{max-height:300px;}
         </div>
       </div>
 
+      <!-- Market Health Breakdown -->
+      <div id="mi-health-breakdown" style="display:none;margin-bottom:18px;"></div>
+
       <!-- Symbol tabs -->
       <div class="mi-stabs" id="mi-stabs"></div>
 
@@ -4427,6 +4430,50 @@ async function renderMasterPage() {
       if (vixEl && d.vix)       vixEl.textContent  = `VIX: ${d.vix.value} — ${d.vix.signal}`;
       miCountUp(scoreEl, d.score);
       setTimeout(() => { fillEl.style.width = d.score + '%'; fillEl.style.background = col; }, 60);
+
+      // ── Score Breakdown Panel ──
+      const bdEl = document.getElementById('mi-health-breakdown');
+      if (bdEl && d.contributions?.length) {
+        const fg    = d.fearGreed?.value;
+        const fgLow = fg != null && fg < 35;
+        const contribRows = d.contributions.map(c => {
+          const pos  = c.pts >= 0;
+          const ptColor = pos ? '#4aa870' : '#e07b39';
+          const contrTag = c.contrarian ? ' <span style="font-size:8px;letter-spacing:2px;color:#C9A84C;background:rgba(201,168,76,.12);padding:1px 5px;border-radius:2px;">CONTRARIAN</span>' : '';
+          return `<div style="display:grid;grid-template-columns:130px 46px 1fr;align-items:start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+            <div style="font-size:10px;letter-spacing:1px;color:var(--text);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;">${c.label}${contrTag}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${ptColor};text-align:right;">${pos?'+':''}${c.pts}</div>
+            <div style="font-size:10px;color:var(--gray);line-height:1.4;">${c.note}</div>
+          </div>`;
+        }).join('');
+
+        const divider = `<div style="display:grid;grid-template-columns:130px 46px 1fr;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,.12);margin-top:2px;">
+          <div style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">Base Score</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gray);text-align:right;">+50</div>
+          <div style="font-size:10px;color:var(--gray);">Starting point before signal adjustments</div>
+        </div>
+        <div style="display:grid;grid-template-columns:130px 46px 1fr;gap:8px;padding:4px 0;">
+          <div style="font-size:9px;letter-spacing:2px;color:var(--text);text-transform:uppercase;font-weight:700;">Final Score</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${col};text-align:right;">${d.score}</div>
+          <div style="font-size:10px;color:${col};font-weight:600;">${d.label}</div>
+        </div>`;
+
+        let coexistNote = '';
+        if (fgLow) {
+          coexistNote = `<div style="margin-top:12px;padding:10px 12px;background:rgba(201,168,76,.08);border-left:2px solid var(--gold);border-radius:2px;">
+            <div style="font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:5px;">Why HEALTHY with Extreme Fear?</div>
+            <div style="font-size:11px;color:var(--gray);line-height:1.6;">Market Health measures <strong style="color:var(--text);">structural conditions</strong> — yield curve, credit spreads, volatility, and macro data — which can be strong even when investor emotion is fearful. Fear & Greed measures <strong style="color:var(--text);">investor sentiment</strong>, not economic health. <strong style="color:var(--gold);">VESTEX treats Extreme Fear as a contrarian signal:</strong> panic selling historically precedes recoveries. A HEALTHY score with Extreme Fear often signals a potential entry point in solid macro conditions.</div>
+          </div>`;
+        }
+
+        bdEl.style.display = 'block';
+        bdEl.innerHTML = `<div style="background:var(--white);border:1px solid var(--border);padding:14px 16px;">
+          <div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">◆ Score Contributions</div>
+          ${contribRows}
+          ${divider}
+          ${coexistNote}
+        </div>`;
+      }
     }
   } catch(e) {}
 

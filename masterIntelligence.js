@@ -204,7 +204,9 @@ function calcFundamentalsScore(edgar) {
 // ── Market Health: 0–100 ──────────────────────────────────
 function calcMarketHealth(macro, fearGreed, vix, sentiment) {
   let score = 50;
+  const contributions = [];
 
+  // ── Macro Conditions ──
   const yc  = macro?.yieldCurve?.value;
   const cs  = macro?.creditSpread?.value;
   const str = macro?.stressIndex?.value;
@@ -212,37 +214,68 @@ function calcMarketHealth(macro, fearGreed, vix, sentiment) {
   const inf = macro?.inflation?.value;
   const ff  = macro?.fedFunds?.value;
 
-  if (yc  != null) score += yc>0.5?8:yc>0?4:yc>-0.5?-6:-12;
-  if (cs  != null) score += cs<3?8:cs<4.5?3:cs<6?-8:-15;
-  if (str != null) score += str<-0.5?8:str<0.5?2:str<1?-8:-15;
-  if (sah != null && sah >= 0.5) score -= 12;
-  if (inf != null) score += inf<2.5?4:inf<3.5?0:-6;
-  if (ff  != null) score += ff<3?4:ff<4.5?0:-4;
-
-  const fg = fearGreed?.value;
-  if (fg != null) {
-    if      (fg < 20) score += 8;
-    else if (fg < 35) score += 4;
-    else if (fg < 50) score += 2;
-    else if (fg < 65) score -= 2;
-    else if (fg < 80) score -= 5;
-    else              score -= 10;
+  let macroPts = 0;
+  if (yc  != null) macroPts += yc>0.5?8:yc>0?4:yc>-0.5?-6:-12;
+  if (cs  != null) macroPts += cs<3?8:cs<4.5?3:cs<6?-8:-15;
+  if (str != null) macroPts += str<-0.5?8:str<0.5?2:str<1?-8:-15;
+  if (sah != null && sah >= 0.5) macroPts -= 12;
+  if (inf != null) macroPts += inf<2.5?4:inf<3.5?0:-6;
+  if (ff  != null) macroPts += ff<3?4:ff<4.5?0:-4;
+  score += macroPts;
+  if (yc != null || cs != null || str != null) {
+    const note = macroPts >= 10 ? 'Yield curve, credit spread & stress index all supportive'
+               : macroPts >= 0  ? 'Mixed macro signals — some positives offset by caution'
+               : 'Macro stress detected — yield curve or credit conditions elevated';
+    contributions.push({ label: 'Macro Conditions', pts: macroPts, note });
   }
 
+  // ── VIX Volatility ──
   const v = vix?.value;
   if (v != null) {
-    if      (v < 13) score += 10;
-    else if (v < 18) score += 5;
-    else if (v < 23) score += 0;
-    else if (v < 30) score -= 8;
-    else if (v < 40) score -= 15;
-    else             score -= 20;
+    const vixPts = v<13?10:v<18?5:v<23?0:v<30?-8:v<40?-15:-20;
+    score += vixPts;
+    const note = v<13?'Very low VIX — calm, low-risk environment'
+               : v<18?'Low VIX — stable market conditions'
+               : v<23?'Moderate VIX — normal range, no concern'
+               : v<30?'Elevated VIX — some market stress'
+               : v<40?'High VIX — significant uncertainty'
+               : 'Extreme VIX — crisis-level volatility';
+    contributions.push({ label: 'VIX Volatility', pts: vixPts, note });
   }
 
-  const sentScore = sentiment?.score;
-  if (sentScore != null) score += Math.round((sentScore / 100) * 5);
+  // ── Fear & Greed — CONTRARIAN logic ──
+  const fg = fearGreed?.value;
+  if (fg != null) {
+    let fgPts;
+    if      (fg < 20) fgPts = 8;
+    else if (fg < 35) fgPts = 4;
+    else if (fg < 50) fgPts = 2;
+    else if (fg < 65) fgPts = -2;
+    else if (fg < 80) fgPts = -5;
+    else              fgPts = -10;
+    score += fgPts;
+    const contrarian = fg < 35;
+    const note = fg < 20 ? 'Extreme Fear — treated as contrarian buy signal; panic historically precedes recoveries'
+               : fg < 35 ? 'Fear — mild contrarian positive; investors are cautious, not euphoric'
+               : fg < 65 ? 'Neutral — no contrarian signal in either direction'
+               : fg < 80 ? 'Greed — slight caution, market may be overbought'
+               : 'Extreme Greed — market likely overextended, elevated reversal risk';
+    contributions.push({ label: 'Fear & Greed', pts: fgPts, note, contrarian });
+  }
 
-  return Math.min(100, Math.max(0, Math.round(score)));
+  // ── News Sentiment ──
+  const sentScore = sentiment?.score;
+  if (sentScore != null) {
+    const sentPts = Math.round((sentScore / 100) * 5);
+    score += sentPts;
+    const note = sentScore >= 60 ? 'Positive news flow across tracked stocks'
+               : sentScore >= 40 ? 'Neutral news sentiment'
+               : 'Negative news flow — watch for continued pressure';
+    contributions.push({ label: 'News Sentiment', pts: sentPts, note });
+  }
+
+  const finalScore = Math.min(100, Math.max(0, Math.round(score)));
+  return { score: finalScore, contributions };
 }
 
 function healthLabel(s) {
@@ -353,7 +386,8 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   else if (masterScore < 60 || (ap && ap > 1.5))                  risk = 'Medium';
   else                                                              risk = 'Low';
 
-  const mhScore    = calcMarketHealth(macroSnapshot, fearGreed, vix, sentiment);
+  const mhResult    = calcMarketHealth(macroSnapshot, fearGreed, vix, sentiment);
+  const mhScore     = mhResult.score;
   const topPatterns = brain.patterns.map(p => ({
     name: p.name, category: p.category,
     winRate: p.win_rate || null, impact: p.score || null, reason: p.reason || '',
@@ -372,7 +406,7 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
       sentiment:    { score: sent.score,   max: 10, detail: sent.detail },
       fundamentals: { score: fund.score,   max: 10, detail: fund.detail },
     },
-    marketHealth: { score: mhScore, label: healthLabel(mhScore), color: scoreColor(mhScore) },
+    marketHealth: { score: mhScore, label: healthLabel(mhScore), color: scoreColor(mhScore), contributions: mhResult.contributions },
     topPatterns, explanation, warnings,
     generatedAt: new Date().toISOString(),
   };
