@@ -3307,7 +3307,8 @@ function renderPortfolioIntelligence() {
 //  PORTFOLIO LEARNING COACH — helper functions
 // ═══════════════════════════════════════════════════════════
 function piCoachData(pos) {
-  const { sym, action, confidence, riskLevel, direction, pnlPct, currentPrice, avgCost, holdLabel } = pos;
+  const { sym, action, confidence, riskLevel, direction, currentPrice, avgCost, holdLabel } = pos;
+  const pnlPct = pos.profitLossPct ?? null;
   const sp     = serverPreds[sym];
   const brain  = sp?.brain || null;
   const regime = brain?.regime?.name || 'neutral';
