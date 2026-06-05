@@ -3482,16 +3482,18 @@ function renderPortfolio() {
   document.getElementById('port-rows').innerHTML = portfolio.map((p,i)=>{
     const st   = STOCKS[p.sym];
     const pinv = p.invested ?? (p.shares * p.buy);
-    const pcur = p.shares * st.price;
-    const ppnl = pcur - pinv;
-    const ppct = (ppnl/pinv*100).toFixed(1);
+    const pcur = st?.price != null ? p.shares * st.price : null;
+    const ppnl = pcur !== null ? pcur - pinv : null;
+    const ppct = ppnl !== null && pinv > 0 ? (ppnl/pinv*100).toFixed(1) : null;
     return `<div class="pt-row">
-      <div><div class="pt-sym">${p.sym}</div><div class="pt-co">${st.name}</div></div>
+      <div><div class="pt-sym">${p.sym}</div><div class="pt-co">${st?.name || p.sym}</div></div>
       <div class="pt-c">${p.shares} shares</div>
       <div class="pt-c">$${p.buy.toFixed(2)}</div>
-      <div class="pt-c">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
+      <div class="pt-c">${st?.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
       <div class="pt-c" title="Click to edit invested amount" onclick="editInvested(${i},this)" style="cursor:pointer;text-decoration:underline dotted var(--gray);">$${pinv.toFixed(2)}</div>
-      <div class="pt-c ${ppnl>=0?'win':'lose'}">${ppnl>=0?'+':'-'}$${Math.abs(ppnl).toFixed(2)}<br><span style="font-size:10px;">(${ppnl>=0?'+':''}${ppct}%)</span></div>
+      <div class="pt-c ${ppnl!=null?(ppnl>=0?'win':'lose'):''}">
+        ${ppnl!=null ? (ppnl>=0?'+':'-')+'$'+Math.abs(ppnl).toFixed(2)+'<br><span style="font-size:10px;">'+(ppnl>=0?'+':'')+ppct+'%</span>' : '—'}
+      </div>
       <button class="pt-rm" onclick="removeStock(${i})">×</button>
     </div>`;
   }).join('');
