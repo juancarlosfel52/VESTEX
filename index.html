@@ -3502,17 +3502,27 @@ function renderPortfolio() {
 }
 
 function addStock() {
-  const sym    = document.getElementById('add-sym').value;
-  const amount = parseFloat(document.getElementById('add-shares').value); // dollar amount invested
+  const sym    = document.getElementById('add-sym').value.toUpperCase().trim();
+  const amount = parseFloat(document.getElementById('add-shares').value);
   const price  = parseFloat(document.getElementById('add-price').value);
   if (!sym || !amount || !price || amount<=0 || price<=0) { alert('Please fill in all fields.'); return; }
-  const shares = +(amount / price).toFixed(6); // compute share count from dollar amount
+  const shares = +(amount / price).toFixed(6);
+
+  // Register symbol in STOCKS if not already tracked
+  if (!STOCKS[sym]) STOCKS[sym] = { name: sym, price: null, chg: null, desc: '' };
+
   portfolio.push({ sym, shares, buy:price, invested: amount });
   localStorage.setItem('vestex_portfolio', JSON.stringify(portfolio));
   document.getElementById('add-sym').value = '';
   document.getElementById('add-shares').value = '';
   document.getElementById('add-price').value = '';
+
   renderPortfolio();
+  renderOvBar();
+  updateDashKPIs();
+
+  // Fetch live price for the new stock immediately
+  fetchQuotes().then(() => { renderOvBar(); updateDashKPIs(); renderPortfolio(); }).catch(()=>{});
 }
 
 function removeStock(i) {
@@ -3556,12 +3566,21 @@ function editInvested(i, cell) {
 const PROXY = 'https://corsproxy.io/?';
 
 async function fetchQuotes() {
-  const res  = await fetch('/api/live-quotes');
+  // Include all portfolio symbols so new/custom stocks also get live prices
+  const portfolioSyms = portfolio.map(p => p.sym.toUpperCase());
+  const extra = portfolioSyms.filter(s => !STOCKS[s]);
+  const url = extra.length > 0 ? `/api/live-quotes?syms=${portfolioSyms.join(',')}` : '/api/live-quotes';
+
+  const res  = await fetch(url);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'live-quotes API failed');
-  Object.keys(STOCKS).forEach(s => {
+
+  // Update all known STOCKS + any portfolio stocks returned
+  const allSyms = [...new Set([...Object.keys(STOCKS), ...portfolioSyms])];
+  allSyms.forEach(s => {
     const r = data.data[s];
     if (!r) return;
+    if (!STOCKS[s]) STOCKS[s] = { name: s, price: null, chg: null, desc: '' };
     STOCKS[s].price     = r.price          ?? null;
     STOCKS[s].chg       = r.changePercent  ?? null;
     STOCKS[s].prevClose = r.previousClose  ?? null;

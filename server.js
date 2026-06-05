@@ -72,10 +72,17 @@ const LQ_SYMBOLS = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN'];
 app.get('/api/live-quotes', async (req, res) => {
   const key    = process.env.ALPACA_KEY;
   const secret = process.env.ALPACA_SECRET;
+
+  // Merge default symbols with any extra ones from ?syms= query param
+  const extra = req.query.syms ? req.query.syms.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
+  const syms  = [...new Set([...LQ_SYMBOLS, ...extra])];
+
+  // Invalidate cache if new symbols requested that aren't cached
+  const hasNew = extra.some(s => !_lqCache[s]);
   const ageMs  = Date.now() - _lqCachedAt;
 
-  // Serve cache if fresh (< 60s)
-  if (ageMs < 60000 && Object.keys(_lqCache).length) {
+  // Serve cache if fresh (< 60s) and no new symbols requested
+  if (!hasNew && ageMs < 60000 && Object.keys(_lqCache).length) {
     return res.json({ ok: true, data: _lqCache, source: 'cache', cacheAgeMs: ageMs, serverFetchedAt: new Date(_lqCachedAt).toISOString() });
   }
 
@@ -84,13 +91,13 @@ app.get('/api/live-quotes', async (req, res) => {
   try {
     const axios = require('axios');
     const resp  = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
-      params:  { symbols: LQ_SYMBOLS.join(','), feed: 'iex' },
+      params:  { symbols: syms.join(','), feed: 'iex' },
       headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
       timeout: 10000,
     });
 
     const out = {};
-    for (const sym of LQ_SYMBOLS) {
+    for (const sym of syms) {
       const snap     = resp.data[sym];
       if (!snap) continue;
       const trade    = snap.latestTrade;
