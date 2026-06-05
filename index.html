@@ -4258,10 +4258,14 @@ function miMeterSVG(score, color) {
 }
 
 function miRenderCard(d) {
-  const color   = miScoreColor(d.masterScore);
-  const dcls    = miDecisionCls(d.decision);
-  const C       = 2*Math.PI*40;
+  const color = miScoreColor(d.masterScore);
+  const dcls  = miDecisionCls(d.decision);
+  const st    = STOCKS[d.symbol];
+  const priceStr = st?.price ? `$${st.price.toFixed(2)}` : '—';
+  const chgStr   = st?.chg != null ? `${st.chg>=0?'▲ +':'▼ '}${Math.abs(st.chg).toFixed(2)}%` : '—';
+  const chgCls   = st?.chg != null ? (st.chg>=0?'up':'dn') : '';
 
+  // ── Score Breakdown Bars ──
   const breakdownRows = [
     { label:'Technical',     score:d.scoreBreakdown.technical?.score,    max:25, color:'#4aa870' },
     { label:'Brain Vault',   score:d.scoreBreakdown.brainVault?.score,   max:20, color:'#C9A84C' },
@@ -4271,40 +4275,132 @@ function miRenderCard(d) {
     { label:'Sentiment',     score:d.scoreBreakdown.sentiment?.score,    max:10, color:'#22A05A' },
     { label:'Fundamentals',  score:d.scoreBreakdown.fundamentals?.score, max:10, color:'#C9A84C' },
   ].map(r=>{
-    const s = r.score ?? 0;
-    const pct = Math.round(s / r.max * 100);
+    const s = r.score ?? 0, pct = Math.round(s/r.max*100);
+    const label = pct >= 62 ? 'POSITIVE' : pct >= 38 ? 'NEUTRAL' : 'WEAK';
+    const lc    = pct >= 62 ? '#4aa870'  : pct >= 38 ? '#aaa'    : '#e07b39';
     return `<div class="mi-cat-row">
       <div class="mi-cat-name">${r.label}</div>
       <div class="mi-cat-score">${s.toFixed(0)}</div>
       <div class="mi-cat-bar-track"><div class="mi-cat-bar-fill" style="background:${r.color};" data-w="${pct}"></div></div>
       <div class="mi-cat-max" style="color:${r.color};font-family:'JetBrains Mono',monospace;font-size:9px;">/${r.max}</div>
+      <div style="font-size:8px;letter-spacing:1px;color:${lc};min-width:52px;text-align:right;">${label}</div>
     </div>`;
   }).join('');
 
-  const patternsHtml = d.topPatterns?.length
-    ? d.topPatterns.map(p=>`
-      <div class="mi-pattern-row">
-        <span class="mi-pattern-check">✓</span>
-        <div>
-          <div class="mi-pattern-name">${p.name}</div>
-          <div class="mi-pattern-cat">${p.category}</div>
+  // ── Phase 1: Contributors ──
+  const C = d.contributors;
+  const contribHtml = C ? (() => {
+    const row = (item, cls, sign) => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+      <span style="font-size:10px;color:${cls};min-width:18px;text-align:center;">${sign}</span>
+      <span style="font-size:10px;color:var(--text);flex:1;">${item.name}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${cls};">${item.pts.toFixed(0)}/${item.maxPts}</span>
+      <span style="font-size:9px;color:var(--gray);">(${item.pct}%)</span>
+    </div>`;
+    const pos = (C.positive||[]).map(i=>row(i,'#4aa870','▲')).join('');
+    const neg = (C.negative||[]).map(i=>row(i,'#e07b39','▼')).join('');
+    const neu = (C.neutral||[]).map(i=>row(i,'#aaa','◆')).join('');
+    return `<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Score Contributors</div>
+      ${pos}${neu}${neg}
+    </div>`;
+  })() : '';
+
+  // ── Phase 4: System Votes ──
+  const SV = d.systemVotes;
+  const votesHtml = SV ? (() => {
+    const voteColor = v => v==='BUY'?'#4aa870':v==='SELL'?'#e07b39':'#aaa';
+    const sysRows = SV.systems.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+      <span style="font-size:10px;color:var(--text);flex:1;">${s.name}</span>
+      <div style="background:var(--bg);border-radius:2px;overflow:hidden;width:60px;height:6px;margin-right:4px;">
+        <div style="height:100%;width:${s.pct}%;background:${voteColor(s.vote)};transition:width .8s;"></div>
+      </div>
+      <span style="font-size:9px;color:var(--gray);min-width:26px;text-align:right;">${s.pct}%</span>
+      <span style="font-size:8px;letter-spacing:1px;color:${voteColor(s.vote)};min-width:32px;text-align:right;">${s.vote}</span>
+    </div>`).join('');
+    const agColor = SV.agreementPct >= 70 ? '#4aa870' : SV.agreementPct >= 50 ? '#C9A84C' : '#e07b39';
+    return `<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);">◆ System Votes</div>
+        <div style="font-size:9px;color:var(--gray);">
+          <span style="color:#4aa870;">BUY: ${SV.votes.BUY}</span> ·
+          <span style="color:#aaa;">HOLD: ${SV.votes.HOLD}</span> ·
+          <span style="color:#e07b39;">SELL: ${SV.votes.SELL}</span> ·
+          <span style="color:${agColor};">Agreement: ${SV.agreementPct}%</span>
         </div>
-        ${p.winRate ? `<div class="mi-pattern-wr" style="color:#22A05A;">${p.winRate}% win rate</div>` : ''}
+      </div>
+      ${sysRows}
+    </div>`;
+  })() : '';
+
+  // ── Phase 5: Patterns with history ──
+  const patternsHtml = d.topPatterns?.length
+    ? d.topPatterns.map(p=>`<div class="mi-pattern-row" style="align-items:flex-start;">
+        <span class="mi-pattern-check">✓</span>
+        <div style="flex:1;">
+          <div class="mi-pattern-name">${p.name}</div>
+          <div class="mi-pattern-cat">${p.category||'—'}</div>
+          ${p.reason ? `<div style="font-size:9px;color:var(--gray);margin-top:2px;">${p.reason}</div>` : ''}
+        </div>
+        <div style="text-align:right;font-size:9px;color:var(--gray);line-height:1.7;">
+          ${p.winRate  != null ? `<div style="color:#22A05A;font-weight:600;">${p.winRate.toFixed?.(0)||p.winRate}% win rate</div>` : ''}
+          ${p.avgReturn!= null ? `<div>Avg return: +${p.avgReturn}%</div>` : ''}
+          ${p.uses     != null ? `<div>Uses: ${p.uses}</div>` : ''}
+        </div>
       </div>`).join('')
     : '<div style="font-size:11px;color:var(--gray);padding:8px 0;">No active patterns matched for current conditions.</div>';
 
-  const warningsHtml = d.warnings?.length
-    ? d.warnings.map(w=>`
-      <div class="mi-warn-item ${w.level}">
-        <span class="mi-warn-icon">${w.level==='high'?'🔴':w.level==='medium'?'⚠':'ℹ'}</span>
-        <span>${w.text}</span>
-      </div>`).join('')
-    : '<div style="font-size:10px;color:var(--gray);letter-spacing:1px;padding:4px 0;">◆ No major warnings for current conditions.</div>';
+  // ── Phase 3: Decision Explanation ──
+  const DE = d.decisionExplanation;
+  const explainHtml = DE ? (() => {
+    const bull = (DE.bullishEvidence||[]).map(e=>`<div style="display:flex;gap:8px;padding:3px 0;font-size:10px;color:var(--text);"><span style="color:#4aa870;flex-shrink:0;">▲</span>${e}</div>`).join('');
+    const bear = (DE.bearishEvidence||[]).map(e=>`<div style="display:flex;gap:8px;padding:3px 0;font-size:10px;color:var(--text);"><span style="color:#e07b39;flex-shrink:0;">▼</span>${e}</div>`).join('');
+    return `<div class="mi-explain" id="mi-explain" style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Why VESTEX Says ${d.decision}</div>
+      ${bull ? `<div style="font-size:9px;letter-spacing:1px;color:#4aa870;margin-bottom:4px;text-transform:uppercase;">Bullish Evidence</div>${bull}` : ''}
+      ${bear ? `<div style="font-size:9px;letter-spacing:1px;color:#e07b39;margin:8px 0 4px;text-transform:uppercase;">Bearish Evidence</div>${bear}` : ''}
+      <div style="margin-top:10px;font-size:10px;color:var(--gray);line-height:1.6;padding:8px 10px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);">${DE.reasoning}</div>
+      ${DE.whatWouldChange ? `<div style="margin-top:10px;">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);margin-bottom:6px;">What Would Change The Decision</div>
+        <div style="font-size:10px;color:#4aa870;padding:3px 0;">▲ Upgrade: ${DE.whatWouldChange.toUpgrade}</div>
+        <div style="font-size:10px;color:#e07b39;padding:3px 0;margin-top:4px;">▼ Downgrade: ${DE.whatWouldChange.toDowngrade}</div>
+      </div>` : ''}
+    </div>`;
+  })() : `<div class="mi-explain" id="mi-explain"><div class="mi-explain-title">◆ Why VESTEX Says ${d.decision}</div><div id="mi-explain-text" style="opacity:0;transition:opacity .6s ease .4s;">${d.explanation}</div></div>`;
 
-  const st = STOCKS[d.symbol];
-  const priceStr = st?.price ? `$${st.price.toFixed(2)}` : '—';
-  const chgStr   = st?.chg != null ? `${st.chg>=0?'▲ +':'▼ '}${Math.abs(st.chg).toFixed(2)}%` : '—';
-  const chgCls   = st?.chg != null ? (st.chg>=0?'up':'dn') : '';
+  // ── Phase 2: Confidence Breakdown ──
+  const CB = d.confidenceBreakdown;
+  const confHtml = CB?.length ? (() => {
+    const rows = CB.map(c => {
+      const pos = c.pts >= 0;
+      const col = c.penalty ? '#e07b39' : pos ? '#4aa870' : '#e07b39';
+      return `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${col};min-width:32px;text-align:right;">${pos?'+':''}${c.pts}</span>
+        <div style="flex:1;">
+          <div style="font-size:10px;color:var(--text);">${c.label}</div>
+          <div style="font-size:9px;color:var(--gray);">${c.note}</div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Confidence Breakdown — ${d.confidence}%</div>
+      ${rows}
+      <div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color};min-width:32px;text-align:right;">${d.confidence}%</span>
+        <span style="font-size:10px;color:${color};">Final Confidence</span>
+      </div>
+    </div>`;
+  })() : '';
+
+  // ── Phase 6: Consistency Note ──
+  const consistencyHtml = d.consistencyNote ? `<div style="margin-top:14px;padding:10px 12px;background:rgba(201,168,76,.07);border-left:2px solid var(--gold);">
+    <div style="font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:4px;">◆ Consistency Audit</div>
+    <div style="font-size:10px;color:var(--gray);line-height:1.5;">${d.consistencyNote}</div>
+  </div>` : '';
+
+  // ── Warnings ──
+  const warningsHtml = d.warnings?.length
+    ? d.warnings.map(w=>`<div class="mi-warn-item ${w.level}"><span class="mi-warn-icon">${w.level==='high'?'🔴':w.level==='medium'?'⚠':'ℹ'}</span><span>${w.text}</span></div>`).join('')
+    : '<div style="font-size:10px;color:var(--gray);letter-spacing:1px;padding:4px 0;">◆ No major warnings for current conditions.</div>';
 
   return `
   <div class="mi-card ${dcls}" id="mi-main-card">
@@ -4321,9 +4417,7 @@ function miRenderCard(d) {
 
     <div class="mi-top">
       <div class="mi-meter-wrap">
-        <div class="mi-meter glow-${dcls}" id="mi-meter-el">
-          ${miMeterSVG(d.masterScore, color)}
-        </div>
+        <div class="mi-meter glow-${dcls}" id="mi-meter-el">${miMeterSVG(d.masterScore, color)}</div>
       </div>
       <div>
         <div class="mi-decision-badge ${dcls}">${d.decision}</div>
@@ -4331,7 +4425,8 @@ function miRenderCard(d) {
           Confidence: <span>${d.confidence}%</span><br>
           Risk: <span>${d.risk}</span><br>
           Recommended Hold: <span>${d.holdTime}</span><br>
-          Market Health: <span id="mi-mh-inline">${d.marketHealth?.score} — ${d.marketHealth?.label}</span>
+          Market Health: <span id="mi-mh-inline">${d.marketHealth?.score} — ${d.marketHealth?.label}</span><br>
+          ${d.systemVotes ? `System Agreement: <span style="color:${d.systemVotes.agreementPct>=70?'#4aa870':d.systemVotes.agreementPct>=50?'#C9A84C':'#e07b39'}">${d.systemVotes.agreementPct}%</span>` : ''}
         </div>
       </div>
     </div>
@@ -4341,15 +4436,17 @@ function miRenderCard(d) {
       ${breakdownRows}
     </div>
 
+    ${contribHtml}
+
     <div class="mi-patterns" style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
       <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Active Brain Vault Patterns</div>
       ${patternsHtml}
     </div>
 
-    <div class="mi-explain" id="mi-explain">
-      <div class="mi-explain-title">◆ Why VESTEX Says ${d.decision}</div>
-      <div id="mi-explain-text" style="opacity:0;transition:opacity .6s ease .4s;">${d.explanation}</div>
-    </div>
+    ${votesHtml}
+    ${explainHtml}
+    ${confHtml}
+    ${consistencyHtml}
 
     <div class="mi-warnings" style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
       <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Risks to Watch</div>
@@ -4357,7 +4454,7 @@ function miRenderCard(d) {
     </div>
 
     <div style="font-size:9px;color:var(--gray);margin-top:18px;padding-top:12px;border-top:1px solid var(--border);letter-spacing:.5px;">
-      Generated: ${new Date(d.generatedAt).toLocaleString()} · VESTEX Master Intelligence v1.0
+      Generated: ${new Date(d.generatedAt).toLocaleString()} · VESTEX Master Intelligence v2.0
     </div>
   </div>`;
 }

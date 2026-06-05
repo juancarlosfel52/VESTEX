@@ -353,31 +353,10 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   else if (masterScore >= 21) { decision = 'SELL';          holdTime = 'Exit Position'; }
   else                        { decision = 'STRONG SELL';  holdTime = 'Exit Immediately'; }
 
-  // Confidence: based on data completeness + signal agreement (not just presence)
-  // Data completeness: each source adds up to 10 pts (max 35 base)
+  // Confidence: rebuilt with Phase 2 engine
   const dataCount = [indicators, brainResult, sentiment, edgar, macroSnapshot, fearGreed, vix].filter(Boolean).length;
-  const dataBase  = Math.round(dataCount / 7 * 35); // 0–35 pts
-
-  // Signal agreement: how much do all 7 components agree vs diverge?
-  // Normalize each to 0–1 scale, compute std deviation — low spread = high agreement
-  const components = [
-    tech.score   / 25,
-    brain.score  / 20,
-    signal.score / 15,
-    regime.score / 10,
-    macro.score  / 10,
-    sent.score   / 10,
-    fund.score   / 10,
-  ];
-  const mean   = components.reduce((a, b) => a + b, 0) / components.length;
-  const stdDev = Math.sqrt(components.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / components.length);
-  // Low stdDev (signals agree) → high agreement bonus; high stdDev → low bonus
-  const agreementBonus = Math.round((1 - Math.min(1, stdDev * 3)) * 30); // 0–30 pts
-
-  // Score conviction: strong score (far from 50) adds up to 25 pts
-  const conviction = Math.round(Math.abs(masterScore - 50) / 50 * 25); // 0–25 pts
-
-  const confidence = Math.min(92, Math.max(25, dataBase + agreementBonus + conviction));
+  const confResult  = buildConfidenceBreakdown(tech, brain, signal, regime, macro, sent, fund, indicators, masterScore, dataCount);
+  const confidence  = confResult.finalConfidence;
 
   let risk;
   const v = vix?.value, ap = indicators?.atrPct;
@@ -391,25 +370,249 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   const topPatterns = brain.patterns.map(p => ({
     name: p.name, category: p.category,
     winRate: p.win_rate || null, impact: p.score || null, reason: p.reason || '',
+    avgReturn: p.avg_return || null, uses: p.uses || null,
   }));
-  const explanation = buildExplanation(symbol, masterScore, decision, tech, brain, sent, macro, regime);
-  const warnings    = buildWarnings(indicators, macroSnapshot, edgar, vix, fearGreed, masterScore);
+
+  const scoreBreakdown = {
+    technical:    { score: tech.score,   max: 25, detail: tech.detail },
+    brainVault:   { score: brain.score,  max: 20, detail: brain.detail, activePercent: brain.activePercent },
+    signalPerf:   { score: signal.score, max: 15, detail: signal.detail, avgAccuracy: signal.avgAccuracy },
+    regime:       { score: regime.score, max: 10, detail: regime.detail },
+    macro:        { score: macro.score,  max: 10, detail: macro.detail },
+    sentiment:    { score: sent.score,   max: 10, detail: sent.detail },
+    fundamentals: { score: fund.score,   max: 10, detail: fund.detail },
+  };
+
+  const systemVotes          = buildSystemVotes(tech, brain, signal, regime, macro, sent, fund);
+  const decisionExplanation  = buildDecisionExplanation(symbol, masterScore, decision, tech, brain, sent, macro, regime, indicators);
+  const contributors         = buildContributors(scoreBreakdown);
+  const consistencyNote      = buildConsistencyNote(brain, masterScore, confidence);
+  const explanation          = buildExplanation(symbol, masterScore, decision, tech, brain, sent, macro, regime);
+  const warnings             = buildWarnings(indicators, macroSnapshot, edgar, vix, fearGreed, masterScore);
 
   return {
     symbol, masterScore, decision, confidence, risk, holdTime,
-    scoreBreakdown: {
-      technical:    { score: tech.score,   max: 25, detail: tech.detail },
-      brainVault:   { score: brain.score,  max: 20, detail: brain.detail, activePercent: brain.activePercent },
-      signalPerf:   { score: signal.score, max: 15, detail: signal.detail, avgAccuracy: signal.avgAccuracy },
-      regime:       { score: regime.score, max: 10, detail: regime.detail },
-      macro:        { score: macro.score,  max: 10, detail: macro.detail },
-      sentiment:    { score: sent.score,   max: 10, detail: sent.detail },
-      fundamentals: { score: fund.score,   max: 10, detail: fund.detail },
-    },
+    scoreBreakdown,
+    contributors,
+    systemVotes,
+    decisionExplanation,
+    confidenceBreakdown: confResult.breakdown,
+    consistencyNote,
     marketHealth: { score: mhScore, label: healthLabel(mhScore), color: scoreColor(mhScore), contributions: mhResult.contributions },
     topPatterns, explanation, warnings,
     generatedAt: new Date().toISOString(),
   };
+}
+
+// ── Phase 2: Confidence Breakdown Engine ─────────────────────
+function buildConfidenceBreakdown(tech, brain, signal, regime, macro, sent, fund, indicators, masterScore, dataCount) {
+  const breakdown = [];
+  let total = 20; // minimum base
+
+  // 1. Data Completeness (0–15)
+  const dataPts = Math.round(dataCount / 7 * 15);
+  breakdown.push({ label: 'Data Completeness', pts: dataPts, note: `${dataCount}/7 data sources available` });
+  total += dataPts;
+
+  // 2. Pattern Agreement (0–20): patterns firing + direction alignment
+  const patternCount = brain.patterns.length;
+  let patternAgreePts = 0;
+  if (patternCount > 0) {
+    const bullish = brain.patterns.filter(p => (p.impact || p.score || 0) > 0).length;
+    patternAgreePts = Math.round((bullish / patternCount) * Math.min(20, patternCount * 4));
+  } else if (brain.activePercent > 0) {
+    patternAgreePts = Math.min(10, Math.round(brain.activePercent / 100 * 12));
+  }
+  const pctAgree = patternCount > 0 ? Math.round(brain.patterns.filter(p=>(p.impact||p.score||0)>0).length/patternCount*100) : 0;
+  breakdown.push({ label: 'Pattern Agreement', pts: patternAgreePts, note: patternCount > 0 ? `${patternCount} active patterns — ${pctAgree}% bullish alignment` : 'No named patterns active' });
+  total += patternAgreePts;
+
+  // 3. Historical Validation (0–15): avg win rate of active patterns
+  const patternsWithHistory = brain.patterns.filter(p => p.winRate != null && p.winRate > 0);
+  let histPts = 5;
+  if (patternsWithHistory.length > 0) {
+    const avgWR = patternsWithHistory.reduce((s,p) => s + p.winRate, 0) / patternsWithHistory.length;
+    histPts = Math.round((avgWR / 100) * 15);
+    breakdown.push({ label: 'Historical Validation', pts: histPts, note: `${patternsWithHistory.length} patterns validated — avg ${avgWR.toFixed(0)}% win rate` });
+  } else {
+    breakdown.push({ label: 'Historical Validation', pts: histPts, note: 'No win rate history — neutral default applied' });
+  }
+  total += histPts;
+
+  // 4. Technical Strength (0–10)
+  const techPts = Math.round((tech.score / 25) * 10);
+  const techNote = tech.score >= 18 ? 'Strong multi-indicator alignment'
+                 : tech.score >= 12 ? 'Moderate technical signals'
+                 : 'Weak technicals — limited confirmation';
+  breakdown.push({ label: 'Technical Strength', pts: techPts, note: techNote });
+  total += techPts;
+
+  // 5. Macro Alignment (0–8)
+  const macroPts = Math.round((macro.score / 10) * 8);
+  const macroNote = macro.score >= 7 ? 'Macro conditions support the direction'
+                  : macro.score >= 5 ? 'Macro neutral to mildly supportive'
+                  : 'Macro headwinds — caution warranted';
+  breakdown.push({ label: 'Macro Alignment', pts: macroPts, note: macroNote });
+  total += macroPts;
+
+  // 6. Sentiment Alignment (0–5)
+  const sentPts = Math.round((sent.score / 10) * 5);
+  breakdown.push({ label: 'Sentiment Alignment', pts: sentPts, note: sent.overall === 'positive' ? 'News sentiment supports bullish direction' : sent.overall === 'negative' ? 'Negative sentiment conflicts with bullish score' : 'Sentiment neutral' });
+  total += sentPts;
+
+  // Penalties
+  if (indicators?.atrPct > 3) {
+    const vPen = -Math.min(10, Math.round(indicators.atrPct * 2));
+    breakdown.push({ label: 'High Volatility', pts: vPen, note: `ATR ${indicators.atrPct.toFixed(1)}% — elevated entry risk reduces certainty`, penalty: true });
+    total += vPen;
+  }
+  if (sent.overall === 'negative' && tech.score >= 14) {
+    const sPen = -5;
+    breakdown.push({ label: 'Sentiment Conflict', pts: sPen, note: 'Technical bullish but news sentiment negative — mixed signals', penalty: true });
+    total += sPen;
+  }
+  if (patternCount >= 3 && Math.abs(masterScore - 50) < 8) {
+    const iPen = -4;
+    breakdown.push({ label: 'Score Inconsistency', pts: iPen, note: 'Strong patterns active but aggregate score near neutral — conflicting systems detected', penalty: true });
+    total += iPen;
+  }
+
+  return { breakdown, finalConfidence: Math.min(92, Math.max(20, Math.round(total))) };
+}
+
+// ── Phase 4: System Voting Engine ────────────────────────────
+function buildSystemVotes(tech, brain, signal, regime, macro, sent, fund) {
+  const systems = [
+    { name: 'Technical Analysis', score: tech.score,   max: 25 },
+    { name: 'Brain Vault',        score: brain.score,  max: 20 },
+    { name: 'Signal History',     score: signal.score, max: 15 },
+    { name: 'Market Regime',      score: regime.score, max: 10 },
+    { name: 'Macro Economy',      score: macro.score,  max: 10 },
+    { name: 'News Sentiment',     score: sent.score,   max: 10 },
+    { name: 'Fundamentals',       score: fund.score,   max: 10 },
+  ];
+  const votes = { BUY: 0, HOLD: 0, SELL: 0 };
+  const withVotes = systems.map(s => {
+    const pct = s.score / s.max;
+    const vote = pct >= 0.62 ? 'BUY' : pct >= 0.38 ? 'HOLD' : 'SELL';
+    votes[vote]++;
+    return { ...s, vote, pct: +(pct * 100).toFixed(0) };
+  });
+  const topCount = Math.max(votes.BUY, votes.HOLD, votes.SELL);
+  const consensus = votes.BUY === topCount ? 'BUY' : votes.SELL === topCount ? 'SELL' : 'HOLD';
+  const agreementPct = Math.round(topCount / systems.length * 100);
+  return { votes, systems: withVotes, agreementPct, consensus };
+}
+
+// ── Phase 3: Decision Explanation Engine ─────────────────────
+function buildDecisionExplanation(sym, masterScore, decision, tech, brain, sent, macro, regime, indicators) {
+  const bullish = [], bearish = [];
+
+  // Technical evidence
+  const sma = tech.detail?.sma;
+  if (sma?.pts >= 5)      bullish.push(`Golden Cross — short-term MA crossed above long-term MA (${sma.note})`);
+  else if (sma?.pts === 0) bearish.push(`Death Cross — short-term MA below long-term MA (bearish trend)`);
+
+  const macd = tech.detail?.macd;
+  if (macd?.pts >= 3)      bullish.push(`MACD Bullish — upward momentum building (MACD ${macd.val?.toFixed(2)})`);
+  else if (macd?.pts === 0) bearish.push(`MACD Bearish — downward momentum (MACD ${macd.val?.toFixed(2)})`);
+
+  const rsi = tech.detail?.rsi;
+  if (rsi?.pts >= 5)      bullish.push(`RSI ${rsi.val?.toFixed(0)} — oversold, high reversal probability`);
+  else if (rsi?.pts === 0 && rsi?.val > 70) bearish.push(`RSI ${rsi.val?.toFixed(0)} — overbought, pullback risk elevated`);
+
+  const streak = tech.detail?.streak;
+  if (streak?.pts >= 3)      bullish.push(`${streak.val}-day win streak — sustained buying momentum`);
+  else if (streak?.pts === 0 && streak?.val < -3) bearish.push(`${Math.abs(streak.val)}-day losing streak — selling pressure persistent`);
+
+  if (tech.detail?.volume?.pts >= 2) bullish.push('Volume spike — institutional participation confirms the move');
+
+  // Brain vault patterns
+  brain.patterns.forEach(p => {
+    const wr = p.winRate ? ` (${(typeof p.winRate === 'number' ? p.winRate : 0).toFixed(0)}% win rate)` : '';
+    if ((p.impact || p.score || 0) >= 0) bullish.push(`${p.name}${wr} — ${p.reason || 'active historical pattern'}`);
+    else bearish.push(`${p.name} — bearish pattern firing`);
+  });
+
+  // Regime
+  if (regime.fearGreed != null && regime.fearGreed < 20) bullish.push(`Extreme Fear (${regime.fearGreed}) — historically a contrarian buy signal at market lows`);
+  else if (regime.fearGreed != null && regime.fearGreed > 80) bearish.push(`Extreme Greed (${regime.fearGreed}) — market overextended, mean-reversion risk`);
+  if (regime.vix != null && regime.vix > 30) bearish.push(`VIX ${regime.vix} — elevated uncertainty, smaller positions recommended`);
+
+  // Macro
+  if (macro.score >= 7) bullish.push('Macro conditions healthy — yield curve, credit spreads, and inflation all supportive');
+  else if (macro.score <= 3) bearish.push('Macro headwinds — yield curve inversion or credit stress detected');
+
+  // Sentiment
+  if (sent.overall === 'positive') bullish.push('Positive news sentiment — market narrative supports price appreciation');
+  else if (sent.overall === 'negative') bearish.push('Negative news flow — headlines creating downward pressure');
+
+  // Reasoning
+  const bCount = bullish.length, rCount = bearish.length;
+  let reasoning = '';
+  if      (decision === 'STRONG BUY')  reasoning = `All major systems are aligned bullish. ${bCount} bullish factors with ${rCount} concerns. This is the highest-conviction setup VESTEX can generate.`;
+  else if (decision === 'BUY')          reasoning = `Strong bullish majority across systems. ${bCount} factors support upside vs ${rCount} opposing. Multiple systems confirm the direction.`;
+  else if (decision === 'BUY SMALL')    reasoning = `Bullish signals exist but ${rCount > 0 ? 'some systems conflict' : 'data coverage is incomplete'}. A small position captures the opportunity while limiting downside if conditions shift.`;
+  else if (decision === 'HOLD')         reasoning = `${bCount} bullish factors are present, but confirmation is not yet strong enough to justify adding. ${rCount > 0 ? `${rCount} conflicting signals reduce conviction.` : 'Waiting for confirmation is the disciplined approach.'}`;
+  else if (decision === 'WAIT')         reasoning = `Signals are too mixed or weak (${bCount} bullish vs ${rCount} bearish). No clear statistical edge. Staying flat prevents entering at the wrong moment.`;
+  else if (decision === 'SELL')         reasoning = `Bearish evidence (${rCount} factors) outweighs bullish (${bCount} factors). Reducing exposure protects capital for better setups ahead.`;
+  else                                  reasoning = `Multiple systems showing strong negative signals. Exiting position and waiting for stabilization is the priority.`;
+
+  // What would change the decision
+  const upThresh  = decision === 'HOLD' ? 60 : decision === 'BUY SMALL' ? 70 : decision === 'WAIT' ? 45 : decision === 'SELL' ? 35 : 85;
+  const dnThresh  = decision === 'HOLD' ? 44 : decision === 'BUY SMALL' ? 59 : decision === 'BUY' ? 59 : decision === 'WAIT' ? 34 : 20;
+  const upDecision = decision === 'HOLD' ? 'BUY SMALL' : decision === 'BUY SMALL' ? 'BUY' : decision === 'WAIT' ? 'HOLD' : decision === 'SELL' ? 'WAIT' : 'N/A';
+  const dnDecision = decision === 'HOLD' ? 'WAIT' : decision === 'BUY SMALL' ? 'HOLD' : decision === 'BUY' ? 'BUY SMALL' : decision === 'WAIT' ? 'SELL' : 'STRONG SELL';
+
+  return {
+    bullishEvidence: bullish,
+    bearishEvidence: bearish,
+    reasoning,
+    whatWouldChange: {
+      toUpgrade:   `${upDecision} if master score exceeds ${upThresh} with confidence above ${Math.round(upThresh * 0.9)}% — watch for volume confirmation and pattern activation`,
+      toDowngrade: `${dnDecision} if score falls below ${dnThresh} or bearish patterns activate — ${rCount > 0 ? 'existing concerns could amplify' : 'current warnings are the key downside triggers'}`,
+    }
+  };
+}
+
+// ── Phase 1: Score Contributors ───────────────────────────────
+function buildContributors(scoreBreakdown) {
+  const defs = [
+    { key: 'technical',    label: 'Technical Analysis', max: 25 },
+    { key: 'brainVault',   label: 'Brain Vault',        max: 20 },
+    { key: 'signalPerf',   label: 'Signal Performance', max: 15 },
+    { key: 'regime',       label: 'Market Regime',      max: 10 },
+    { key: 'macro',        label: 'Macro Economy',      max: 10 },
+    { key: 'sentiment',    label: 'Sentiment',          max: 10 },
+    { key: 'fundamentals', label: 'Fundamentals',       max: 10 },
+  ];
+  const positive = [], negative = [], neutral = [];
+  defs.forEach(({ key, label, max }) => {
+    const val = scoreBreakdown[key];
+    if (!val) return;
+    const pct = val.score / max;
+    const item = { name: label, pts: val.score, maxPts: max, pct: Math.round(pct * 100) };
+    if      (pct >= 0.62) positive.push(item);
+    else if (pct >= 0.38) neutral.push(item);
+    else                  negative.push(item);
+  });
+  positive.sort((a,b) => b.pts - a.pts);
+  negative.sort((a,b) => a.pts - b.pts);
+  return { positive, negative, neutral };
+}
+
+// ── Phase 6: Score Consistency Audit ─────────────────────────
+function buildConsistencyNote(brain, masterScore, confidence) {
+  if (brain.patterns.length >= 3 && confidence < 50 && masterScore >= 45 && masterScore < 65) {
+    return `${brain.patterns.length} active patterns but confidence is ${confidence}% — conflicting systems are limiting certainty. This occurs when strong technical patterns exist but macro, sentiment, or signal history data is incomplete or opposing.`;
+  }
+  if (brain.patterns.length === 0 && masterScore >= 65) {
+    return `Score of ${masterScore} with no active Brain Vault patterns — driven by technical and macro signals. Historical pattern validation would increase confidence further.`;
+  }
+  if (brain.activePercent < 30 && masterScore >= 60) {
+    return `Only ${brain.activePercent.toFixed(0)}% of Brain Vault active, yet score is ${masterScore}. Technical and macro signals are carrying the weight. Pattern confirmation would strengthen this setup.`;
+  }
+  return null;
 }
 
 module.exports = { buildMasterIntelligence, calcMarketHealth, healthLabel, scoreColor };
