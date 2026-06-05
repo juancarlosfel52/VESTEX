@@ -1429,12 +1429,12 @@ canvas{max-height:300px;}
             <option value="MSFT">MSFT — Microsoft Corp.</option>
             <option value="AMZN">AMZN — Amazon.com Inc.</option>
           </select>
-          <input class="add-inp" id="add-shares" type="number" placeholder="Shares (e.g. 10)" min="0.01" step="0.01">
-          <input class="add-inp" id="add-price" type="number" placeholder="Price you paid ($)">
+          <input class="add-inp" id="add-shares" type="number" placeholder="$ Amount Invested (e.g. 500)" min="0.01" step="0.01">
+          <input class="add-inp" id="add-price" type="number" placeholder="Price per share you paid ($)">
           <button class="btn-add" onclick="addStock()">◆ Add Stock</button>
         </div>
       </div>
-      <div style="font-size:10px;letter-spacing:.5px;color:var(--gray);">◆ Enter the price per share you originally paid to track your real profit or loss.</div>
+      <div style="font-size:10px;letter-spacing:.5px;color:var(--gray);">◆ Enter the total dollar amount you invested and the price per share you paid. VESTEX calculates your share count automatically.</div>
     </div>
 
     <!-- ═══ NEWS PAGE ═══ -->
@@ -2691,7 +2691,7 @@ function piCalcPosition(holding) {
   const st   = STOCKS[sym];
   const sp   = serverPreds[sym];
   const cp   = st?.price ?? null;
-  const inv  = holding.shares * holding.buy;
+  const inv  = holding.invested ?? (holding.shares * holding.buy);
   const cur  = cp !== null ? holding.shares * cp : null;
   const pnl  = cur !== null ? cur - inv : null;
   const pnlPct = pnl !== null ? pnl / inv * 100 : null;
@@ -3053,7 +3053,11 @@ function renderPortfolioIntelligence() {
 function renderPortfolio() {
   renderPortfolioIntelligence();
   let inv=0, cur=0;
-  portfolio.forEach(p=>{ inv += p.shares*p.buy; cur += p.shares*(STOCKS[p.sym]?.price || 0); });
+  portfolio.forEach(p=>{
+    // Use stored dollar amount if present (new entries), fall back to shares×buy (legacy)
+    inv += p.invested ?? (p.shares * p.buy);
+    cur += p.shares * (STOCKS[p.sym]?.price || 0);
+  });
   const pnl = cur - inv;
   const pct = inv > 0 ? (pnl/inv*100).toFixed(1) : 0;
 
@@ -3071,7 +3075,7 @@ function renderPortfolio() {
 
   document.getElementById('port-rows').innerHTML = portfolio.map((p,i)=>{
     const st   = STOCKS[p.sym];
-    const pinv = p.shares * p.buy;
+    const pinv = p.invested ?? (p.shares * p.buy);
     const pcur = p.shares * st.price;
     const ppnl = pcur - pinv;
     const ppct = (ppnl/pinv*100).toFixed(1);
@@ -3091,10 +3095,11 @@ function renderPortfolio() {
 
 function addStock() {
   const sym    = document.getElementById('add-sym').value;
-  const shares = parseFloat(document.getElementById('add-shares').value);
+  const amount = parseFloat(document.getElementById('add-shares').value); // dollar amount invested
   const price  = parseFloat(document.getElementById('add-price').value);
-  if (!sym || !shares || !price || shares<=0 || price<=0) { alert('Please fill in all fields.'); return; }
-  portfolio.push({ sym, shares, buy:price });
+  if (!sym || !amount || !price || amount<=0 || price<=0) { alert('Please fill in all fields.'); return; }
+  const shares = +(amount / price).toFixed(6); // compute share count from dollar amount
+  portfolio.push({ sym, shares, buy:price, invested: amount });
   localStorage.setItem('vestex_portfolio', JSON.stringify(portfolio));
   document.getElementById('add-sym').value = '';
   document.getElementById('add-shares').value = '';
