@@ -390,6 +390,73 @@ body.dark-mode .sh-card{background:#111;border-color:#2C2C2C;}
 body.dark-mode .sh-tip{background:#1A1A1A;}
 @media(prefers-reduced-motion:reduce){.sh-card,.sh-prog-bar{transition:none!important;}.sh-btn:hover{transform:none;}}
 
+/* ── PORTFOLIO LEARNING COACH ── */
+.pc-coach-toggle{width:100%;background:none;border:none;border-top:1px solid rgba(201,168,76,.2);padding:12px 0 0;cursor:pointer;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:space-between;transition:color .2s;margin-top:14px;}
+.pc-coach-toggle:hover{color:var(--gold-light);}
+.pc-coach-chevron{font-size:8px;transition:transform .3s cubic-bezier(.22,1,.36,1);display:inline-block;}
+.pc-coach-chevron.open{transform:rotate(180deg);}
+.pc-coach-wrap{overflow:hidden;max-height:0;opacity:0;transition:max-height .45s cubic-bezier(.22,1,.36,1),opacity .3s ease;}
+.pc-coach-wrap.open{max-height:2400px;opacity:1;}
+@media(prefers-reduced-motion:reduce){.pc-coach-wrap{transition:none;}.pc-coach-wrap.open{max-height:none;opacity:1;}}
+.pc-coach-card{background:rgba(0,0,0,.03);border:1px solid rgba(201,168,76,.15);padding:18px;margin-top:12px;}
+body.dark-mode .pc-coach-card{background:rgba(255,255,255,.02);}
+.pc-section{margin-bottom:14px;}
+.pc-section-lbl{font-size:7px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px;}
+.pc-text{font-size:11px;color:var(--gray);line-height:1.75;}
+.pc-changes{display:flex;flex-direction:column;gap:5px;}
+.pc-change-item{font-size:11px;color:var(--dark);line-height:1.5;padding:5px 0;border-bottom:1px solid var(--border);}
+.pc-change-item:last-child{border-bottom:none;}
+.pc-lesson{background:rgba(201,168,76,.06);border-left:2px solid var(--gold);padding:10px 14px;margin-bottom:10px;}
+.pc-lesson-lbl{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;font-weight:700;}
+.pc-lesson-text{font-size:11px;color:var(--gray);line-height:1.75;}
+.pc-rule{display:flex;gap:10px;align-items:flex-start;background:rgba(204,0,0,.04);border-left:2px solid var(--red);padding:10px 14px;}
+.pc-rule-icon{color:var(--red);font-size:10px;margin-top:2px;flex-shrink:0;}
+.pc-rule-text{font-size:11px;color:var(--gray);line-height:1.6;}
+.pc-rule-text strong{color:var(--dark);}
+/* Checklist */
+.pc-checklist{padding:14px 0 0;}
+.pc-checklist-title{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);font-weight:700;margin-bottom:10px;}
+.pc-check-item{display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:6px 0;font-size:11px;color:var(--dark);line-height:1.5;}
+.pc-check-item input[type=checkbox]{width:14px;height:14px;margin-top:1px;accent-color:var(--gold);flex-shrink:0;cursor:pointer;}
+.pc-action-btns{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);animation:pcFadeIn .3s ease forwards;}
+.pc-action-btns-label{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;font-weight:700;}
+.pc-action-btns-row{display:flex;gap:8px;flex-wrap:wrap;}
+.pc-log-btn{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:7px 14px;border:1px solid;background:none;cursor:pointer;font-family:'Inter',sans-serif;transition:all .18s;}
+.pc-log-btn.buy{color:var(--green2);border-color:var(--green2);}
+.pc-log-btn.buy:hover{background:var(--green2);color:#fff;}
+.pc-log-btn.hold{color:var(--gold);border-color:var(--gold);}
+.pc-log-btn.hold:hover{background:var(--gold);color:#000;}
+.pc-log-btn.sell{color:var(--red);border-color:var(--red);}
+.pc-log-btn.sell:hover{background:var(--red);color:#fff;}
+.pc-log-btn.profit{color:#a374ff;border-color:#a374ff;}
+.pc-log-btn.profit:hover{background:#a374ff;color:#fff;}
+.pc-log-btn.saved{animation:pcBtnGlow .65s ease;}
+/* Learning Log */
+.pc-log-wrap{padding:14px 0 0;}
+.pc-log-title{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);font-weight:700;margin-bottom:8px;}
+.pc-log-list{display:flex;flex-direction:column;gap:5px;}
+.pc-log-item{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--cream);font-size:10px;gap:8px;flex-wrap:wrap;animation:pcSlideIn .25s ease forwards;}
+body.dark-mode .pc-log-item{background:#1A1A1A;}
+.pc-log-date{color:var(--gray);letter-spacing:.5px;flex-shrink:0;}
+.pc-log-action{font-weight:700;letter-spacing:1px;text-transform:uppercase;flex-shrink:0;}
+.pc-log-price{font-family:'JetBrains Mono',monospace;color:var(--gray);}
+.pc-log-empty{font-size:10px;color:var(--border);letter-spacing:.5px;padding:4px 0;}
+/* VESTEX Rules */
+.vr-wrap{margin-top:20px;border:1px solid rgba(201,168,76,.2);}
+.vr-toggle{width:100%;background:var(--cream);border:none;padding:13px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--dark);font-family:'Inter',sans-serif;transition:background .15s;}
+body.dark-mode .vr-toggle{background:#111;}
+.vr-toggle:hover{background:var(--border);}
+.vr-chevron{font-size:8px;transition:transform .3s;display:inline-block;}
+.vr-chevron.open{transform:rotate(180deg);}
+.vr-body{overflow:hidden;max-height:0;transition:max-height .4s cubic-bezier(.22,1,.36,1);}
+.vr-body.open{max-height:700px;}
+.vr-rules{padding:14px 18px 18px;display:flex;flex-direction:column;gap:10px;}
+.vr-rule{display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--dark);line-height:1.6;}
+.vr-rule-num{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);font-weight:700;min-width:18px;margin-top:2px;flex-shrink:0;}
+@keyframes pcFadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes pcSlideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes pcBtnGlow{0%,100%{box-shadow:none}40%{box-shadow:0 0 14px currentColor}}
+
 /* ── NEWS ── */
 .news-item{padding:14px 22px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:4px 1fr auto;gap:14px;align-items:start;}
 .news-item:last-child{border-bottom:none;}
@@ -3011,6 +3078,55 @@ function renderPortfolioIntelligence() {
       ? p.warns.map(w => `<div class="pi-warn-badge${w.critical ? ' critical' : ''}">⚠ ${w.text}</div>`).join('')
       : `<div style="font-size:10px;color:rgba(240,236,228,.3);">No active warnings for this position.</div>`;
 
+    const coach    = piCoachData(p);
+    const logHtml  = pcRenderLog(p.sym);
+    const chgItems = coach.changes.map(c => `<div class="pc-change-item">◆ ${c}</div>`).join('');
+    const coachSection = `
+      <button class="pc-coach-toggle" id="pct-${p.sym}" onclick="pcToggleCoach('${p.sym}')" aria-expanded="false">
+        <span>◆ Portfolio Coach — What Should I Do With ${p.sym}?</span>
+        <span class="pc-coach-chevron" id="pcc-${p.sym}">▼</span>
+      </button>
+      <div class="pc-coach-wrap" id="pcw-${p.sym}">
+        <div class="pc-coach-card">
+          <div class="pc-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+            <div>
+              <div class="pc-section-lbl">Suggested Action</div>
+              <div class="pi-action-badge ${ACTION_CSS[p.action]||'hold'}" style="font-size:11px;padding:5px 14px;display:inline-block;margin-top:4px;">${p.action}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="pc-section-lbl">Recommended Hold</div>
+              <div style="font-size:12px;color:var(--dark);font-family:'JetBrains Mono',monospace;margin-top:4px;">${p.holdLabel}</div>
+              <div style="font-size:9px;color:var(--gray);margin-top:2px;">${p.holdNote}</div>
+            </div>
+          </div>
+          <div class="pc-section"><div class="pc-section-lbl">Why This Action</div><div class="pc-text">${coach.why}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">What To Watch Next</div><div class="pc-text">${coach.watch}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">What Would Change The Decision</div><div class="pc-changes">${chgItems}</div></div>
+          <div class="pc-lesson"><div class="pc-lesson-lbl">◈ Beginner Lesson</div><div class="pc-lesson-text">${coach.lesson}</div></div>
+          <div class="pc-rule"><div class="pc-rule-icon">◆</div><div class="pc-rule-text"><strong>Discipline Rule:</strong> ${coach.rule}</div></div>
+        </div>
+        <div class="pc-checklist" data-sym="${p.sym}">
+          <div class="pc-checklist-title">◆ Action Readiness Checklist</div>
+          <label class="pc-check-item"><input type="checkbox" class="pc-check" onchange="pcChecklistChange('${p.sym}')"><span>I understand why VESTEX recommends this action</span></label>
+          <label class="pc-check-item"><input type="checkbox" class="pc-check" onchange="pcChecklistChange('${p.sym}')"><span>I know my risk level for this position</span></label>
+          <label class="pc-check-item"><input type="checkbox" class="pc-check" onchange="pcChecklistChange('${p.sym}')"><span>I know what would change the decision</span></label>
+          <label class="pc-check-item"><input type="checkbox" class="pc-check" onchange="pcChecklistChange('${p.sym}')"><span>I understand this is educational, not financial advice</span></label>
+          <div class="pc-action-btns" id="pcab-${p.sym}" style="display:none;">
+            <div class="pc-action-btns-label">Log My Learning Decision</div>
+            <div class="pc-action-btns-row">
+              <button class="pc-log-btn buy"    onclick="pcLogDecision('${p.sym}','PLANNED BUY')">Planned Buy</button>
+              <button class="pc-log-btn hold"   onclick="pcLogDecision('${p.sym}','PLANNED HOLD')">Planned Hold</button>
+              <button class="pc-log-btn sell"   onclick="pcLogDecision('${p.sym}','PLANNED SELL')">Planned Sell</button>
+              <button class="pc-log-btn profit" onclick="pcLogDecision('${p.sym}','PLANNED TAKE PROFIT')">Planned Take Profit</button>
+            </div>
+          </div>
+        </div>
+        <div class="pc-log-wrap">
+          <div class="pc-log-title">Learning History</div>
+          <div class="pc-log-list" id="pclogs-${p.sym}">${logHtml}</div>
+        </div>
+      </div>`;
+
     return `
     <div class="pi-card" style="animation-delay:${i * 0.08}s">
       <div class="pi-card-head">
@@ -3053,6 +3169,7 @@ function renderPortfolioIntelligence() {
         ${whyHtml}
       </div>
       <div class="pi-warnings">${warnHtml}</div>
+      ${coachSection}
     </div>`;
   }).join('');
 
@@ -3099,6 +3216,27 @@ function renderPortfolioIntelligence() {
     <div class="pi-cards-label">Position Intelligence</div>
     <div class="pi-cards">${cardsHtml}</div>
 
+    <div class="vr-wrap">
+      <button class="vr-toggle" onclick="vrToggleRules()">
+        <span>◆ VESTEX Portfolio Rules — 10 Principles Every Investor Should Know</span>
+        <span class="vr-chevron" id="vr-chevron">▼</span>
+      </button>
+      <div class="vr-body" id="vr-body">
+        <div class="vr-rules">
+          <div class="vr-rule"><div class="vr-rule-num">01</div><div>Do not buy only because the price dropped. A falling price is not automatically a bargain — find out why it dropped first.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">02</div><div>Do not sell only because you are scared. Fear is not a signal. Check the confidence score and direction before acting.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">03</div><div>Do not put all your money into one stock. Concentration multiplies both gains and losses — spread across at least 3–5 symbols.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">04</div><div>Know your entry reason before buying. If you cannot state why you are buying in one sentence, you are not ready to buy.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">05</div><div>Know your exit reason before selling. Decide your target and stop-loss before entering — not after the position moves against you.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">06</div><div>If confidence is under 55%, wait. No edge means no trade. The best position is sometimes no position at all.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">07</div><div>If risk is High or Extreme, reduce position size. Never risk more than you are comfortable losing completely.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">08</div><div>If systems disagree, hold or wait. Conflicting signals mean uncertainty — the market rewards patience over forced decisions.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">09</div><div>If profit is large and the signal weakens, consider taking partial profit. Locking in gains is discipline, not weakness.</div></div>
+          <div class="vr-rule"><div class="vr-rule-num">10</div><div>Always compare your decision against SPY. If the whole market is falling, individual stock problems may be part of a larger trend — not a buying opportunity.</div></div>
+        </div>
+      </div>
+    </div>
+
     <div class="pi-disclaimer">◆ Educational insight only · Not financial advice · Always manage risk before investing · Past signal performance does not guarantee future results</div>
   `;
 
@@ -3114,6 +3252,156 @@ function renderPortfolioIntelligence() {
       el.querySelectorAll('.pi-expo-fill[data-w]').forEach(e    => { e.style.width = e.dataset.w + '%'; });
     }, 120);
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PORTFOLIO LEARNING COACH — helper functions
+// ═══════════════════════════════════════════════════════════
+function piCoachData(pos) {
+  const { sym, action, confidence, riskLevel, direction, pnlPct, currentPrice, avgCost, holdLabel } = pos;
+  const sp     = serverPreds[sym];
+  const brain  = sp?.brain || null;
+  const regime = brain?.regime?.name || 'neutral';
+  const cp     = currentPrice;
+
+  // ── Why ──
+  const confStr = confidence + '%';
+  let why = '';
+  if      (action === 'STRONG BUY')  why = `${sym} has strong bullish alignment across technical, brain vault, and sentiment signals at ${confStr} confidence. Market conditions are supportive and risk is manageable — a high-quality opportunity to add.`;
+  else if (action === 'BUY SMALL')   why = `${sym} shows moderate upside at ${confStr} confidence. Not all systems fully agree, so a small addition captures the opportunity while limiting downside if conditions shift.`;
+  else if (action === 'HOLD')        why = `${sym} is in a stable position. Signals are neutral-to-positive but not strong enough to justify adding more. Your current stake is healthy — patience is the right move right now.`;
+  else if (action === 'WAIT')        why = `Signals for ${sym} are weak or conflicting at only ${confStr} confidence. No clear edge in either direction. Staying flat prevents entering at the wrong moment.`;
+  else if (action === 'TAKE PROFIT') why = `${sym} is up ${pnlPct !== null ? pnlPct.toFixed(1) + '%' : 'significantly'} from your entry and signal strength is fading. Locking in gains now is disciplined trading — not fear.`;
+  else if (action === 'SELL')        why = `${sym} is showing bearish signals at ${confStr} confidence in a downward direction. Reducing or exiting this position protects your capital for better setups ahead.`;
+
+  // ── Watch ──
+  let watch = '';
+  if (cp !== null && avgCost !== null) {
+    const upLevel = +(cp * 1.035).toFixed(2);
+    const dnLevel = +(cp * 0.965).toFixed(2);
+    if      (action === 'HOLD' || action === 'WAIT')
+      watch = `A close above $${upLevel} on increased volume would signal renewed strength and could trigger an upgrade. A close below $${dnLevel} would indicate weakening and may trigger WAIT or SELL.`;
+    else if (action === 'BUY SMALL' || action === 'STRONG BUY')
+      watch = `Monitor ${sym} holding above $${dnLevel} as support. Confidence rising above ${Math.min(85, confidence + 10)}% with direction staying UP confirms the trend. A drop below $${dnLevel} on volume weakens the case.`;
+    else if (action === 'TAKE PROFIT')
+      watch = `After taking partial profit, watch if ${sym} holds above $${+(avgCost * 1.08).toFixed(2)} — 8% above your cost. If it holds, your remaining shares are well-protected. A break below that level suggests exiting the rest.`;
+    else
+      watch = `Monitor if ${sym} can recover above $${upLevel} on volume. That would signal the bearish pressure is lifting. Continued closes below $${dnLevel} confirm the downtrend is intact.`;
+  } else {
+    watch = `Monitor VESTEX confidence score changes, Brain Vault pattern updates, and the Master Intelligence score for ${sym} each session.`;
+  }
+
+  // ── What Changes Decision ──
+  const buyMoreConf = Math.min(80, Math.round(confidence + 12));
+  const sellConf    = Math.max(35, Math.round(confidence - 15));
+  const changes = [
+    `BUY MORE if confidence rises above ${buyMoreConf}% and risk drops to ${(riskLevel==='high'||riskLevel==='extreme') ? 'Moderate' : 'Low'}.`,
+    `SELL / REDUCE if confidence falls below ${sellConf}% or direction turns DOWN with high confidence.`,
+  ];
+  if (pnlPct !== null && pnlPct > 0)   changes.push(`TAKE PROFIT if position gains reach ${Math.round(pnlPct + 8)}% from entry — protect what you have built.`);
+  if (regime === 'euphoria')            changes.push('REDUCE EXPOSURE if the market stays in euphoria — greed-driven rallies can reverse without warning.');
+  else if (regime === 'fear' || regime === 'panic') changes.push('UPGRADE TO BUY if panic subsides and confidence recovers — fear bottoms create the best long entries.');
+
+  // ── Lesson ──
+  let lesson = '';
+  if      (action === 'STRONG BUY' || action === 'BUY SMALL')
+    lesson = 'Adding to a position is called "scaling in." Only do it when signal strength is confirmed — not just because it feels good. VESTEX requires multiple systems to agree before suggesting a buy. One indicator alone is never enough.';
+  else if (action === 'HOLD')
+    lesson = 'Holding is an active, intentional decision — not laziness. You are choosing to stay because signals are healthy and nothing has changed. Boredom is not a reason to sell, and excitement alone is not a reason to add more.';
+  else if (action === 'WAIT')
+    lesson = 'When signals are unclear, the best trade is no trade. Preserving your capital when there is no edge is smarter than forcing a position. The next high-confidence signal will come — your money needs to be available when it does.';
+  else if (action === 'TAKE PROFIT')
+    lesson = 'Taking profits is not a sign of weakness — it is discipline. You cannot predict the future. Locking in gains on part of your position lets you participate in further upside while protecting what you have already earned.';
+  else
+    lesson = 'Selling to protect capital is not giving up — it is risk management. Every dollar protected is available for the next high-confidence setup. Holding a losing position while "hoping it comes back" is one of the most expensive habits in investing.';
+
+  // ── Discipline Rule ──
+  let rule = '';
+  if      (confidence < 55)            rule = 'Confidence is below 55% — do not add more money to this position until the signal strengthens.';
+  else if (riskLevel === 'extreme')     rule = 'Risk is EXTREME — this is not the time to increase exposure. Protecting capital comes first.';
+  else if (riskLevel === 'high')        rule = 'Risk is HIGH — if you add, keep the size very small. Never risk more than you can afford to lose completely.';
+  else if (action === 'TAKE PROFIT')    rule = 'When VESTEX says Take Profit and you are significantly up, do not ignore it. The market will not always give you another exit at this price.';
+  else if (action === 'SELL')           rule = 'When the model turns bearish with high confidence, reducing exposure first and reassessing later is the correct discipline. Pride is not a strategy.';
+  else                                  rule = 'If you feel uncertain about this position, that feeling is meaningful data. Reduce your size to a level where you can hold through volatility without stress.';
+
+  return { why, watch, changes, lesson, rule };
+}
+
+function pcRenderLog(sym) {
+  const log = pcLoadLog(sym);
+  if (!log.length) return '<div class="pc-log-empty">◆ No decisions logged yet — complete the checklist above to log your first entry</div>';
+  return log.slice(0, 5).map(e => {
+    const cls = e.planned.includes('BUY') && !e.planned.includes('PROFIT') ? 'var(--green2)'
+              : e.planned.includes('PROFIT') ? '#a374ff'
+              : e.planned.includes('SELL')   ? 'var(--red)' : 'var(--gold)';
+    const res = e.result
+      ? `<span style="color:${e.result==='CORRECT'?'var(--green2)':'#ff6b6b'};font-size:9px;">${e.result}</span>`
+      : `<span style="color:var(--gray);font-size:9px;">Result pending</span>`;
+    return `<div class="pc-log-item">
+      <span class="pc-log-date">${e.date}</span>
+      <span class="pc-log-action" style="color:${cls};">${e.planned}</span>
+      <span class="pc-log-price">${e.price ? 'at $' + e.price : ''}</span>
+      ${res}
+    </div>`;
+  }).join('');
+}
+
+function pcLoadLog(sym) {
+  try { return JSON.parse(localStorage.getItem('vestex_learn_' + sym) || '[]'); }
+  catch(e) { return []; }
+}
+
+function pcToggleCoach(sym) {
+  const wrap = document.getElementById('pcw-' + sym);
+  const chev = document.getElementById('pcc-' + sym);
+  const btn  = document.getElementById('pct-' + sym);
+  if (!wrap) return;
+  const open = wrap.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
+  if (btn)  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function pcChecklistChange(sym) {
+  const wrap = document.getElementById('pcw-' + sym);
+  if (!wrap) return;
+  const all = Array.from(wrap.querySelectorAll('.pc-check')).every(b => b.checked);
+  const ab  = document.getElementById('pcab-' + sym);
+  if (ab) ab.style.display = all ? '' : 'none';
+}
+
+function pcLogDecision(sym, planned) {
+  const st  = STOCKS[sym];
+  const sp  = serverPreds[sym];
+  const entry = {
+    date:       new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }),
+    planned,
+    price:      st?.price ? st.price.toFixed(2) : null,
+    confidence: sp?.confidence || 50,
+    result:     null,
+  };
+  const log = pcLoadLog(sym);
+  log.unshift(entry);
+  if (log.length > 20) log.length = 20;
+  try { localStorage.setItem('vestex_learn_' + sym, JSON.stringify(log)); } catch(e) {}
+  const listEl = document.getElementById('pclogs-' + sym);
+  if (listEl) listEl.innerHTML = pcRenderLog(sym);
+  // Glow the tapped button
+  const ab = document.getElementById('pcab-' + sym);
+  if (ab) {
+    const cls = planned.includes('BUY') && !planned.includes('PROFIT') ? 'buy'
+              : planned.includes('PROFIT') ? 'profit'
+              : planned.includes('SELL')   ? 'sell' : 'hold';
+    const btn = ab.querySelector('.pc-log-btn.' + cls);
+    if (btn) { btn.classList.add('saved'); setTimeout(() => btn.classList.remove('saved'), 700); }
+  }
+}
+
+function vrToggleRules() {
+  const body = document.getElementById('vr-body');
+  const chev = document.getElementById('vr-chevron');
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
 }
 
 // ═══════════════════════════════════════════════════════════
