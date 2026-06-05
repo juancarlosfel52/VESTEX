@@ -2762,7 +2762,7 @@ function piCalcPosition(holding) {
   const bBar      = Math.min(100, Math.abs(bScore) * 120);
   const bBC       = bSt === 'bull' ? 'var(--green2)' : bSt === 'bear' ? '#ff6b6b' : 'rgba(201,168,76,.5)';
   const bPts      = (bScore >= 0 ? '+' : '') + Math.round(bScore * 80) + ' pts';
-  const bExp      = bCount > 0 ? `${bCount} of 174 patterns fired — ${bBull} bullish, ${bBear} bearish. Seasonal: ${brain?.seasonal?.name || 'none'}.` : 'No historical patterns triggered at this time.';
+  const bExp      = bCount > 0 ? `${bCount} of 113 patterns fired — ${bBull} bullish, ${bBear} bearish. Seasonal: ${brain?.seasonal?.name || 'none'}.` : 'No historical patterns triggered at this time.';
 
   const rColor    = {fear:'var(--green2)',panic:'var(--green2)',cautious:'#e07b39',euphoria:'#ff6b6b',greed:'var(--gold)',neutral:'rgba(201,168,76,.5)'}[regime] || 'rgba(201,168,76,.5)';
   const rSt       = {fear:'bull',panic:'bull',cautious:'warn',euphoria:'bear',greed:'neutral',neutral:'neutral'}[regime] || 'neutral';
@@ -2897,6 +2897,11 @@ function renderPortfolioIntelligence() {
   if (!el) return;
   if (!portfolio.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
+
+  // If sentiment not yet loaded, fetch it then re-render once it arrives
+  if (!liveSentiment) {
+    fetchSentiment().then(() => { if (liveSentiment) renderPortfolioIntelligence(); }).catch(() => {});
+  }
 
   const positions = portfolio.filter(p => STOCKS[p.sym]).map(p => piCalcPosition(p));
   if (!positions.length) { el.style.display = 'none'; return; }

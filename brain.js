@@ -131,6 +131,9 @@ function matchTechnical(indicators, macro, sentiment) {
   const matches = [];
   const skipped = {};
   let evaluated = 0;
+  // Earnings proxy (021-040): fire at most once per direction to prevent pile-on
+  let earningsBullFired = false;
+  let earningsBearFired = false;
 
   for (const p of TECHNICAL) {
     let triggered = false;
@@ -260,18 +263,22 @@ function matchTechnical(indicators, macro, sentiment) {
           skipped[p.pattern_id] = 'Requires EPS/guidance data; no sentiment available';
           canEval = false; break;
         }
+        // Require strong sentiment score (>30 or <-30) to prevent weak news from triggering
+        // Also fire at most ONCE per direction across all 20 earnings proxy patterns
+        // to prevent a pile-on where 10+ patterns fire for the same sentiment summary
+        const sentScore = sentiment.score ?? 0;
         const sl  = sentiment.summary.toLowerCase();
         const nameLower = (p.name || '').toLowerCase();
         const isBull = nameLower.match(/beat|raise|strong|growth|positive/);
         const isBear = nameLower.match(/miss|cut|weak|decline|negative/);
         const hasBeatLang = sl.match(/beat|exceed|surpass|strong earn|above expect/);
         const hasMissLang = sl.match(/miss|disappoint|fall short|below expect|lower than/);
-        if (isBull && hasBeatLang) {
-          triggered = true; direction = 'bullish';
-          extras = { confidence: Math.max(40, (p.confidence || 55) - 15), reason: 'Earnings beat language detected in sentiment (proxy)' };
-        } else if (isBear && hasMissLang) {
-          triggered = true; direction = 'bearish';
-          extras = { confidence: Math.max(40, (p.confidence || 55) - 15), reason: 'Earnings miss language detected in sentiment (proxy)' };
+        if (isBull && hasBeatLang && sentScore > 30 && !earningsBullFired) {
+          triggered = true; direction = 'bullish'; earningsBullFired = true;
+          extras = { confidence: Math.max(40, (p.confidence || 55) - 15), reason: `Earnings beat signal confirmed (sentiment score: ${sentScore})` };
+        } else if (isBear && hasMissLang && sentScore < -30 && !earningsBearFired) {
+          triggered = true; direction = 'bearish'; earningsBearFired = true;
+          extras = { confidence: Math.max(40, (p.confidence || 55) - 15), reason: `Earnings miss signal confirmed (sentiment score: ${sentScore})` };
         }
         break;
       }

@@ -191,7 +191,9 @@ function calcFundamentalsScore(edgar) {
     score -= 1; detail.debt = '⚠ Debt with negative income';
   }
   if (insiders.length > 0) {
-    score += 1; detail.insiders = `${insiders.length} insider transaction(s) — bullish signal`;
+    // EDGAR search does not return transaction type (buy vs sell) — score neutral
+    // until direction data is available; don't add bullish bias for unknown transactions
+    detail.insiders = `${insiders.length} insider transaction(s) recorded — direction unavailable`;
   }
 
   return { score: Math.min(10, Math.max(0, score)), detail };
