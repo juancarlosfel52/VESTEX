@@ -1089,6 +1089,221 @@ if (pipelineReady) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+//  PAPER TRADING — Firebase-backed, no Alpaca account needed
+//  All balance mutations happen server-side only.
+//  Auth: every request must carry Firebase ID token in
+//  Authorization: Bearer <idToken> header.
+// ═══════════════════════════════════════════════════════════
+const PT_ACCOUNTS  = 'paper_accounts';
+const PT_POSITIONS = 'paper_positions';
+const PT_TRADES    = 'paper_trades';
+const PT_STARTER   = 1_000_000;   // $1M free for new users
+const PT_TOPUP_PER_DOLLAR = 50_000; // $1 real = $50K fake (future)
+
+// Verify Firebase ID token — returns uid or throws
+async function verifyIdToken(req) {
+  const auth = req.headers.authorization || '';
+  if (!auth.startsWith('Bearer ')) throw new Error('Missing auth token');
+  const token   = auth.slice(7);
+  const decoded = await admin.auth().verifyIdToken(token);
+  return decoded.uid;
+}
+
+// Get or create paper account for uid
+async function getPaperAccount(db, uid) {
+  const ref = db.collection(PT_ACCOUNTS).doc(uid);
+  const doc = await ref.get();
+  if (doc.exists) return { ref, data: doc.data() };
+  // First time — create with $1M starter balance
+  const newAccount = {
+    uid,
+    balance:      PT_STARTER,
+    totalDeposited: PT_STARTER,
+    tradeCount:   0,
+    createdAt:    Date.now(),
+  };
+  await ref.set(newAccount);
+  return { ref, data: newAccount };
+}
+
+// GET /api/paper/account — balance + open positions with live P&L
+app.get('/api/paper/account', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const uid = await verifyIdToken(req);
+    const db  = admin.firestore();
+    const { data: acct } = await getPaperAccount(db, uid);
+
+    // Load positions
+    const posSnap = await db.collection(PT_POSITIONS)
+      .where('uid', '==', uid).get();
+    const positions = posSnap.docs.map(d => d.data());
+
+    // Fetch current prices for all held symbols
+    const axios = require('axios');
+    const key   = process.env.ALPACA_KEY;
+    const sec   = process.env.ALPACA_SECRET;
+    let prices  = {};
+    if (positions.length && key) {
+      const syms = [...new Set(positions.map(p => p.sym))];
+      try {
+        const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+          params: { symbols: syms.join(','), feed: 'iex' },
+          headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
+          timeout: 8000,
+        });
+        syms.forEach(s => {
+          const sn = r.data[s];
+          if (sn) prices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null;
+        });
+      } catch(e) { /* prices stay empty — show cost basis */ }
+    }
+
+    const enriched = positions.map(p => {
+      const price   = prices[p.sym] ?? null;
+      const curVal  = price != null ? +(price * p.shares).toFixed(2) : null;
+      const pnl     = curVal != null ? +(curVal - p.totalCost).toFixed(2) : null;
+      const pnlPct  = pnl != null && p.totalCost > 0 ? +(pnl / p.totalCost * 100).toFixed(2) : null;
+      return { ...p, currentPrice: price, currentValue: curVal, pnl, pnlPct };
+    });
+
+    const stocksValue = enriched.reduce((s, p) => s + (p.currentValue ?? p.totalCost), 0);
+    const totalValue  = +(acct.balance + stocksValue).toFixed(2);
+
+    res.json({ ok: true, account: { ...acct, stocksValue: +stocksValue.toFixed(2), totalValue }, positions: enriched });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// POST /api/paper/buy  { sym, shares }
+app.post('/api/paper/buy', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const uid    = await verifyIdToken(req);
+    const { sym, shares } = req.body;
+    if (!sym || !shares || shares <= 0) return res.json({ ok: false, error: 'sym and shares required' });
+    const cleanSym = sym.toUpperCase().trim();
+
+    // Get live price
+    const axios = require('axios');
+    const key   = process.env.ALPACA_KEY;
+    const sec   = process.env.ALPACA_SECRET;
+    let price   = null;
+    try {
+      const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+        params: { symbols: cleanSym, feed: 'iex' },
+        headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
+        timeout: 6000,
+      });
+      const sn = r.data[cleanSym];
+      price = sn?.latestTrade?.p ?? sn?.latestQuote?.bp ?? null;
+    } catch(e) { return res.json({ ok: false, error: 'Could not fetch live price' }); }
+    if (!price) return res.json({ ok: false, error: 'No live price available for ' + cleanSym });
+
+    const cost = +(price * shares).toFixed(2);
+    const db   = admin.firestore();
+    const { ref: acctRef, data: acct } = await getPaperAccount(db, uid);
+
+    if (acct.balance < cost) return res.json({ ok: false, error: `Insufficient balance. Need $${cost.toFixed(2)}, have $${acct.balance.toFixed(2)}` });
+
+    const posId  = `${uid}_${cleanSym}`;
+    const posRef = db.collection(PT_POSITIONS).doc(posId);
+    const posDoc = await posRef.get();
+
+    const batch = db.batch();
+
+    // Update or create position
+    if (posDoc.exists) {
+      const p        = posDoc.data();
+      const newShares = +(p.shares + shares).toFixed(8);
+      const newCost   = +(p.totalCost + cost).toFixed(2);
+      batch.update(posRef, { shares: newShares, totalCost: newCost, avgCost: +(newCost / newShares).toFixed(4), updatedAt: Date.now() });
+    } else {
+      batch.set(posRef, { uid, sym: cleanSym, shares: +shares.toFixed(8), totalCost: cost, avgCost: +price.toFixed(4), openedAt: Date.now(), updatedAt: Date.now() });
+    }
+
+    // Deduct balance + increment trade count
+    batch.update(acctRef, { balance: +(acct.balance - cost).toFixed(2), tradeCount: (acct.tradeCount || 0) + 1 });
+
+    // Log trade
+    const tradeRef = db.collection(PT_TRADES).doc();
+    batch.set(tradeRef, { uid, sym: cleanSym, type: 'BUY', shares: +shares.toFixed(8), price, total: cost, balanceBefore: acct.balance, balanceAfter: +(acct.balance - cost).toFixed(2), timestamp: Date.now() });
+
+    await batch.commit();
+    res.json({ ok: true, sym: cleanSym, shares, price, total: cost, newBalance: +(acct.balance - cost).toFixed(2) });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// POST /api/paper/sell  { sym, shares }
+app.post('/api/paper/sell', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const uid    = await verifyIdToken(req);
+    const { sym, shares } = req.body;
+    if (!sym || !shares || shares <= 0) return res.json({ ok: false, error: 'sym and shares required' });
+    const cleanSym = sym.toUpperCase().trim();
+
+    const db     = admin.firestore();
+    const posId  = `${uid}_${cleanSym}`;
+    const posRef = db.collection(PT_POSITIONS).doc(posId);
+    const posDoc = await posRef.get();
+
+    if (!posDoc.exists) return res.json({ ok: false, error: 'No position in ' + cleanSym });
+    const pos = posDoc.data();
+    if (pos.shares < shares) return res.json({ ok: false, error: `Only have ${pos.shares} shares of ${cleanSym}` });
+
+    // Get live price
+    const axios = require('axios');
+    const key   = process.env.ALPACA_KEY;
+    const sec   = process.env.ALPACA_SECRET;
+    let price   = null;
+    try {
+      const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+        params: { symbols: cleanSym, feed: 'iex' },
+        headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
+        timeout: 6000,
+      });
+      const sn = r.data[cleanSym];
+      price = sn?.latestTrade?.p ?? sn?.latestQuote?.bp ?? null;
+    } catch(e) { return res.json({ ok: false, error: 'Could not fetch live price' }); }
+    if (!price) return res.json({ ok: false, error: 'No live price available for ' + cleanSym });
+
+    const proceeds = +(price * shares).toFixed(2);
+    const { ref: acctRef, data: acct } = await getPaperAccount(db, uid);
+
+    const batch = db.batch();
+    const newShares = +(pos.shares - shares).toFixed(8);
+
+    if (newShares <= 0.00001) {
+      batch.delete(posRef); // Closed position
+    } else {
+      const costBasisSold = +(pos.avgCost * shares).toFixed(2);
+      batch.update(posRef, { shares: newShares, totalCost: +(pos.totalCost - costBasisSold).toFixed(2), updatedAt: Date.now() });
+    }
+
+    batch.update(acctRef, { balance: +(acct.balance + proceeds).toFixed(2), tradeCount: (acct.tradeCount || 0) + 1 });
+
+    const tradeRef = db.collection(PT_TRADES).doc();
+    const realizedPnl = +((price - pos.avgCost) * shares).toFixed(2);
+    batch.set(tradeRef, { uid, sym: cleanSym, type: 'SELL', shares: +shares.toFixed(8), price, total: proceeds, realizedPnl, balanceBefore: acct.balance, balanceAfter: +(acct.balance + proceeds).toFixed(2), timestamp: Date.now() });
+
+    await batch.commit();
+    res.json({ ok: true, sym: cleanSym, shares, price, total: proceeds, realizedPnl, newBalance: +(acct.balance + proceeds).toFixed(2) });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// GET /api/paper/trades — last 50 trades for the user
+app.get('/api/paper/trades', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const uid  = await verifyIdToken(req);
+    const db   = admin.firestore();
+    const snap = await db.collection(PT_TRADES)
+      .where('uid', '==', uid).orderBy('timestamp', 'desc').limit(50).get();
+    res.json({ ok: true, trades: snap.docs.map(d => d.data()) });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // ── Start server ──
 app.listen(PORT, () => {
   console.log(`VESTEX server running on port ${PORT}`);

@@ -1374,6 +1374,7 @@ canvas{max-height:300px;}
   <div class="nav-item" data-page="portfolio" onclick="nav(this,'portfolio')"><span class="ni">◈</span> My Portfolio</div>
   <div class="nav-item" data-page="news" onclick="nav(this,'news')"><span class="ni">◉</span> Market News</div>
   <div class="nav-item" data-page="progress" onclick="nav(this,'progress')"><span class="ni">◈</span> Model Progress</div>
+  <div class="nav-item" data-page="trading" onclick="nav(this,'trading')" style="border-left-color:var(--green);color:var(--green);"><span class="ni" style="color:var(--green);">$</span> Paper Trading</div>
   <div class="nav-item" data-page="master" onclick="nav(this,'master')" style="border-left-color:var(--gold);color:var(--gold);"><span class="ni" style="color:var(--gold);">◆</span> Master Intelligence</div>
 
   <div class="nav-lbl" style="margin-top:16px;">Market Index</div>
@@ -1815,6 +1816,98 @@ canvas{max-height:300px;}
 
     </div><!-- end page-progress -->
 
+    <!-- ═══ PAPER TRADING PAGE ═══ -->
+    <div class="page" id="page-trading">
+      <div class="sec-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div class="sec-title" style="color:var(--green);">Paper <span style="color:var(--dark);">Trading</span></div>
+          <div class="sec-sub">◆ Practice with $1,000,000 in simulated money — real prices, zero risk</div>
+        </div>
+        <button onclick="ptRefresh()" style="background:none;border:1px solid var(--border);color:var(--gray);font-size:9px;letter-spacing:2px;padding:6px 14px;cursor:pointer;text-transform:uppercase;font-family:'Inter',sans-serif;">↻ Refresh</button>
+      </div>
+
+      <!-- ACCOUNT SUMMARY -->
+      <div class="kpi-4" id="pt-kpis" style="margin-bottom:22px;">
+        <div class="kpi" style="border-left:3px solid var(--green);">
+          <div class="kpi-lbl">Cash Balance</div>
+          <div class="kpi-val" id="pt-balance">—</div>
+          <div class="kpi-note" style="color:var(--gray);">Available to trade</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Stocks Value</div>
+          <div class="kpi-val" id="pt-stocks-val">—</div>
+          <div class="kpi-note" style="color:var(--gray);">Open positions</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Total Account</div>
+          <div class="kpi-val" id="pt-total">—</div>
+          <div class="kpi-note" id="pt-total-note" style="color:var(--gray);">vs $1M starting</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Total Trades</div>
+          <div class="kpi-val" id="pt-trade-count">—</div>
+          <div class="kpi-note" style="color:var(--gray);">All time</div>
+        </div>
+      </div>
+
+      <!-- BUY / SELL FORM -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="ph">
+          <div><div class="ph-title">Execute Trade</div><div class="ph-sub">Uses real-time Alpaca prices — market order at current price</div></div>
+          <div style="font-size:9px;letter-spacing:2px;color:var(--green);text-transform:uppercase;">◆ SIMULATED</div>
+        </div>
+        <div class="pb" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:120px;">
+            <label style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">Symbol</label>
+            <input id="pt-sym" class="add-inp" type="text" placeholder="AAPL" style="text-transform:uppercase;width:100%;" oninput="this.value=this.value.toUpperCase();ptEstCost()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:120px;">
+            <label style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">Shares</label>
+            <input id="pt-shares" class="add-inp" type="number" placeholder="10" min="0.01" step="0.01" style="width:100%;" oninput="ptEstCost()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:120px;">
+            <label style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">Est. Cost</label>
+            <div id="pt-est-cost" style="padding:9px 12px;border:1px solid var(--border);background:var(--cream);font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gray);">—</div>
+          </div>
+          <button class="btn-add" onclick="ptBuy()" style="background:var(--green);border-color:var(--green);color:#fff;padding:9px 22px;">▲ BUY</button>
+          <button class="btn-add" onclick="ptSell()" style="background:var(--red);border-color:var(--red);color:#fff;padding:9px 22px;">▼ SELL</button>
+        </div>
+        <div id="pt-trade-msg" style="display:none;padding:10px 22px;font-size:11px;letter-spacing:.5px;"></div>
+      </div>
+
+      <!-- OPEN POSITIONS -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="ph">
+          <div><div class="ph-title">Open Positions</div><div class="ph-sub">Stocks you currently hold</div></div>
+        </div>
+        <div class="pt-head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 80px;">
+          <div class="pt-hc">Stock</div>
+          <div class="pt-hc">Shares</div>
+          <div class="pt-hc">Avg Cost</div>
+          <div class="pt-hc">Price Now</div>
+          <div class="pt-hc">P / L</div>
+          <div class="pt-hc">Action</div>
+        </div>
+        <div id="pt-positions"><div class="empty" style="padding:20px 22px;">No open positions yet — buy a stock above</div></div>
+      </div>
+
+      <!-- TRADE HISTORY -->
+      <div class="panel">
+        <div class="ph">
+          <div><div class="ph-title">Trade History</div><div class="ph-sub">Your last 50 trades</div></div>
+        </div>
+        <div class="pt-head" style="grid-template-columns:80px 1fr 1fr 1fr 1fr 1fr;">
+          <div class="pt-hc">Type</div>
+          <div class="pt-hc">Symbol</div>
+          <div class="pt-hc">Shares</div>
+          <div class="pt-hc">Price</div>
+          <div class="pt-hc">Total</div>
+          <div class="pt-hc">P&amp;L</div>
+        </div>
+        <div id="pt-history"><div class="empty" style="padding:20px 22px;">No trades yet</div></div>
+      </div>
+    </div><!-- end page-trading -->
+
     <!-- ═══ MASTER INTELLIGENCE ═══ -->
     <div class="page" id="page-master">
       <div class="banner" style="background:linear-gradient(135deg,#0A0A0A 0%,#1A0A00 100%);">
@@ -1880,6 +1973,9 @@ canvas{max-height:300px;}
   </div>
   <div class="mob-nav-item" onclick="mobNav(this,'progress')">
     <span class="mob-icon">◈</span>Progress
+  </div>
+  <div class="mob-nav-item" onclick="mobNav(this,'trading')">
+    <span class="mob-icon" style="color:var(--green);">$</span>Trade
   </div>
 </nav>
 
@@ -2191,6 +2287,7 @@ function nav(el, id) {
   if (id==='news')        renderNewsFull();
   if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
   if (id==='master')      renderMasterPage();
+  if (id==='trading')     { ptRefresh(); ptLoadHistory(); }
 }
 
 function mobNav(el, id) {
@@ -2205,6 +2302,7 @@ function mobNav(el, id) {
   if (id==='master')      renderMasterPage();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
+  if (id==='trading')     { ptRefresh(); ptLoadHistory(); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3883,6 +3981,159 @@ function vrToggleRules() {
   if (!body) return;
   const open = body.classList.toggle('open');
   if (chev) chev.classList.toggle('open', open);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAPER TRADING
+// ═══════════════════════════════════════════════════════════
+async function ptGetToken() {
+  const user = firebase.auth().currentUser;
+  if (!user) throw new Error('Not signed in');
+  return user.getIdToken();
+}
+
+async function ptAuthHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + await ptGetToken() };
+}
+
+async function ptRefresh() {
+  const el = document.getElementById('pt-positions');
+  if (el) el.innerHTML = '<div class="empty" style="padding:20px 22px;">Loading...</div>';
+  try {
+    const headers = await ptAuthHeaders();
+    const res  = await fetch('/api/paper/account', { headers });
+    const data = await res.json();
+    if (!data.ok) { ptShowMsg(data.error, 'error'); return; }
+    ptRenderAccount(data.account, data.positions);
+  } catch(e) { ptShowMsg('Could not load account: ' + e.message, 'error'); }
+}
+
+function ptRenderAccount(acct, positions) {
+  const fmt = n => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('pt-balance').textContent     = fmt(acct.balance);
+  document.getElementById('pt-stocks-val').textContent  = fmt(acct.stocksValue);
+  document.getElementById('pt-total').textContent       = fmt(acct.totalValue);
+  document.getElementById('pt-trade-count').textContent = acct.tradeCount || 0;
+
+  const gain = acct.totalValue - 1_000_000;
+  const gainPct = (gain / 1_000_000 * 100).toFixed(2);
+  const noteEl = document.getElementById('pt-total-note');
+  if (noteEl) {
+    noteEl.textContent = (gain >= 0 ? '▲ +' : '▼ ') + fmt(Math.abs(gain)) + ' (' + gainPct + '%)';
+    noteEl.style.color = gain >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+
+  const posEl = document.getElementById('pt-positions');
+  if (!positions || !positions.length) {
+    posEl.innerHTML = '<div class="empty" style="padding:20px 22px;">No open positions — buy a stock above to start</div>';
+  } else {
+    posEl.innerHTML = positions.map(p => {
+      const pnlColor = (p.pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)';
+      const pnlTxt   = p.pnl != null ? ((p.pnl >= 0 ? '+' : '-') + '$' + Math.abs(p.pnl).toFixed(2) + ' (' + (p.pnlPct >= 0 ? '+' : '') + p.pnlPct + '%)') : '—';
+      return `<div class="pt-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 80px;">
+        <div><div class="pt-sym">${p.sym}</div></div>
+        <div class="pt-c">${(+p.shares).toFixed(4)}</div>
+        <div class="pt-c">$${(+p.avgCost).toFixed(2)}</div>
+        <div class="pt-c">${p.currentPrice != null ? '$' + p.currentPrice.toFixed(2) : '—'}</div>
+        <div class="pt-c ${(p.pnl ?? 0) >= 0 ? 'win' : 'lose'}" style="color:${pnlColor};">${pnlTxt}</div>
+        <div><button class="pt-rm" onclick="ptSellAll('${p.sym}',${p.shares})" title="Sell all ${p.sym}">Sell</button></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+async function ptEstCost() {
+  const sym    = (document.getElementById('pt-sym')?.value || '').toUpperCase().trim();
+  const shares = parseFloat(document.getElementById('pt-shares')?.value);
+  const estEl  = document.getElementById('pt-est-cost');
+  if (!estEl) return;
+  if (!sym || !shares || shares <= 0) { estEl.textContent = '—'; return; }
+  // Use cached price from STOCKS if available, else show '...'
+  const price = STOCKS[sym]?.price;
+  if (price) { estEl.textContent = '$' + (price * shares).toFixed(2); estEl.style.color = 'var(--dark)'; }
+  else { estEl.textContent = 'loading...'; estEl.style.color = 'var(--gray)'; }
+}
+
+async function ptBuy() {
+  const sym    = (document.getElementById('pt-sym')?.value || '').toUpperCase().trim();
+  const shares = parseFloat(document.getElementById('pt-shares')?.value);
+  if (!sym || !shares || shares <= 0) { ptShowMsg('Enter a symbol and number of shares.', 'error'); return; }
+  try {
+    const headers = await ptAuthHeaders();
+    ptShowMsg('Executing buy order...', 'info');
+    const res  = await fetch('/api/paper/buy', { method: 'POST', headers, body: JSON.stringify({ sym, shares }) });
+    const data = await res.json();
+    if (!data.ok) { ptShowMsg('Buy failed: ' + data.error, 'error'); return; }
+    ptShowMsg(`✓ Bought ${shares} shares of ${sym} at $${data.price.toFixed(2)} — Total: $${data.total.toFixed(2)}`, 'success');
+    document.getElementById('pt-sym').value    = '';
+    document.getElementById('pt-shares').value = '';
+    document.getElementById('pt-est-cost').textContent = '—';
+    await ptRefresh();
+    await ptLoadHistory();
+  } catch(e) { ptShowMsg('Error: ' + e.message, 'error'); }
+}
+
+async function ptSell() {
+  const sym    = (document.getElementById('pt-sym')?.value || '').toUpperCase().trim();
+  const shares = parseFloat(document.getElementById('pt-shares')?.value);
+  if (!sym || !shares || shares <= 0) { ptShowMsg('Enter a symbol and number of shares to sell.', 'error'); return; }
+  await ptExecuteSell(sym, shares);
+}
+
+async function ptSellAll(sym, shares) {
+  await ptExecuteSell(sym, shares);
+}
+
+async function ptExecuteSell(sym, shares) {
+  try {
+    const headers = await ptAuthHeaders();
+    ptShowMsg('Executing sell order...', 'info');
+    const res  = await fetch('/api/paper/sell', { method: 'POST', headers, body: JSON.stringify({ sym, shares }) });
+    const data = await res.json();
+    if (!data.ok) { ptShowMsg('Sell failed: ' + data.error, 'error'); return; }
+    const pnlTxt = data.realizedPnl >= 0 ? `+$${data.realizedPnl.toFixed(2)}` : `-$${Math.abs(data.realizedPnl).toFixed(2)}`;
+    ptShowMsg(`✓ Sold ${shares} shares of ${sym} at $${data.price.toFixed(2)} — P&L: ${pnlTxt}`, data.realizedPnl >= 0 ? 'success' : 'error');
+    await ptRefresh();
+    await ptLoadHistory();
+  } catch(e) { ptShowMsg('Error: ' + e.message, 'error'); }
+}
+
+async function ptLoadHistory() {
+  try {
+    const headers = await ptAuthHeaders();
+    const res  = await fetch('/api/paper/trades', { headers });
+    const data = await res.json();
+    if (!data.ok) return;
+    const el = document.getElementById('pt-history');
+    if (!el) return;
+    if (!data.trades.length) { el.innerHTML = '<div class="empty" style="padding:20px 22px;">No trades yet</div>'; return; }
+    el.innerHTML = data.trades.map(t => {
+      const isBuy   = t.type === 'BUY';
+      const pnlTxt  = t.realizedPnl != null ? ((t.realizedPnl >= 0 ? '+$' : '-$') + Math.abs(t.realizedPnl).toFixed(2)) : '—';
+      const pnlColor = t.realizedPnl != null ? (t.realizedPnl >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--gray)';
+      const d = new Date(t.timestamp);
+      const dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="pt-row" style="grid-template-columns:80px 1fr 1fr 1fr 1fr 1fr;">
+        <div class="pt-c ${isBuy ? 'win' : 'lose'}" style="font-size:10px;font-weight:700;letter-spacing:1px;">${t.type}</div>
+        <div class="pt-sym" style="padding:0;">${t.sym}<div style="font-size:9px;color:var(--gray);font-weight:400;">${dateStr}</div></div>
+        <div class="pt-c">${(+t.shares).toFixed(4)}</div>
+        <div class="pt-c">$${(+t.price).toFixed(2)}</div>
+        <div class="pt-c">$${(+t.total).toFixed(2)}</div>
+        <div class="pt-c" style="color:${pnlColor};">${pnlTxt}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+function ptShowMsg(msg, type) {
+  const el = document.getElementById('pt-trade-msg');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent   = msg;
+  el.style.background = type === 'success' ? 'rgba(26,110,69,.08)' : type === 'error' ? 'rgba(204,0,0,.08)' : 'rgba(201,168,76,.08)';
+  el.style.color   = type === 'success' ? 'var(--green)' : type === 'error' ? 'var(--red)' : 'var(--gold)';
+  el.style.borderTop = '1px solid var(--border)';
+  if (type !== 'info') setTimeout(() => { if (el) el.style.display = 'none'; }, 6000);
 }
 
 // ═══════════════════════════════════════════════════════════
