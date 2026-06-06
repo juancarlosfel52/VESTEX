@@ -31,6 +31,8 @@ if (process.env.FIREBASE_PRIVATE_KEY && process.env.ALPACA_KEY) {
     ({ runPipeline, verifyPredictions, SYMBOLS } = require('./pipeline'));
     pipelineReady = true;
     console.log('[SERVER] Firebase + pipeline initialized');
+    // Phase 2A: seed win rate registry from existing vi_pattern_fires on startup
+    refreshRegistry(admin.firestore()).catch(e => console.warn('[WinRateRegistry] Startup seed failed:', e.message));
   } catch (e) {
     console.warn('[SERVER] Firebase init failed:', e.message);
   }
