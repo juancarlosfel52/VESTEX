@@ -3697,9 +3697,8 @@ function renderPortfolioIntelligence() {
       ? p.warns.map(w => `<div class="pi-warn-badge${w.critical ? ' critical' : ''}">⚠ ${w.text}</div>`).join('')
       : `<div style="font-size:10px;color:rgba(240,236,228,.3);">No active warnings for this position.</div>`;
 
-    const coach    = piCoachData(p);
+    const coach    = piCoachData(p, positions);
     const logHtml  = pcRenderLog(p.sym);
-    const chgItems = coach.changes.map(c => `<div class="pc-change-item">◆ ${c}</div>`).join('');
     const coachSection = `
       <button class="pc-coach-toggle" id="pct-${p.sym}" onclick="pcToggleCoach('${p.sym}')" aria-expanded="false">
         <span>◆ Portfolio Coach — What Should I Do With ${p.sym}?</span>
@@ -3709,20 +3708,20 @@ function renderPortfolioIntelligence() {
         <div class="pc-coach-card">
           <div class="pc-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
             <div>
-              <div class="pc-section-lbl">Suggested Action</div>
+              <div class="pc-section-lbl">Signal</div>
               <div class="pi-action-badge ${ACTION_CSS[p.action]||'hold'}" style="font-size:11px;padding:5px 14px;display:inline-block;margin-top:4px;">${p.action}</div>
             </div>
             <div style="text-align:right;">
-              <div class="pc-section-lbl">Recommended Hold</div>
-              <div style="font-size:12px;color:var(--dark);font-family:'JetBrains Mono',monospace;margin-top:4px;">${p.holdLabel}</div>
-              <div style="font-size:9px;color:var(--gray);margin-top:2px;">${p.holdNote}</div>
+              <div class="pc-section-lbl">Coach Verdict</div>
+              <div style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-top:4px;color:${coach.verdictColor};">${coach.verdict}</div>
             </div>
           </div>
-          <div class="pc-section"><div class="pc-section-lbl">Why This Action</div><div class="pc-text">${coach.why}</div></div>
-          <div class="pc-section"><div class="pc-section-lbl">What To Watch Next</div><div class="pc-text">${coach.watch}</div></div>
-          <div class="pc-section"><div class="pc-section-lbl">What Would Change The Decision</div><div class="pc-changes">${chgItems}</div></div>
-          <div class="pc-lesson"><div class="pc-lesson-lbl">◈ Beginner Lesson</div><div class="pc-lesson-text">${coach.lesson}</div></div>
-          <div class="pc-rule"><div class="pc-rule-icon">◆</div><div class="pc-rule-text"><strong>Discipline Rule:</strong> ${coach.rule}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">If you already own this</div><div class="pc-text">${coach.ownIt}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">If you have cash available</div><div class="pc-text">${coach.cash}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">What improves this recommendation</div><div class="pc-changes">${coach.improve.map(c => `<div class="pc-change-item" style="color:rgba(74,222,128,.85);">▲ ${c}</div>`).join('')}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">What worsens this recommendation</div><div class="pc-changes">${coach.worsen.map(c => `<div class="pc-change-item" style="color:rgba(255,107,107,.85);">▼ ${c}</div>`).join('')}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">Portfolio impact</div><div class="pc-text">${coach.impact}</div></div>
+          <div class="pc-section"><div class="pc-section-lbl">Position ranking</div><div class="pc-text">${coach.rank}</div></div>
         </div>
         <div class="pc-checklist" data-sym="${p.sym}">
           <div class="pc-checklist-title">◆ Action Readiness Checklist</div>
@@ -3876,75 +3875,163 @@ function renderPortfolioIntelligence() {
 // ═══════════════════════════════════════════════════════════
 //  PORTFOLIO LEARNING COACH — helper functions
 // ═══════════════════════════════════════════════════════════
-function piCoachData(pos) {
-  const { sym, action, confidence, riskLevel, direction, currentPrice, avgCost, holdLabel } = pos;
+function piCoachData(pos, allPositions) {
+  const { sym, action, confidence, riskLevel, direction, currentPrice, avgCost } = pos;
   const pnlPct = pos.profitLossPct ?? null;
   const sp     = serverPreds[sym];
-  const brain  = sp?.brain || null;
-  const regime = brain?.regime?.name || 'neutral';
+  const regime = sp?.brain?.regime?.name || 'neutral';
   const cp     = currentPrice;
+  const upThr  = cp !== null ? +(cp * 1.035).toFixed(2) : null;
+  const dnThr  = cp !== null ? +(cp * 0.965).toFixed(2) : null;
+  const pnlStr = pnlPct !== null ? (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%' : null;
 
-  // ── Why ──
-  const confStr = confidence + '%';
-  let why = '';
-  if      (action === 'STRONG BUY')  why = `${sym} has strong bullish alignment across technical, brain vault, and sentiment signals at ${confStr} confidence. Market conditions are supportive and risk is manageable — a high-quality opportunity to add.`;
-  else if (action === 'BUY SMALL')   why = `${sym} shows moderate upside at ${confStr} confidence. Not all systems fully agree, so a small addition captures the opportunity while limiting downside if conditions shift.`;
-  else if (action === 'HOLD')        why = `${sym} is in a stable position. Signals are neutral-to-positive but not strong enough to justify adding more. Your current stake is healthy — patience is the right move right now.`;
-  else if (action === 'WAIT')        why = `Signals for ${sym} are weak or conflicting at only ${confStr} confidence. No clear edge in either direction. Staying flat prevents entering at the wrong moment.`;
-  else if (action === 'TAKE PROFIT') why = `${sym} is up ${pnlPct !== null ? pnlPct.toFixed(1) + '%' : 'significantly'} from your entry and signal strength is fading. Locking in gains now is disciplined trading — not fear.`;
-  else if (action === 'SELL')        why = `${sym} is showing bearish signals at ${confStr} confidence in a downward direction. Reducing or exiting this position protects your capital for better setups ahead.`;
+  // ── Q7: Coach Verdict (add / add small / hold / avoid / trim / exit) ──
+  let verdict = 'HOLD', verdictColor = 'var(--gold)';
+  if      (action === 'STRONG BUY')  { verdict = 'ADD';          verdictColor = 'var(--green2)'; }
+  else if (action === 'BUY SMALL')   { verdict = 'ADD SMALL';    verdictColor = '#4ade80'; }
+  else if (action === 'HOLD')        { verdict = 'HOLD';         verdictColor = 'var(--gold)'; }
+  else if (action === 'WAIT')        { verdict = 'AVOID';        verdictColor = 'rgba(240,236,228,.45)'; }
+  else if (action === 'TAKE PROFIT') { verdict = 'TRIM';         verdictColor = '#a374ff'; }
+  else if (action === 'SELL')        { verdict = 'TRIM / EXIT';  verdictColor = '#ff6b6b'; }
 
-  // ── Watch ──
-  let watch = '';
-  if (cp !== null && avgCost !== null) {
-    const upLevel = +(cp * 1.035).toFixed(2);
-    const dnLevel = +(cp * 0.965).toFixed(2);
-    if      (action === 'HOLD' || action === 'WAIT')
-      watch = `A close above $${upLevel} on increased volume would signal renewed strength and could trigger an upgrade. A close below $${dnLevel} would indicate weakening and may trigger WAIT or SELL.`;
-    else if (action === 'BUY SMALL' || action === 'STRONG BUY')
-      watch = `Monitor ${sym} holding above $${dnLevel} as support. Confidence rising above ${Math.min(85, confidence + 10)}% with direction staying UP confirms the trend. A drop below $${dnLevel} on volume weakens the case.`;
-    else if (action === 'TAKE PROFIT')
-      watch = `After taking partial profit, watch if ${sym} holds above $${+(avgCost * 1.08).toFixed(2)} — 8% above your cost. If it holds, your remaining shares are well-protected. A break below that level suggests exiting the rest.`;
-    else
-      watch = `Monitor if ${sym} can recover above $${upLevel} on volume. That would signal the bearish pressure is lifting. Continued closes below $${dnLevel} confirm the downtrend is intact.`;
-  } else {
-    watch = `Monitor VESTEX confidence score changes, Brain Vault pattern updates, and the Master Intelligence score for ${sym} each session.`;
+  // ── Q1: If you already own this ──
+  let ownIt = '';
+  const profCtx = pnlStr ? ` You are currently ${pnlPct >= 0 ? 'up' : 'down'} ${pnlStr} on this position.` : '';
+  if (action === 'STRONG BUY') {
+    ownIt = `Your existing shares are working.${profCtx} The signal supports adding more — but only if this position is not already oversized in your portfolio. Do not chase size; add only if you have allocated room. Either way, hold what you have.`;
+  } else if (action === 'BUY SMALL') {
+    ownIt = `Sit tight on what you own.${profCtx} A small addition is supported but not urgent. Only add if your current allocation is small relative to your total portfolio. If ${sym} is already a significant holding, just hold — do not pile in on a partial signal.`;
+  } else if (action === 'HOLD') {
+    ownIt = `No action needed.${profCtx} Your shares are in a healthy position — signals are neither strong enough to justify adding nor weak enough to trigger a sell. Holding here is the correct discipline. Revisit when confidence changes materially.`;
+  } else if (action === 'WAIT') {
+    ownIt = `Stay flat.${profCtx} Signals are unclear — do not add to this position. If you are in profit, decide whether you are comfortable holding through uncertainty. If you are at a loss, do not average down into a weak signal. Averaging down is a way to turn a small loss into a large one.`;
+  } else if (action === 'TAKE PROFIT') {
+    const gainOpen = pnlStr ? `You are up ${pnlStr}` : 'You have gains available';
+    ownIt = `${gainOpen} and the signal is fading. Sell 25–50% of your shares to lock in a meaningful portion of those gains. Keep a partial position if you want to stay exposed to further upside. Do not sell 100% unless risk escalates to extreme.`;
+  } else if (action === 'SELL') {
+    const lossNote = pnlPct !== null && pnlPct < 0 ? `You are down ${Math.abs(pnlPct).toFixed(1)}% — ` : '';
+    ownIt = `${lossNote}The signal has turned bearish at ${confidence}% confidence. Reduce or exit this position. Do not average down into a SELL signal hoping for a bounce — that is one of the most common and costly mistakes. Protect your capital and redeploy it when conditions improve.`;
   }
 
-  // ── What Changes Decision ──
-  const buyMoreConf = Math.min(80, Math.round(confidence + 12));
-  const sellConf    = Math.max(35, Math.round(confidence - 15));
-  const changes = [
-    `BUY MORE if confidence rises above ${buyMoreConf}% and risk drops to ${(riskLevel==='high'||riskLevel==='extreme') ? 'Moderate' : 'Low'}.`,
-    `SELL / REDUCE if confidence falls below ${sellConf}% or direction turns DOWN with high confidence.`,
-  ];
-  if (pnlPct !== null && pnlPct > 0)   changes.push(`TAKE PROFIT if position gains reach ${Math.round(pnlPct + 8)}% from entry — protect what you have built.`);
-  if (regime === 'euphoria')            changes.push('REDUCE EXPOSURE if the market stays in euphoria — greed-driven rallies can reverse without warning.');
-  else if (regime === 'fear' || regime === 'panic') changes.push('UPGRADE TO BUY if panic subsides and confidence recovers — fear bottoms create the best long entries.');
+  // ── Q2: If you have cash available ──
+  let cash = '';
+  const buyMoreConf = Math.min(85, confidence + 10);
+  if (action === 'STRONG BUY') {
+    const sizeNote = riskLevel === 'low' ? 'up to your full target allocation'
+                   : riskLevel === 'moderate' ? 'a moderate allocation — 50–75% of your target size'
+                   : 'a smaller-than-normal allocation given elevated risk';
+    cash = `Yes — deploy ${sizeNote}. This is a quality signal. Size your entry so a 10–15% pullback is uncomfortable but not damaging. Do not go all-in on a single session even on a STRONG BUY.`;
+  } else if (action === 'BUY SMALL') {
+    cash = `A small allocation is supported — start with 25–40% of your target position size. Add the remainder only if confidence rises above ${buyMoreConf}% and direction stays UP. Do not deploy full size into a partial signal.`;
+  } else if (action === 'HOLD') {
+    cash = `No. Do not open a new position when the signal is HOLD. HOLD means current holders are fine — not that it is a great entry for new cash. Wait for a STRONG BUY or BUY SMALL signal before deploying fresh capital into ${sym}.`;
+  } else if (action === 'WAIT') {
+    cash = `No. Keep your cash. Confidence is ${confidence}% — below the threshold where an edge exists. Deploying here is trading on noise, not signal. Preserve your capital for the next high-confidence setup.`;
+  } else if (action === 'TAKE PROFIT') {
+    cash = `No. Do not add new cash into a Take Profit setup. You would be entering the same position that is currently telling existing holders to sell part of theirs. If you want ${sym} exposure, wait for a reset and a fresh BUY signal.`;
+  } else if (action === 'SELL') {
+    cash = `No. Never deploy cash into a SELL signal. This is not a discount — it is a warning. Your cash is more valuable in your next high-confidence trade than it is absorbing further downside here.`;
+  }
 
-  // ── Lesson ──
-  let lesson = '';
-  if      (action === 'STRONG BUY' || action === 'BUY SMALL')
-    lesson = 'Adding to a position is called "scaling in." Only do it when signal strength is confirmed — not just because it feels good. VESTEX requires multiple systems to agree before suggesting a buy. One indicator alone is never enough.';
-  else if (action === 'HOLD')
-    lesson = 'Holding is an active, intentional decision — not laziness. You are choosing to stay because signals are healthy and nothing has changed. Boredom is not a reason to sell, and excitement alone is not a reason to add more.';
-  else if (action === 'WAIT')
-    lesson = 'When signals are unclear, the best trade is no trade. Preserving your capital when there is no edge is smarter than forcing a position. The next high-confidence signal will come — your money needs to be available when it does.';
-  else if (action === 'TAKE PROFIT')
-    lesson = 'Taking profits is not a sign of weakness — it is discipline. You cannot predict the future. Locking in gains on part of your position lets you participate in further upside while protecting what you have already earned.';
-  else
-    lesson = 'Selling to protect capital is not giving up — it is risk management. Every dollar protected is available for the next high-confidence setup. Holding a losing position while "hoping it comes back" is one of the most expensive habits in investing.';
+  // ── Q3: What improves this recommendation ──
+  const improve = [];
+  if (action === 'SELL' || action === 'WAIT') {
+    const recovConf = Math.min(60, confidence + 15);
+    improve.push(`Confidence recovers above ${recovConf}% with direction flipping to UP.`);
+    improve.push(`Risk level drops from ${riskLevel.toUpperCase()} to Moderate or below.`);
+    if (upThr) improve.push(`Price closes above $${upThr} on above-average volume — signals buying pressure returning.`);
+    if (regime === 'panic' || regime === 'fear') improve.push(`Fear & Greed stabilizes above 30 — panic bottoms historically create the cleanest reversals.`);
+  } else if (action === 'HOLD' || action === 'TAKE PROFIT') {
+    improve.push(`Confidence rises above ${Math.min(80, confidence + 12)}% — signal upgrades to BUY SMALL or STRONG BUY.`);
+    improve.push(`Brain Vault bullish pattern count increases while bearish patterns stay quiet.`);
+    if (upThr) improve.push(`Price breaks above $${upThr} on expanding volume — confirms trend continuation.`);
+  } else {
+    improve.push(`Confidence rises above ${Math.min(90, confidence + 10)}% — upgrades to STRONG BUY.`);
+    improve.push(`Risk drops to Low — maximum entry quality.`);
+    if (upThr) improve.push(`Price clears $${upThr} with follow-through on volume — validates the technical setup.`);
+  }
 
-  // ── Discipline Rule ──
-  let rule = '';
-  if      (confidence < 55)            rule = 'Confidence is below 55% — do not add more money to this position until the signal strengthens.';
-  else if (riskLevel === 'extreme')     rule = 'Risk is EXTREME — this is not the time to increase exposure. Protecting capital comes first.';
-  else if (riskLevel === 'high')        rule = 'Risk is HIGH — if you add, keep the size very small. Never risk more than you can afford to lose completely.';
-  else if (action === 'TAKE PROFIT')    rule = 'When VESTEX says Take Profit and you are significantly up, do not ignore it. The market will not always give you another exit at this price.';
-  else if (action === 'SELL')           rule = 'When the model turns bearish with high confidence, reducing exposure first and reassessing later is the correct discipline. Pride is not a strategy.';
-  else                                  rule = 'If you feel uncertain about this position, that feeling is meaningful data. Reduce your size to a level where you can hold through volatility without stress.';
+  // ── Q4: What worsens this recommendation ──
+  const sellConf = Math.max(35, Math.round(confidence - 15));
+  const worsen = [];
+  if (action === 'STRONG BUY' || action === 'BUY SMALL') {
+    worsen.push(`Confidence drops below ${sellConf}% — signal downgrades to HOLD or WAIT.`);
+    worsen.push(`Direction flips to DOWN while bearish Brain Vault patterns increase.`);
+    if (dnThr) worsen.push(`Price closes below $${dnThr} on volume — breaks the current bullish structure.`);
+    if (riskLevel !== 'extreme') worsen.push(`Risk escalates to HIGH or EXTREME — signal becomes too risky to add.`);
+  } else if (action === 'HOLD') {
+    worsen.push(`Confidence falls below ${sellConf}% — signal downgrades to WAIT or SELL.`);
+    worsen.push(`Direction shifts to DOWN with rising bearish Brain Vault patterns.`);
+    if (dnThr) worsen.push(`Price closes below $${dnThr} — removes the holding case.`);
+  } else {
+    worsen.push(`Confidence continues declining — signal escalates further toward full SELL.`);
+    worsen.push(`Risk escalates to EXTREME — protection of remaining capital becomes urgent.`);
+    if (dnThr) worsen.push(`Price breaks below $${dnThr} without recovery — confirms the downtrend.`);
+  }
 
-  return { why, watch, changes, lesson, rule };
+  // ── Q5: Portfolio impact ──
+  let impact = '';
+  const allWithVal   = (allPositions || []).filter(p2 => p2.currentValue != null && p2.currentValue > 0);
+  const totalPortVal = allWithVal.reduce((s, p2) => s + p2.currentValue, 0);
+  const thisValue    = pos.currentValue;
+  const concPct      = (totalPortVal > 0 && thisValue != null) ? +((thisValue / totalPortVal) * 100).toFixed(1) : null;
+
+  if (concPct !== null) {
+    const concNote = concPct > 35
+      ? `At ${concPct}% of your portfolio, ${sym} is a concentrated position. A bad week here significantly moves your overall results.`
+      : concPct > 20
+      ? `At ${concPct}% of your portfolio, ${sym} is a significant holding. Its performance noticeably impacts your total returns.`
+      : `At ${concPct}% of your portfolio, ${sym} is a moderate holding — it contributes to returns without dominating your risk profile.`;
+    const pnlNote = pnlPct !== null
+      ? ` It is currently ${pnlPct >= 0 ? `contributing gains (${pnlStr})` : `dragging portfolio returns (${pnlStr})`}.`
+      : '';
+    const actionNote = (action === 'STRONG BUY' || action === 'BUY SMALL') && concPct > 30
+      ? ` Adding more here increases concentration further — be deliberate about sizing.`
+      : (action === 'SELL' || action === 'TAKE PROFIT') && concPct > 20
+      ? ` Reducing here improves your portfolio balance and frees capital for diversification.`
+      : '';
+    impact = concNote + pnlNote + actionNote;
+  } else {
+    impact = `No portfolio value data loaded. Ensure all positions have a current price to see concentration analysis.`;
+  }
+
+  // ── Q6: Position ranking ──
+  let rank = '';
+  const withPnl  = (allPositions || []).filter(p2 => p2.profitLossPct != null);
+  const byReturn = [...withPnl].sort((a, b) => b.profitLossPct - a.profitLossPct);
+  const retIdx   = byReturn.findIndex(p2 => p2.sym === sym);
+  const retTotal = byReturn.length;
+
+  if (retIdx !== -1 && retTotal > 1) {
+    const rankNum  = retIdx + 1;
+    const posLabel = retIdx === 0                      ? 'your best-performing'
+                   : retIdx === retTotal - 1           ? 'your weakest'
+                   : retIdx < retTotal / 3             ? 'one of your stronger'
+                   : retIdx > (retTotal * 2) / 3       ? 'one of your weaker'
+                   : 'a mid-tier';
+    const perfNote = pnlPct >= 0 ? `up ${pnlStr}` : `down ${Math.abs(pnlPct).toFixed(1)}%`;
+    const advice   = retIdx === 0
+      ? `Protect these gains — they are earned, not guaranteed. Do not let a winner turn into a loser by holding too long past the signal.`
+      : retIdx === retTotal - 1
+      ? `This is your most stressed position. Evaluate whether it deserves continued capital or whether that capital should move to a higher-ranked position.`
+      : `It is neither your priority hold nor your primary concern right now.`;
+    rank = `${sym} is ${posLabel} position in your portfolio — ranked #${rankNum} of ${retTotal} by return (${perfNote}). ${advice}`;
+  } else {
+    // Fall back to confidence ranking if no P&L data
+    const byConf  = [...(allPositions || [])].sort((a, b) => b.confidence - a.confidence);
+    const confIdx = byConf.findIndex(p2 => p2.sym === sym);
+    const confN   = byConf.length;
+    if (confIdx !== -1 && confN > 1) {
+      const tier = confIdx === 0 ? 'the strongest signal'
+                 : confIdx === confN - 1 ? 'the weakest signal'
+                 : 'a mid-range signal';
+      rank = `${sym} has ${tier} in your portfolio at ${confidence}% confidence (#${confIdx + 1} of ${confN} by signal strength). ${confIdx < confN / 2 ? 'Focus attention and capital here first.' : 'Lower-confidence positions deserve closer scrutiny before adding.'}`;
+    } else {
+      rank = `Signal strength: ${confidence}% confidence, ${riskLevel.toUpperCase()} risk. Add more positions to see relative rankings.`;
+    }
+  }
+
+  return { verdict, verdictColor, ownIt, cash, improve, worsen, impact, rank };
 }
 
 function pcRenderLog(sym) {
