@@ -1450,6 +1450,39 @@ canvas{max-height:300px;}
 .insider-name{font-size:11px;color:var(--dark);flex:1;}
 .insider-date{font-size:10px;color:var(--gray);}
 @media(max-width:768px){.edgar-grid{grid-template-columns:1fr;}.edgar-facts{grid-template-columns:1fr 1fr;}}
+
+/* ── Graph Swap Views ── */
+.gsv-toggle{ display:flex; gap:4px; }
+.gsv-btn{ background:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.4); font-family:'Barlow Condensed',sans-serif; font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:4px 10px; cursor:pointer; transition:all .2s; white-space:nowrap; }
+.gsv-btn:hover{ border-color:rgba(201,168,76,.5); color:rgba(201,168,76,.8); }
+.gsv-btn.active{ background:rgba(201,168,76,.15); border-color:var(--gold); color:var(--gold); }
+.gsv-heatmap{ display:none; padding:4px 0 8px; }
+.gsv-heatmap.visible{ display:block; }
+.gsv-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; }
+.gsv-tile{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:14px 12px; cursor:pointer; transition:all .25s; position:relative; overflow:hidden; }
+.gsv-tile:hover{ border-color:rgba(201,168,76,.4); background:rgba(201,168,76,.05); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.4); }
+.gsv-tile::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.gsv-tile.bull::before{ background:linear-gradient(90deg,var(--green),rgba(26,110,69,.3)); }
+.gsv-tile.bear::before{ background:linear-gradient(90deg,var(--red),rgba(180,0,0,.3)); }
+.gsv-tile.mixed::before{ background:linear-gradient(90deg,var(--gold),rgba(201,168,76,.3)); }
+.gsv-tile.neutral::before{ background:rgba(255,255,255,.08); }
+.gsv-tile-sym{ font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:700; letter-spacing:1px; color:var(--dark); }
+.gsv-tile-co{ font-size:9px; letter-spacing:1px; color:var(--gray); text-transform:uppercase; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gsv-tile-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.gsv-tile-lbl{ font-size:9px; letter-spacing:1px; color:var(--gray); text-transform:uppercase; }
+.gsv-tile-val{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dark); }
+.gsv-tile-val.up{ color:var(--green); }
+.gsv-tile-val.dn{ color:var(--red); }
+.gsv-tile-val.gold{ color:var(--gold); }
+.gsv-tile-badge{ display:inline-block; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; padding:2px 7px; border:1px solid; margin-top:8px; }
+.gsv-tile-badge.bull{ color:var(--green); border-color:var(--green); }
+.gsv-tile-badge.bear{ color:var(--red); border-color:var(--red); }
+.gsv-tile-badge.hold{ color:var(--gold); border-color:var(--gold); }
+.gsv-tile-badge.neutral{ color:var(--gray); border-color:var(--gray); }
+.gsv-empty{ text-align:center; padding:40px 20px; color:var(--gray); font-size:10px; letter-spacing:2px; text-transform:uppercase; }
+@keyframes gsvFadeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+.gsv-tile{ animation:gsvFadeIn .3s ease both; }
+@media(max-width:768px){ .gsv-grid{ grid-template-columns:1fr 1fr; } .gsv-btn{ font-size:8px; padding:4px 7px; } }
 </style>
 </head>
 <body>
@@ -1694,8 +1727,13 @@ canvas{max-height:300px;}
 
       <div class="panel">
         <div class="ph">
-          <div style="display:flex;align-items:center;"><div><div class="ph-title">Price History</div><div class="ph-sub">How the price has moved over time</div></div><button class="sh-btn" onclick="showSmartHelp('price_chart')" aria-label="Help: Price History">?</button></div>
-          <div style="display:flex;gap:16px;align-items:center;">
+          <div style="display:flex;align-items:center;"><div><div class="ph-title" id="dash-chart-title">Price History</div><div class="ph-sub" id="dash-chart-sub">How the price has moved over time</div></div><button class="sh-btn" onclick="showSmartHelp('price_chart')" aria-label="Help: Price History">?</button></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div class="gsv-toggle" id="dash-gsv-toggle">
+              <button class="gsv-btn active" onclick="dashSetGraphMode('price',this)">Price Chart</button>
+              <button class="gsv-btn" onclick="dashSetGraphMode('portfolio',this)">Portfolio Map</button>
+              <button class="gsv-btn" onclick="dashSetGraphMode('signal',this)">Signal Map</button>
+            </div>
             <div class="period-tabs" id="dash-ptabs">
               <button class="ptab active" onclick="dashPeriod('1W',this)">1W</button>
               <button class="ptab" onclick="dashPeriod('1M',this)">1M</button>
@@ -1704,7 +1742,7 @@ canvas{max-height:300px;}
             </div>
           </div>
         </div>
-        <div class="pb">
+        <div class="pb" id="dash-chart-pb">
           <div class="chart-info">
             <div>
               <div class="ci-sym" id="d-sym-lbl">AAPL — APPLE INC.</div>
@@ -1713,6 +1751,9 @@ canvas{max-height:300px;}
             </div>
           </div>
           <canvas id="dashChart"></canvas>
+        </div>
+        <div class="gsv-heatmap" id="dash-heatmap">
+          <div class="gsv-grid" id="dash-heatmap-grid"></div>
         </div>
       </div>
 
@@ -1842,6 +1883,15 @@ canvas{max-height:300px;}
         <div class="kpi"><div class="kpi-lbl">Portfolio Return</div><div class="kpi-val" id="p-return-val">—</div><div class="kpi-note" id="p-return-note" style="color:var(--gray);">Unrealized P&amp;L</div></div>
       </div>
       <div class="panel" style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px 0;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">Holdings Overview</div>
+          <div class="gsv-toggle" id="port-gsv-toggle">
+            <button class="gsv-btn active" onclick="portSetGraphMode('table',this)">Table View</button>
+            <button class="gsv-btn" onclick="portSetGraphMode('portfolio',this)">Portfolio Map</button>
+            <button class="gsv-btn" onclick="portSetGraphMode('signal',this)">Signal Map</button>
+          </div>
+        </div>
+        <div id="port-table-view">
         <div class="pt-head">
           <div class="pt-hc">Stock</div>
           <div class="pt-hc">Shares</div>
@@ -1852,6 +1902,10 @@ canvas{max-height:300px;}
           <div class="pt-hc"></div>
         </div>
         <div id="port-rows"></div>
+        </div>
+        <div class="gsv-heatmap" id="port-heatmap" style="padding:12px 16px;">
+          <div class="gsv-grid" id="port-heatmap-grid"></div>
+        </div>
         <div class="add-bar">
           <select class="add-sel" id="add-sym">
             <option value="">Choose a stock...</option>
@@ -2755,6 +2809,191 @@ function renderTicker() {
         ${st.chg!=null?(st.chg>=0?'▲ +':'▼ ')+Math.abs(st.chg).toFixed(2)+'%':'—'}
       </span>
     </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GRAPH SWAP VIEWS
+// ═══════════════════════════════════════════════════════════
+let dashGraphMode = localStorage.getItem('vestex_dash_graphmode') || 'price';
+let portGraphMode = localStorage.getItem('vestex_port_graphmode') || 'table';
+
+const COMPANY_NAMES = {
+  AAPL:'Apple Inc.', TSLA:'Tesla Inc.', GOOGL:'Alphabet Inc.',
+  MSFT:'Microsoft Corp.', AMZN:'Amazon.com Inc.'
+};
+
+function _gsvTileColorClass(mode, data) {
+  if (mode === 'portfolio') {
+    const pnl = data.ppct;
+    if (pnl === null) return 'neutral';
+    if (pnl > 1)  return 'bull';
+    if (pnl < -1) return 'bear';
+    return 'mixed';
+  }
+  // signal mode
+  const rec = (data.decision || '').toUpperCase();
+  if (rec === 'BUY')  return 'bull';
+  if (rec === 'SELL') return 'bear';
+  if (rec === 'HOLD') return 'mixed';
+  return 'neutral';
+}
+
+function _gsvPortfolioTile(sym, delay) {
+  const p   = portfolio.find(h=>h.sym===sym);
+  const st  = STOCKS[sym] || {};
+  const sp  = serverPreds[sym] || {};
+  const pinv = p ? (p.invested ?? (p.shares * p.buy)) : null;
+  const pcur = p && st.price != null ? p.shares * st.price : null;
+  const ppnl = pcur !== null && pinv ? pcur - pinv : null;
+  const ppct = ppnl !== null && pinv > 0 ? ppnl/pinv*100 : null;
+
+  // portfolio weight
+  let totalCur = 0;
+  portfolio.forEach(h=>{ totalCur += h.shares*(STOCKS[h.sym]?.price||0); });
+  const weight = pcur !== null && totalCur > 0 ? (pcur/totalCur*100).toFixed(1)+'%' : 'N/A';
+
+  const colorClass = _gsvTileColorClass('portfolio', { ppct });
+  const priceStr  = st.price != null ? '$'+st.price.toFixed(2) : 'N/A';
+  const chgStr    = st.chg != null ? (st.chg>=0?'+':'')+st.chg.toFixed(2)+'%' : 'N/A';
+  const chgCls    = st.chg != null ? (st.chg>=0?'up':'dn') : '';
+  const pnlStr    = ppnl !== null ? (ppnl>=0?'+$':'-$')+Math.abs(ppnl).toFixed(2) : 'N/A';
+  const pnlCls    = ppnl !== null ? (ppnl>=0?'up':'dn') : '';
+  const pctStr    = ppct !== null ? (ppct>=0?'+':'')+ppct.toFixed(1)+'%' : 'N/A';
+  const mi        = miCache[sym] || null;
+  const recRaw    = mi?.decision || (sp.direction === 'UP' ? 'BUY' : sp.direction === 'DOWN' ? 'SELL' : sp.direction === 'FLAT' ? 'HOLD' : null);
+  const recLabel  = recRaw ? recRaw.toUpperCase() : 'N/A';
+  const recBadgeCls = recRaw === 'BUY' ? 'bull' : recRaw === 'SELL' ? 'bear' : recRaw === 'HOLD' ? 'hold' : 'neutral';
+  const conf      = (mi?.confidence ?? sp.confidence) != null ? (mi?.confidence ?? sp.confidence)+'%' : 'N/A';
+  const coName    = st.name || COMPANY_NAMES[sym] || sym;
+
+  const navTarget = p ? 'portfolio' : 'dashboard';
+
+  return `<div class="gsv-tile ${colorClass}" style="animation-delay:${delay}ms" onclick="navigatePage('${navTarget}')">
+    <div class="gsv-tile-sym">${sym}</div>
+    <div class="gsv-tile-co">${coName}</div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Price</span><span class="gsv-tile-val">${priceStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Today</span><span class="gsv-tile-val ${chgCls}">${chgStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">P&amp;L</span><span class="gsv-tile-val ${pnlCls}">${pnlStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Return</span><span class="gsv-tile-val ${pnlCls}">${pctStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Weight</span><span class="gsv-tile-val">${weight}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Confidence</span><span class="gsv-tile-val gold">${conf}</span></div>
+    <span class="gsv-tile-badge ${recBadgeCls}">${recLabel}</span>
+  </div>`;
+}
+
+function _gsvSignalTile(sym, delay) {
+  const st   = STOCKS[sym] || {};
+  const mi   = miCache[sym] || null;   // master intelligence data (full)
+  const sp   = serverPreds[sym] || {}; // predictions data (direction/confidence)
+  const sent = liveSentiment ? (liveSentiment[sym] || {}) : {};
+  const coName = st.name || COMPANY_NAMES[sym] || sym;
+
+  const ms   = mi?.masterScore ?? null;
+  const rec  = mi?.decision || null;
+  const conf = mi?.confidence ?? sp.confidence ?? null;
+  const confStr = conf != null ? conf+'%' : 'N/A';
+  const recBadgeCls = rec === 'BUY' ? 'bull' : rec === 'SELL' ? 'bear' : rec === 'HOLD' ? 'hold' : 'neutral';
+
+  // pattern counts from MI topPatterns
+  const pats = mi?.topPatterns || [];
+  const activePats = pats.length;
+  const bullPats = pats.filter(p=>(p.direction||'').toUpperCase()==='BULLISH').length;
+  const bearPats = pats.filter(p=>(p.direction||'').toUpperCase()==='BEARISH').length;
+
+  const catDelta  = mi?.catalystDelta ?? null;
+  const catStr    = catDelta != null ? (catDelta>=0?'+':'')+catDelta : 'N/A';
+  const catCls    = catDelta != null ? (catDelta>0?'up':catDelta<0?'dn':'') : '';
+  const sentScore = sent.score ?? sent.sentimentScore ?? null;
+  const sentStr   = sentScore !== null ? sentScore.toFixed(1) : 'N/A';
+  const sentCls   = sentScore !== null ? (sentScore>0?'up':sentScore<0?'dn':'') : '';
+  const msStr     = ms !== null ? ms : 'Collecting';
+  const msCls     = ms !== null ? (ms>=60?'up':ms<40?'dn':'gold') : '';
+
+  const colorClass = _gsvTileColorClass('signal', { decision: rec });
+
+  // Show "No MI data yet" state if miCache empty for this sym
+  const noData = !mi;
+
+  return `<div class="gsv-tile ${colorClass}" style="animation-delay:${delay}ms" onclick="navigatePage('master')">
+    <div class="gsv-tile-sym">${sym}</div>
+    <div class="gsv-tile-co">${coName}</div>
+    ${noData ? `<div style="margin-top:12px;font-size:9px;letter-spacing:1px;color:var(--gray);text-align:center;padding:10px 0;">Open Master Intelligence<br>to load data for ${sym}</div>` : `
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Master Score</span><span class="gsv-tile-val ${msCls}">${msStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Confidence</span><span class="gsv-tile-val gold">${confStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Patterns</span><span class="gsv-tile-val">${activePats || 'N/A'}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Bull / Bear</span><span class="gsv-tile-val">${activePats?bullPats+'/'+bearPats:'N/A'}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Catalyst</span><span class="gsv-tile-val ${catCls}">${catStr}</span></div>
+    <div class="gsv-tile-row"><span class="gsv-tile-lbl">Sentiment</span><span class="gsv-tile-val ${sentCls}">${sentStr}</span></div>
+    <span class="gsv-tile-badge ${recBadgeCls}">${rec ? rec.toUpperCase() : 'N/A'}</span>`}
+  </div>`;
+}
+
+function _gsvRenderHeatmap(gridId, mode, syms) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  if (!syms.length) {
+    grid.innerHTML = '<div class="gsv-empty">Add stocks to see the heatmap</div>';
+    return;
+  }
+  grid.innerHTML = syms.map((sym,i)=>
+    mode === 'portfolio' ? _gsvPortfolioTile(sym, i*40) : _gsvSignalTile(sym, i*40)
+  ).join('');
+}
+
+function dashSetGraphMode(mode, btn) {
+  dashGraphMode = mode;
+  localStorage.setItem('vestex_dash_graphmode', mode);
+  document.querySelectorAll('#dash-gsv-toggle .gsv-btn').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const pb    = document.getElementById('dash-chart-pb');
+  const hm    = document.getElementById('dash-heatmap');
+  const ptabs = document.getElementById('dash-ptabs');
+  const title = document.getElementById('dash-chart-title');
+  const sub   = document.getElementById('dash-chart-sub');
+
+  if (mode === 'price') {
+    pb.style.display = ''; hm.classList.remove('visible');
+    ptabs.style.display = ''; title.textContent = 'Price History';
+    sub.textContent = 'How the price has moved over time';
+  } else {
+    pb.style.display = 'none'; hm.classList.add('visible');
+    ptabs.style.display = 'none';
+    if (mode === 'portfolio') {
+      title.textContent = 'Portfolio Heatmap';
+      sub.textContent = 'P&L and position snapshot across your holdings';
+    } else {
+      title.textContent = 'Signal Heatmap';
+      sub.textContent = 'Intelligence scores and recommendations at a glance';
+    }
+    const syms = portfolio.length > 0
+      ? portfolio.map(p=>p.sym)
+      : Object.keys(STOCKS);
+    _gsvRenderHeatmap('dash-heatmap-grid', mode, syms);
+  }
+}
+
+function portSetGraphMode(mode, btn) {
+  portGraphMode = mode;
+  localStorage.setItem('vestex_port_graphmode', mode);
+  document.querySelectorAll('#port-gsv-toggle .gsv-btn').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const tableView = document.getElementById('port-table-view');
+  const hm        = document.getElementById('port-heatmap');
+
+  if (mode === 'table') {
+    tableView.style.display = ''; hm.classList.remove('visible');
+  } else {
+    tableView.style.display = 'none'; hm.classList.add('visible');
+    const syms = portfolio.map(p=>p.sym);
+    _gsvRenderHeatmap('port-heatmap-grid', mode, syms);
+  }
+}
+
+function navigatePage(page) {
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (navEl) { nav(navEl, page); window.scrollTo(0,0); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -5624,6 +5863,12 @@ function renderPortfolio() {
   }).join('');
 
   updateDashKPIs();
+
+  // Keep heatmap in sync if it's visible
+  if (portGraphMode !== 'table') {
+    const syms = portfolio.map(p=>p.sym);
+    _gsvRenderHeatmap('port-heatmap-grid', portGraphMode, syms);
+  }
 }
 
 function addStock() {
@@ -6352,6 +6597,16 @@ async function init() {
   // Dashboard chart
   const ctx = document.getElementById('dashChart').getContext('2d');
   dashChart = await buildChart(ctx, dashSym, dashPer, null);
+
+  // Restore saved graph modes
+  if (dashGraphMode !== 'price') {
+    const activeBtn = document.querySelector(`#dash-gsv-toggle .gsv-btn[onclick*="${dashGraphMode}"]`);
+    dashSetGraphMode(dashGraphMode, activeBtn);
+  }
+  if (portGraphMode !== 'table') {
+    const activeBtn = document.querySelector(`#port-gsv-toggle .gsv-btn[onclick*="${portGraphMode}"]`);
+    portSetGraphMode(portGraphMode, activeBtn);
+  }
 
   // Auto-refresh quotes every 60 seconds
   setInterval(async () => {
