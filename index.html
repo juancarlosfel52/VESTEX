@@ -2682,10 +2682,12 @@ async function viLogPrediction(d) {
         confidence:        d.confidence,
         systemVotes:       d.systemVotes ? { BUY: d.systemVotes.votes.BUY, HOLD: d.systemVotes.votes.HOLD, SELL: d.systemVotes.votes.SELL, agreementPct: d.systemVotes.agreementPct } : null,
         topPatterns:       (d.topPatterns || []).map(p => ({
-          name:      p.name,
-          direction: p.direction  || null,
-          category:  p.category   || null,
-          win_rate:  p.win_rate   ?? null,
+          name:           p.name,
+          direction:      p.direction     || null,
+          category:       p.category      || null,
+          win_rate:       p.win_rate      ?? null,
+          winRateSource:  p.winRateSource || null,
+          winRateUses:    p.winRateUses   ?? null,
         })),
         marketRegime:      d.scoreBreakdown?.regime?.detail?.regime || null,
         // ── Sentiment state at prediction time ──
@@ -2960,7 +2962,11 @@ function renderPredsFull() {
           </div>
           <div style="text-align:right;">
             <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${pColor};">${p.direction.toUpperCase()}</div>
-            ${p.win_rate ? `<div style="font-size:9px;color:var(--gray);">${p.win_rate}% win rate</div>` : ''}
+            ${p.win_rate ? `<div style="font-size:9px;color:var(--gray);">${p.win_rate}% ${(() => {
+              if (!p.winRateSource || p.winRateSource === 'DEFAULT') return '<span style="color:var(--gray);opacity:.7;">DEFAULT</span>';
+              if (p.winRateSource === 'VERIFIED') return `<span style="color:var(--green2);font-weight:700;">✓ VERIFIED${p.winRateUses ? ' (' + p.winRateUses + ')' : ''}</span>`;
+              return '<span style="color:var(--gold);">HAND-CODED</span>';
+            })()}</div>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -4590,11 +4596,20 @@ function renderLivePrediction(sym, d) {
   // ── Active pattern rows ──
   const patternsHtml = (d.activeLivePatterns || []).slice(0, 8).map(p => {
     const pColor = p.direction === 'bullish' ? 'var(--green2)' : p.direction === 'bearish' ? 'var(--red)' : 'var(--gold)';
-    const wr     = p.winRatePct ? `${p.winRatePct}% win rate` : '';
+    const wrBadge = (() => {
+      if (!p.winRatePct) return '';
+      const src = p.winRateSource || 'DEFAULT';
+      const badge = src === 'VERIFIED'
+        ? `<span style="color:var(--green2);font-weight:700;font-size:8px;">✓ VERIFIED${p.winRateUses ? ' (' + p.winRateUses + ')' : ''}</span>`
+        : src === 'HAND_CODED'
+        ? `<span style="color:var(--gold);font-size:8px;">HAND-CODED</span>`
+        : `<span style="color:var(--gray);font-size:8px;opacity:.7;">DEFAULT</span>`;
+      return ` · ${p.winRatePct}% ${badge}`;
+    })();
     return `<div class="lp-pattern-row">
       <div style="flex:1;min-width:0;">
         <div class="lp-pattern-name">${p.name}</div>
-        <div class="lp-pattern-meta">${p.category}${wr ? ' · ' + wr : ''}</div>
+        <div class="lp-pattern-meta">${p.category}${wrBadge}</div>
         ${p.reason ? `<div class="lp-reason">${p.reason}</div>` : ''}
       </div>
       <div style="text-align:right;margin-left:12px;">
