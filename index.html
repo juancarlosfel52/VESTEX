@@ -706,6 +706,21 @@ body.dark-mode .bp-input{background:#111;color:#fff;}
 .wr-result.pending{color:var(--gold);background:rgba(201,168,76,.1);}
 .wr-dir{font-size:10px;color:var(--gray);letter-spacing:1px;}
 
+/* ── PATTERN LEADERBOARD ── */
+.plb-head{display:grid;grid-template-columns:1fr 70px 70px 70px 70px;gap:10px;padding:8px 22px;background:var(--cream);border-bottom:1px solid var(--border);}
+.plb-row{display:grid;grid-template-columns:1fr 70px 70px 70px 70px;gap:10px;padding:13px 22px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s;}
+.plb-row:last-child{border-bottom:none;}
+.plb-row:hover{background:var(--off);}
+.plb-name{font-size:11px;font-weight:600;color:var(--dark);line-height:1.35;}
+.plb-sub{font-size:9px;color:var(--gray);letter-spacing:1px;margin-top:2px;}
+.plb-cell{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--dark);text-align:right;}
+.plb-badge{display:inline-block;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;font-weight:700;border-radius:0;}
+.plb-badge.validated{background:rgba(26,110,69,.12);color:var(--green);}
+.plb-badge.emerging{background:rgba(201,168,76,.12);color:var(--gold);}
+.plb-badge.insufficient{background:rgba(100,100,100,.1);color:var(--gray);}
+.plb-sort-btn{background:none;border:none;cursor:pointer;font-size:8px;letter-spacing:1px;color:var(--gray);text-transform:uppercase;padding:0 4px;}
+.plb-sort-btn.active{color:var(--gold);}
+
 .signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
 .signal-card{background:var(--white);border:1px solid var(--border);padding:18px 20px;}
 .signal-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;font-weight:700;}
@@ -1694,6 +1709,35 @@ canvas{max-height:300px;}
         <div class="pb">
           <div id="signal-leaderboard" style="display:flex;flex-direction:column;gap:8px;"></div>
           <div style="font-size:10px;color:var(--gray);line-height:1.7;margin-top:10px;">◆ After 20 verified predictions, each signal's confidence weight is automatically adjusted — overperforming signals gain up to +25%, underperforming signals are reduced by up to -25%.</div>
+        </div>
+      </div>
+
+      <!-- PATTERN LEADERBOARD -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="ph">
+          <div>
+            <div class="ph-title">Pattern Leaderboard</div>
+            <div class="ph-sub">Real win rates from every pattern fire — verified 7 days after prediction</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="plb-total-fires" style="font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;"></span>
+            <div style="display:flex;gap:4px;">
+              <button class="plb-sort-btn active" id="plb-sort-fires"  onclick="plbSort('uses7d')">Fires</button>
+              <button class="plb-sort-btn"         id="plb-sort-wr"    onclick="plbSort('winRate7d')">Win %</button>
+              <button class="plb-sort-btn"         id="plb-sort-ret"   onclick="plbSort('avgReturn7d')">Return</button>
+            </div>
+          </div>
+        </div>
+        <div class="plb-head">
+          <div class="pt-hc">Pattern</div>
+          <div class="pt-hc" style="text-align:right;">Fires</div>
+          <div class="pt-hc" style="text-align:right;">Win %</div>
+          <div class="pt-hc" style="text-align:right;">Avg Ret</div>
+          <div class="pt-hc" style="text-align:right;">Quality</div>
+        </div>
+        <div id="pattern-leaderboard"></div>
+        <div style="font-size:10px;color:var(--gray);line-height:1.7;padding:14px 22px 4px;">
+          ◆ Win % and Avg Return require 7 days of forward data per fire. <strong>Validated</strong> = 20+ verified fires. <strong>Emerging</strong> = 5–19 fires. <strong>Insufficient</strong> = fewer than 5.
         </div>
       </div>
 
@@ -3038,6 +3082,80 @@ async function renderProgress() {
       <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:5px;">Active Signal</div>
       <div class="signal-desc">When trading volume is 50%+ above the 10-day average, it confirms the predicted direction with stronger confidence.</div>
     </div>`;
+
+  // Pattern Leaderboard
+  renderPatternLeaderboard();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PATTERN LEADERBOARD
+// ═══════════════════════════════════════════════════════════
+let _plbData   = [];
+let _plbSortBy = 'uses7d';
+
+async function renderPatternLeaderboard() {
+  const el = document.getElementById('pattern-leaderboard');
+  if (!el) return;
+  try {
+    const res  = await fetch('/api/vi/pattern-stats');
+    const data = await res.json();
+
+    if (!data.ok || !data.stats) {
+      el.innerHTML = '<div class="empty" style="padding:20px 22px;">Pipeline not active yet — data starts collecting when the first stock is analyzed.</div>';
+      return;
+    }
+
+    _plbData = data.stats;
+    const totalEl = document.getElementById('plb-total-fires');
+    if (totalEl) totalEl.textContent = data.totalFires + ' total fires';
+    plbRender();
+  } catch(e) {
+    const el2 = document.getElementById('pattern-leaderboard');
+    if (el2) el2.innerHTML = '<div class="empty" style="padding:20px 22px;">Pattern data loading...</div>';
+  }
+}
+
+function plbSort(field) {
+  _plbSortBy = field;
+  document.querySelectorAll('.plb-sort-btn').forEach(b => b.classList.remove('active'));
+  const map = { uses7d: 'plb-sort-fires', winRate7d: 'plb-sort-wr', avgReturn7d: 'plb-sort-ret' };
+  const btn = document.getElementById(map[field]);
+  if (btn) btn.classList.add('active');
+  plbRender();
+}
+
+function plbRender() {
+  const el = document.getElementById('pattern-leaderboard');
+  if (!el || !_plbData.length) return;
+
+  const sorted = [..._plbData].sort((a, b) => {
+    const av = a[_plbSortBy] ?? -Infinity;
+    const bv = b[_plbSortBy] ?? -Infinity;
+    return bv - av;
+  });
+
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px 22px;">No pattern fires recorded yet — open Live Pattern Analysis on a stock to start collecting data.</div>';
+    return;
+  }
+
+  el.innerHTML = sorted.map(p => {
+    const wr  = p.winRate7d  != null ? p.winRate7d  + '%' : '—';
+    const ret = p.avgReturn7d != null ? (p.avgReturn7d >= 0 ? '+' : '') + p.avgReturn7d + '%' : '—';
+    const wrColor  = p.winRate7d  != null ? (p.winRate7d  >= 60 ? 'var(--green)' : p.winRate7d  >= 45 ? 'var(--gold)' : 'var(--red)') : 'var(--gray)';
+    const retColor = p.avgReturn7d != null ? (p.avgReturn7d > 0 ? 'var(--green)' : p.avgReturn7d < 0 ? 'var(--red)' : 'var(--gray)') : 'var(--gray)';
+    const catLabel = (p.category || '').toUpperCase() || 'BRAIN';
+    return `<div class="plb-row">
+      <div>
+        <div class="plb-name">${p.name || p.patternId}</div>
+        <div class="plb-sub">${catLabel} · ${p.patternId}</div>
+      </div>
+      <div class="plb-cell">${p.uses7d || 0}</div>
+      <div class="plb-cell" style="color:${wrColor};">${wr}</div>
+      <div class="plb-cell" style="color:${retColor};">${ret}</div>
+      <div class="plb-cell"><span class="plb-badge ${p.dataQuality}">${p.dataQuality}</span></div>
+    </div>`;
+  }).join('');
 }
 
 function renderNewsFull() {
