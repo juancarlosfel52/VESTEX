@@ -4483,6 +4483,29 @@ function renderLivePrediction(sym, d) {
     `<div class="lp-warn ${w.level}">⚠ ${w.text}</div>`
   ).join('');
 
+  // ── Catalyst warnings (from Catalyst Event Layer) ──
+  const catalystWarnsHtml = (d.catalystWarnings || []).map(w =>
+    `<div class="lp-warn high">${w}</div>`
+  ).join('');
+  const catalystEventsHtml = (d.activeCatalysts || []).filter(e => e.eventType).slice(0, 4).map(e => {
+    const dStr = e.daysUntil != null
+      ? (e.daysUntil < 0 ? `${Math.abs(e.daysUntil)}d ago` : e.daysUntil === 0 ? 'Today' : `In ${e.daysUntil}d`)
+      : '';
+    const dc = e.expectedDirection === 'BULLISH' ? '#4aa870' : e.expectedDirection === 'BEARISH' ? '#e07b39' : 'var(--gray)';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:10px;">
+      <div style="flex:1;"><strong>${e.eventTitle||e.eventType}</strong><span style="color:var(--gray);margin-left:6px;">${e.summary||''}</span></div>
+      <div style="text-align:right;white-space:nowrap;margin-left:10px;"><span style="color:${dc};font-weight:700;">${e.expectedDirection||''}</span> <span style="color:var(--gray);">${dStr}</span></div>
+    </div>`;
+  }).join('');
+  const lpCatalystDeltaStr = d.catalystDelta != null && d.catalystDelta !== 0
+    ? ` <span style="color:${d.catalystDelta>0?'#4aa870':'#e07b39'}">${d.catalystDelta>0?'+':''}${d.catalystDelta} confidence</span>` : '';
+  const catalystSectionHtml = (catalystWarnsHtml || catalystEventsHtml) ? `
+    <div style="margin-bottom:14px;padding:10px 12px;background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.15);border-radius:4px;">
+      <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">◆ Catalyst Events${lpCatalystDeltaStr}</div>
+      ${catalystWarnsHtml}
+      ${catalystEventsHtml}
+    </div>` : '';
+
   // ── Pattern summary ──
   const ps = d.patternSummary || {};
   const mi = d.masterIntelligence || {};
@@ -4539,6 +4562,8 @@ function renderLivePrediction(sym, d) {
     </div>` : ''}
 
     ${warnsHtml ? `<div style="margin-bottom:14px;">${warnsHtml}</div>` : ''}
+
+    ${catalystSectionHtml}
 
     ${reasonsHtml ? `<div style="margin-bottom:14px;">
       <div class="lp-section-lbl">Why This Decision</div>
@@ -5106,6 +5131,34 @@ function miRenderCard(d) {
     ? d.warnings.map(w=>`<div class="mi-warn-item ${w.level}"><span class="mi-warn-icon">${w.level==='high'?'🔴':w.level==='medium'?'⚠':'ℹ'}</span><span>${w.text}</span></div>`).join('')
     : '<div style="font-size:10px;color:var(--gray);letter-spacing:1px;padding:4px 0;">◆ No major warnings for current conditions.</div>';
 
+  // ── Catalyst Events ──
+  const hasCatalysts = d.activeCatalysts?.length > 0 || d.catalystWarnings?.length > 0;
+  const catalystDeltaStr = d.catalystDelta != null && d.catalystDelta !== 0
+    ? `<span style="color:${d.catalystDelta>0?'#4aa870':'#e07b39'};font-size:9px;margin-left:6px;">${d.catalystDelta>0?'+':''}${d.catalystDelta} confidence</span>`
+    : '';
+  const catalystHtml = hasCatalysts ? `
+  <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+    <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;">◆ Catalyst Events${catalystDeltaStr}</div>
+    ${(d.catalystWarnings||[]).map(w=>`<div style="font-size:10px;color:var(--red);margin-bottom:5px;line-height:1.5;">${w}</div>`).join('')}
+    ${(d.activeCatalysts||[]).filter(e=>e.eventType).map(e=>{
+      const daysStr = e.daysUntil != null
+        ? (e.daysUntil < 0 ? `${Math.abs(e.daysUntil)}d ago` : e.daysUntil === 0 ? 'Today' : `In ${e.daysUntil}d`)
+        : '';
+      const dirColor = e.expectedDirection==='BULLISH'?'#4aa870':e.expectedDirection==='BEARISH'?'#e07b39':'var(--gray)';
+      return `<div style="padding:7px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:10px;font-weight:700;color:var(--dark);margin-bottom:2px;">${e.eventTitle||e.eventType}</div>
+          <div style="font-size:9px;color:var(--gray);">${e.summary||''}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap;">
+          <div style="font-size:9px;color:${dirColor};font-weight:700;">${e.expectedDirection||''}</div>
+          <div style="font-size:8px;color:var(--gray);">${daysStr}</div>
+          <div style="font-size:8px;color:var(--gray);letter-spacing:1px;">${e.status||''}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>` : '';
+
   return `
   <div class="mi-card ${dcls}" id="mi-main-card">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
@@ -5156,6 +5209,8 @@ function miRenderCard(d) {
       <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Risks to Watch</div>
       ${warningsHtml}
     </div>
+
+    ${catalystHtml}
 
     <div style="font-size:9px;color:var(--gray);margin-top:18px;padding-top:12px;border-top:1px solid var(--border);letter-spacing:.5px;">
       Generated: ${new Date(d.generatedAt).toLocaleString()} · VESTEX Master Intelligence v2.0

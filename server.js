@@ -5,6 +5,7 @@ const admin   = require('firebase-admin');
 const { runSentimentAnalysis, storeSentiment }          = require('./sentiment');
 const { fetchEdgarData, fetchAllEdgarData }             = require('./edgar');
 const { buildMasterIntelligence, calcMarketHealth, healthLabel } = require('./masterIntelligence');
+const { analyzeCatalysts, storeCatalystEvents }         = require('./catalystEngine');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -324,6 +325,11 @@ app.get('/api/accuracy', async (req, res) => {
 // ── In-memory sentiment cache (no Firebase needed) ──
 let sentimentCache = {};
 let sentimentLastRun = null;
+
+// ── In-memory catalyst cache (per symbol) ──
+const _catalystCache     = {};   // sym → { events, modifier }
+const _catalystFetchedAt = {};
+const CATALYST_TTL = 3600000;    // 1 hour
 
 async function refreshSentimentCache() {
   if (!process.env.CLAUDE_API_KEY) return;
@@ -712,7 +718,29 @@ app.get('/api/master-intelligence/:symbol', async (req, res) => {
     // 8. Build master score (brainForMI includes chart patterns)
     const result = buildMasterIntelligence(sym, indicators, brainForMI, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
 
-    // 9. Store to Firestore for history tracking
+    // 9. Apply Catalyst modifier — confidence only, never touches masterScore
+    try {
+      const now2 = Date.now();
+      let catalystData = _catalystCache[sym];
+      if (!catalystData || (now2 - (_catalystFetchedAt[sym] || 0) > CATALYST_TTL)) {
+        const headlines = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
+        const predDir   = result.decision?.toLowerCase().includes('buy') ? 'bullish'
+                        : result.decision?.toLowerCase().includes('sell') ? 'bearish' : 'neutral';
+        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir);
+        _catalystCache[sym]     = catalystData;
+        _catalystFetchedAt[sym] = now2;
+        if (pipelineReady) storeCatalystEvents(admin.firestore(), sym, catalystData.events).catch(() => {});
+      }
+      if (catalystData?.modifier) {
+        const { confidenceDelta, warnings, activeCatalysts } = catalystData.modifier;
+        result.confidence          = Math.max(0, Math.min(100, (result.confidence || 50) + confidenceDelta));
+        result.catalystWarnings    = warnings;
+        result.activeCatalysts     = activeCatalysts;
+        result.catalystDelta       = confidenceDelta;
+      }
+    } catch(e) { console.warn('[MI] Catalyst injection failed:', e.message); }
+
+    // 10. Store to Firestore for history tracking
     if (pipelineReady) {
       try {
         const db = admin.firestore();
@@ -1094,6 +1122,27 @@ app.get('/api/live-prediction/:symbol', async (req, res) => {
       scoreBreakdown: miResult.scoreBreakdown,
     };
 
+    // Apply Catalyst modifier to LP confidence — never touches consensusScore
+    try {
+      const now2 = Date.now();
+      let catalystData = _catalystCache[sym];
+      if (!catalystData || (now2 - (_catalystFetchedAt[sym] || 0) > CATALYST_TTL)) {
+        const headlines = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
+        const predDir   = (result.direction || 'neutral').toLowerCase();
+        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir);
+        _catalystCache[sym]     = catalystData;
+        _catalystFetchedAt[sym] = now2;
+        if (pipelineReady) storeCatalystEvents(admin.firestore(), sym, catalystData.events).catch(() => {});
+      }
+      if (catalystData?.modifier) {
+        const { confidenceDelta, warnings, activeCatalysts } = catalystData.modifier;
+        result.confidence       = Math.max(0, Math.min(100, (result.confidence || 50) + confidenceDelta));
+        result.catalystWarnings = (result.catalystWarnings || []).concat(warnings);
+        result.activeCatalysts  = activeCatalysts;
+        result.catalystDelta    = confidenceDelta;
+      }
+    } catch(e) { console.warn('[LP] Catalyst injection failed:', e.message); }
+
     // Phase 4: Log individual pattern fires for forward-looking validation framework.
     // Tracks each pattern's actual outcomes so win_rate can be computed from real data.
     if (pipelineReady) {
@@ -1116,6 +1165,36 @@ app.get('/api/live-prediction/:symbol', async (req, res) => {
 
   } catch(e) {
     console.error('[LP] Error:', e.message);
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// ── API: Catalysts for a symbol ──
+// Returns cached catalyst events + modifier for the symbol.
+// Falls back to Firestore if in-memory cache is empty.
+app.get('/api/catalysts/:sym', async (req, res) => {
+  const sym = (req.params.sym || '').toUpperCase();
+  if (!sym) return res.json({ ok: false, error: 'sym required' });
+
+  try {
+    // Serve in-memory cache if fresh
+    const now2 = Date.now();
+    if (_catalystCache[sym] && (now2 - (_catalystFetchedAt[sym] || 0) < CATALYST_TTL)) {
+      return res.json({ ok: true, data: _catalystCache[sym], source: 'cache' });
+    }
+
+    // Try Firestore fallback
+    if (pipelineReady) {
+      const doc = await admin.firestore().collection('catalyst_events').doc(sym).get();
+      if (doc.exists) {
+        const data = doc.data();
+        return res.json({ ok: true, data, source: 'firestore' });
+      }
+    }
+
+    // No data yet — return empty
+    res.json({ ok: true, data: { events: [], modifier: { confidenceDelta: 0, warnings: [], activeCatalysts: [] } }, source: 'empty' });
+  } catch(e) {
     res.json({ ok: false, error: e.message });
   }
 });
