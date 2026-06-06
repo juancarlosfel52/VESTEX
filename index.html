@@ -923,6 +923,62 @@ canvas{max-height:300px;}
 }
 
 /* ═══════════════════════════════════════════════════════════
+   MOBILE POLISH — S5 2026-06-06
+   ═══════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+
+  /* ── MI Card ── */
+  .mi-card{ padding:16px; }
+  .mi-top{ grid-template-columns:1fr; gap:14px; }
+  .mi-meter-wrap{ flex-direction:row; justify-content:center; align-items:center; gap:20px; flex-wrap:wrap; }
+  .mi-decision-badge{ font-size:14px; padding:6px 14px; }
+  .mi-cat-row{ grid-template-columns:80px 30px 1fr 26px; gap:6px; }
+  .mi-cat-name{ font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* ── Live Pattern header ── */
+  .lp-header{ flex-wrap:wrap; gap:10px; }
+
+  /* ── Chart page ── */
+  .chart-info{ gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .ci-price{ font-size:26px; }
+
+  /* ── Portfolio PI card — uniform 16px side padding ── */
+  .pi-card-head{ padding:14px 16px; gap:10px; }
+  .pi-pnl-item{ padding:10px 14px; }
+  .pi-meter-wrap{ padding:12px 16px; }
+  .pi-reason{ padding:10px 16px; }
+  .pi-warnings{ padding:8px 16px; }
+  .pi-why{ padding:12px 16px; }
+
+  /* ── pi-why-row: bar is invisible on mobile (3px no-width) — remove it from
+     grid flow so pi-why-pts stops wrapping to row 2 ── */
+  .pi-why-bar-wrap{ display:none; }
+  .pi-why-row{ grid-template-columns:18px 1fr auto auto; }
+  .pi-why-explain{ grid-column:1/-1; }
+
+  /* ── Portfolio Coach ── */
+  .pc-coach-card{ padding:12px; }
+  .pc-section-lbl{ font-size:9px; letter-spacing:1.5px; }
+  .pc-text{ font-size:11px; line-height:1.65; }
+  /* 7 sections + checklist + log needs more room than 2400px */
+  .pc-coach-wrap.open{ max-height:5000px; }
+}
+
+@media(max-width:400px){
+  /* Bottom nav — 7 items don't fit with labels on narrow phones.
+     Hide text, show icons only. */
+  .mob-nav-item{ font-size:0; letter-spacing:0; gap:2px; padding:6px 2px; }
+  .mob-icon{ font-size:22px; color:#555; }
+  .mob-nav-item.active .mob-icon{ color:var(--red); }
+
+  /* MI meter shrink */
+  .mi-meter svg{ width:130px !important; height:75px !important; }
+
+  /* Coach card absolute minimum padding */
+  .pc-coach-card{ padding:10px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    LOGIN SCREEN
    ═══════════════════════════════════════════════════════════ */
 #auth-screen{
