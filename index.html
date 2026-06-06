@@ -2418,7 +2418,12 @@ async function viLogPrediction(d) {
         decision:          d.decision,
         confidence:        d.confidence,
         systemVotes:       d.systemVotes ? { BUY: d.systemVotes.votes.BUY, HOLD: d.systemVotes.votes.HOLD, SELL: d.systemVotes.votes.SELL, agreementPct: d.systemVotes.agreementPct } : null,
-        topPatterns:       (d.topPatterns || []).map(p => p.name),
+        topPatterns:       (d.topPatterns || []).map(p => ({
+          name:      p.name,
+          direction: p.direction  || null,
+          category:  p.category   || null,
+          win_rate:  p.win_rate   ?? null,
+        })),
         marketRegime:      d.scoreBreakdown?.regime?.detail?.regime || null,
       }),
     });
@@ -3835,8 +3840,8 @@ async function fetchQuotes() {
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'live-quotes API failed');
 
-  // Update all known STOCKS + any portfolio stocks returned
-  const allSyms = [...new Set([...Object.keys(STOCKS), ...portfolioSyms])];
+  // Update all known STOCKS + portfolio stocks + SPY (benchmark, always stored for VI comparison)
+  const allSyms = [...new Set([...Object.keys(STOCKS), ...portfolioSyms, 'SPY'])];
   allSyms.forEach(s => {
     const r = data.data[s];
     if (!r) return;
