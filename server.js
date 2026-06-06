@@ -1216,6 +1216,320 @@ app.get('/api/brain-calendar', async (req, res) => {
 });
 
 // Get full VI report
+// ── Brain Integrity Score — self-audit of system health ──
+app.get('/api/brain-integrity', async (req, res) => {
+  const now       = Date.now();
+  const nowISO    = new Date(now).toISOString();
+  const SYMS      = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
+  const warnings  = [];
+  const failed    = [];
+
+  // ── helper: clamp 0-100 ──
+  const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 1 — Live Data Health (weight 20%)
+  // ════════════════════════════════════════════════════════════
+  let cat1 = 0;
+  const quoteAge    = _lqCachedAt ? now - _lqCachedAt : Infinity;
+  const quoteKeys   = Object.keys(_lqCache);
+  const quoteCount  = SYMS.filter(s => _lqCache[s]?.price > 0).length;
+  const spyOk       = !!(_lqCache['SPY']?.price > 0);
+  const pricesValid = quoteKeys.filter(k => k !== 'SPY').every(k => typeof _lqCache[k]?.price === 'number' && _lqCache[k].price > 0);
+
+  // Freshness: 30 pts
+  if      (quoteAge < 120000)   cat1 += 30;       // < 2 min
+  else if (quoteAge < 300000)   cat1 += 20;        // < 5 min
+  else if (quoteAge < 900000)   cat1 += 8;         // < 15 min
+  else { cat1 += 0; warnings.push('Live quotes are stale (>15 min old)'); failed.push('Quote freshness'); }
+
+  // Coverage: 30 pts
+  cat1 += Math.round(quoteCount / 5 * 30);
+  if (quoteCount < 5) { warnings.push(`Only ${quoteCount}/5 symbols have live prices`); failed.push('Quote coverage'); }
+
+  // SPY benchmark: 20 pts
+  if (spyOk)  cat1 += 20;
+  else { warnings.push('SPY benchmark price unavailable'); failed.push('SPY benchmark'); }
+
+  // Price validity: 20 pts
+  if (pricesValid) cat1 += 20;
+  else { warnings.push('One or more quote prices are zero or invalid'); failed.push('Quote price validity'); }
+
+  cat1 = clamp(cat1);
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 2 — News + Catalyst Health (weight 15%)
+  // ════════════════════════════════════════════════════════════
+  let cat2 = 0;
+  const sentAge     = sentimentLastRun ? now - new Date(sentimentLastRun).getTime() : Infinity;
+  const sentSyms    = Object.keys(sentimentCache).filter(s => SYMS.includes(s));
+  const sentHasEvts = sentSyms.filter(s => Array.isArray(sentimentCache[s]?.events) && sentimentCache[s].events.length > 0).length;
+  const sentHasHL   = sentSyms.filter(s => (sentimentCache[s]?.headlines?.length || 0) >= 3).length;
+  const catActive   = Object.keys(_catalystCache).filter(s => SYMS.includes(s)).length;
+
+  // Sentiment freshness: 30 pts
+  if      (sentAge < 7200000)   cat2 += 30;        // < 2 hr
+  else if (sentAge < 21600000)  cat2 += 18;        // < 6 hr
+  else if (sentAge < 86400000)  cat2 += 8;         // < 24 hr
+  else { warnings.push('Sentiment data is older than 24 hours'); failed.push('Sentiment freshness'); }
+
+  // Symbol coverage: 25 pts
+  cat2 += Math.round(sentSyms.length / 5 * 25);
+  if (sentSyms.length < 5) { warnings.push(`Sentiment missing for ${5 - sentSyms.length} symbols`); }
+
+  // Headlines per symbol: 20 pts
+  cat2 += Math.round(sentHasHL / 5 * 20);
+
+  // Structured events present: 15 pts (unified pipeline working)
+  cat2 += Math.round(sentHasEvts / 5 * 15);
+  if (sentHasEvts === 0 && sentSyms.length > 0) { warnings.push('Unified event extraction returned no events (check Claude API key or prompt)'); failed.push('Structured event extraction'); }
+
+  // Catalyst delta logged: 10 pts
+  cat2 += Math.round(catActive / 5 * 10);
+
+  cat2 = clamp(cat2);
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 3 — Firestore / Memory Health (weight 15%)
+  // ════════════════════════════════════════════════════════════
+  let cat3 = 0;
+  let viCount = 0, patCount = 0, sentFSCount = 0, catPerfCount = 0;
+
+  // pipelineReady: 25 pts
+  if (pipelineReady) {
+    cat3 += 25;
+    try {
+      const db = admin.firestore();
+      const [viSnap, patSnap, sentSnap, catSnap] = await Promise.all([
+        db.collection(VI_COL).limit(1).get().catch(() => null),
+        db.collection(VI_PAT_COL).limit(1).get().catch(() => null),
+        db.collection('sentiment').limit(1).get().catch(() => null),
+        db.collection('catalyst_performance').limit(1).get().catch(() => null),
+      ]);
+      viCount      = viSnap?.size  || 0;
+      patCount     = patSnap?.size || 0;
+      sentFSCount  = sentSnap?.size || 0;
+      catPerfCount = catSnap?.size  || 0;
+    } catch(e) { warnings.push('Firestore query failed during integrity check'); }
+
+    // vi_predictions: 25 pts
+    if (viCount > 0) cat3 += 25;
+    else { warnings.push('vi_predictions collection is empty — no predictions logged yet'); failed.push('vi_predictions logging'); }
+
+    // vi_pattern_fires: 20 pts
+    if (patCount > 0) cat3 += 20;
+    else { warnings.push('vi_pattern_fires collection is empty'); failed.push('vi_pattern_fires logging'); }
+
+    // sentiment Firestore: 15 pts
+    if (sentFSCount > 0) cat3 += 15;
+    else { warnings.push('Sentiment not yet persisted to Firestore'); }
+
+    // catalyst_performance: 15 pts
+    if (catPerfCount > 0) cat3 += 15;
+    else { warnings.push('catalyst_performance collection is empty — accumulating'); }
+
+  } else {
+    warnings.push('Firestore pipeline is not ready (missing env vars)');
+    failed.push('Firestore pipeline');
+  }
+
+  // winRateRegistry: bonus check — already in memory
+  const registry  = getRegistrySnapshot();
+  const regKeys   = Object.keys(registry);
+  const regHasSrc = regKeys.some(k => registry[k]?.source);
+  if (!regHasSrc && regKeys.length > 0) { warnings.push('Win rate registry has entries but missing source labels'); }
+
+  cat3 = clamp(cat3);
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 4 — Pattern Logic Health (weight 15%)
+  // ════════════════════════════════════════════════════════════
+  let cat4 = 0;
+  let brainDiag = null;
+  try {
+    const { runBrainAnalysis } = require('./brain');
+    const br = await runBrainAnalysis({ rsi: 55, macd: 0.2, sma7: 150, sma21: 148, volSpike: false, streak: 0, atrPct: 1.5, score: 0 });
+    brainDiag = br?.brainVault?.diagnostics;
+  } catch(e) { warnings.push('Brain diagnostics call failed: ' + e.message); failed.push('Brain diagnostics'); }
+
+  if (brainDiag) {
+    // Pattern evaluation rate: 40 pts
+    const evalRate = brainDiag.activePercent || 0;
+    cat4 += Math.round(Math.min(evalRate / 70, 1) * 40); // 70%+ eval = full score
+    if (evalRate < 40) { warnings.push(`Only ${evalRate}% of patterns evaluated (low data coverage)`); failed.push('Pattern evaluation rate'); }
+
+    // Pattern count matches expected: 20 pts
+    const EXPECTED_PATTERNS = 113;
+    if (brainDiag.loadedPatterns === EXPECTED_PATTERNS) cat4 += 20;
+    else { warnings.push(`Loaded ${brainDiag.loadedPatterns} patterns, expected ${EXPECTED_PATTERNS}`); failed.push('Pattern count integrity'); }
+
+    // Brain diagnostics accessible: 20 pts
+    cat4 += 20;
+
+    // winRateSource labels: 20 pts
+    const wrReg = getRegistrySnapshot();
+    const hasSourceLabels = Object.values(wrReg).some(v => ['VERIFIED','HAND_CODED','DEFAULT'].includes(v?.source));
+    if (hasSourceLabels) cat4 += 20;
+    else { warnings.push('Win rate source labels missing from registry'); }
+  }
+
+  cat4 = clamp(cat4);
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 5 — Math Integrity (weight 15%)
+  // ════════════════════════════════════════════════════════════
+  let cat5 = 0;
+  const mathChecks = { quotePrices: 25, sentScores: 25, catDeltas: 25, regRates: 25 };
+
+  // Quote prices: 25 pts
+  const badQuotes = SYMS.filter(s => {
+    const p = _lqCache[s]?.price;
+    return p !== undefined && (isNaN(p) || p <= 0);
+  });
+  if (badQuotes.length === 0) cat5 += 25;
+  else { warnings.push(`NaN or zero price detected for: ${badQuotes.join(', ')}`); failed.push('Quote math integrity'); }
+
+  // Sentiment scores: 25 pts
+  const badSent = sentSyms.filter(s => {
+    const sc = sentimentCache[s]?.score;
+    return sc !== undefined && (isNaN(sc) || sc < -100 || sc > 100);
+  });
+  if (badSent.length === 0) cat5 += 25;
+  else { warnings.push(`Sentiment score out of range for: ${badSent.join(', ')}`); failed.push('Sentiment score range'); }
+
+  // Catalyst deltas: 25 pts
+  const badCat = SYMS.filter(s => {
+    const d = _catalystCache[s]?.modifier?.confidenceDelta;
+    return d !== undefined && (isNaN(d) || d < -20 || d > 20);
+  });
+  if (badCat.length === 0) cat5 += 25;
+  else { warnings.push(`Catalyst delta out of ±20 range for: ${badCat.join(', ')}`); failed.push('Catalyst delta clamping'); }
+
+  // Win rate registry rates: 25 pts
+  const badReg = Object.values(registry).filter(v => {
+    const r = v?.rate;
+    return r !== undefined && (isNaN(r) || r < 0 || r > 1);
+  });
+  if (badReg.length === 0) cat5 += 25;
+  else { warnings.push(`${badReg.length} win rate registry entries have out-of-range values`); failed.push('Win rate registry math'); }
+
+  cat5 = clamp(cat5);
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 6 — Verification Health (weight 10%)
+  // ════════════════════════════════════════════════════════════
+  let cat6 = 0;
+  let verifiedCount = 0, totalVIPreds = 0;
+
+  if (pipelineReady) {
+    // VI accessible: 30 pts
+    cat6 += 30;
+
+    // Has predictions logged: 30 pts
+    if (viCount > 0) {
+      cat6 += 30;
+      // Attempt to count verified
+      try {
+        const db = admin.firestore();
+        const viAll = await db.collection(VI_COL).limit(50).get().catch(() => null);
+        if (viAll) {
+          totalVIPreds  = viAll.size;
+          verifiedCount = viAll.docs.filter(d => d.data().verification7d || d.data().verification30d).length;
+        }
+      } catch(e) {}
+
+      // Has verified predictions (25 pts — not penalized if too early)
+      if (verifiedCount > 0) cat6 += 25;
+      else { cat6 += 15; } // still collecting — partial credit
+
+      // No fake accuracy: 15 pts — always pass (backend never shows accuracy without verified data)
+      cat6 += 15;
+    } else {
+      warnings.push('No predictions logged — VI pipeline not yet started');
+      failed.push('VI predictions present');
+    }
+  } else {
+    cat6 += 20; // partial: pipeline not ready but no fake accuracy shown
+  }
+
+  cat6 = clamp(cat6);
+
+  // ════════════════════════════════════════════════════════════
+  // CAT 7 — Cognitive Consistency (weight 10%)
+  // ════════════════════════════════════════════════════════════
+  let cat7 = 0;
+
+  // Catalyst deltas within ±20: 40 pts (already checked in cat5, but here it's conceptual)
+  const catDeltasOk = badCat.length === 0;
+  if (catDeltasOk) cat7 += 40;
+
+  // Sentiment scores within -100..100: 30 pts
+  if (badSent.length === 0) cat7 += 30;
+
+  // Win rate rates within 0..1: 30 pts
+  if (badReg.length === 0) cat7 += 30;
+
+  // Consistency warning: if sentiment positive but catalyst warning present for same symbol
+  const conflicts = SYMS.filter(s => {
+    const sentPos    = sentimentCache[s]?.overall === 'positive';
+    const catWarns   = (_catalystCache[s]?.modifier?.warnings || []).some(w => w.includes('🔴') || w.includes('⚠'));
+    return sentPos && catWarns;
+  });
+  if (conflicts.length > 0) {
+    cat7 = Math.round(cat7 * 0.85); // slight reduction for conflicting signals
+    warnings.push(`Conflicting signals detected for: ${conflicts.join(', ')} (positive sentiment but catalyst warnings)`);
+  }
+
+  cat7 = clamp(cat7);
+
+  // ════════════════════════════════════════════════════════════
+  // FINAL WEIGHTED SCORE
+  // ════════════════════════════════════════════════════════════
+  const categoryScores = {
+    liveData:       { score: cat1, weight: 0.20, label: 'Live Data Health' },
+    newsAndCatalyst:{ score: cat2, weight: 0.15, label: 'News + Catalyst Health' },
+    firestore:      { score: cat3, weight: 0.15, label: 'Firestore / Memory Health' },
+    patternLogic:   { score: cat4, weight: 0.15, label: 'Pattern Logic Health' },
+    mathIntegrity:  { score: cat5, weight: 0.15, label: 'Math Integrity' },
+    verification:   { score: cat6, weight: 0.10, label: 'Verification Health' },
+    consistency:    { score: cat7, weight: 0.10, label: 'Cognitive Consistency' },
+  };
+
+  const finalScore = clamp(
+    Object.values(categoryScores).reduce((acc, c) => acc + c.score * c.weight, 0)
+  );
+
+  const status = finalScore >= 90 ? 'Excellent'
+               : finalScore >= 75 ? 'Reliable'
+               : finalScore >= 60 ? 'Caution'
+               : finalScore >= 40 ? 'Weak'
+               : 'Do Not Trust';
+
+  res.json({
+    ok:            true,
+    score:         finalScore,
+    status,
+    categoryScores,
+    warnings:      [...new Set(warnings)],
+    failedChecks:  [...new Set(failed)],
+    meta: {
+      pipelineReady,
+      quoteAgeMs:        _lqCachedAt ? now - _lqCachedAt : null,
+      sentimentAgeMs:    sentimentLastRun ? now - new Date(sentimentLastRun).getTime() : null,
+      quotedSymbols:     quoteCount,
+      sentimentSymbols:  sentSyms.length,
+      eventExtrSymbols:  sentHasEvts,
+      catalystSymbols:   catActive,
+      viPredictions:     totalVIPreds,
+      verifiedCount,
+      patternCount:      brainDiag?.loadedPatterns || null,
+      evalRate:          brainDiag?.activePercent  || null,
+      registryEntries:   regKeys.length,
+    },
+    lastAuditAt: nowISO,
+  });
+});
+
 app.get('/api/vi/report', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {

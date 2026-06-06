@@ -1059,6 +1059,47 @@ canvas{max-height:300px;}
   .bac-detail-grid{ grid-template-columns:repeat(2,1fr); }
 }
 
+/* ── Brain Integrity Score — S7 2026-06-06 ── */
+.bi-panel{ background:linear-gradient(135deg,rgba(10,10,10,.98),rgba(20,12,0,.96)) !important; border-color:rgba(201,168,76,.3) !important; }
+.bi-refresh-btn{ background:none; border:1px solid var(--border); color:var(--gray); font-family:'Barlow Condensed',sans-serif; font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:5px 14px; cursor:pointer; transition:border-color .2s,color .2s; }
+.bi-refresh-btn:hover{ border-color:var(--gold); color:var(--gold); }
+.bi-hero{ display:flex; gap:28px; align-items:center; margin-bottom:24px; }
+.bi-ring-wrap{ position:relative; flex-shrink:0; width:120px; height:120px; }
+.bi-ring-svg{ width:120px; height:120px; transform:rotate(-90deg); }
+.bi-ring-bg{ stroke:rgba(255,255,255,.06); }
+.bi-ring-fill{ stroke:var(--gold); stroke-linecap:round; }
+.bi-score-inner{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+.bi-score-num{ font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:var(--gold); line-height:1; transition:color .4s; }
+.bi-score-label{ font-size:9px; color:rgba(255,255,255,.3); letter-spacing:1px; }
+.bi-hero-right{ flex:1; min-width:0; display:flex; flex-direction:column; gap:12px; }
+.bi-status-badge{ display:inline-block; padding:5px 16px; border-radius:4px; font-size:10px; letter-spacing:3px; text-transform:uppercase; font-weight:700; background:rgba(201,168,76,.15); color:var(--gold); border:1px solid rgba(201,168,76,.3); width:fit-content; transition:background .4s,color .4s,border-color .4s; }
+.bi-status-badge.excellent { background:rgba(30,160,70,.18);  color:#4caf50; border-color:rgba(76,175,80,.4); }
+.bi-status-badge.reliable  { background:rgba(100,200,100,.12);color:#7bc47f; border-color:rgba(123,196,127,.3); }
+.bi-status-badge.caution   { background:rgba(201,168,76,.15); color:var(--gold); border-color:rgba(201,168,76,.35); }
+.bi-status-badge.weak      { background:rgba(200,100,30,.15); color:#e07b39; border-color:rgba(224,123,57,.35); }
+.bi-status-badge.donotrust { background:rgba(180,30,30,.18);  color:var(--red);  border-color:rgba(180,30,30,.4); }
+.bi-explain{ font-size:10px; color:var(--gray); line-height:1.7; }
+.bi-meta{ display:flex; gap:14px; flex-wrap:wrap; }
+.bi-meta-item{ font-size:8px; letter-spacing:1.5px; color:rgba(255,255,255,.25); text-transform:uppercase; }
+.bi-meta-item span{ color:rgba(255,255,255,.5); font-family:'JetBrains Mono',monospace; }
+.bi-cats{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.bi-cat-row{ display:flex; align-items:center; gap:12px; }
+.bi-cat-lbl{ font-size:9px; letter-spacing:1.5px; color:var(--gray); text-transform:uppercase; width:180px; flex-shrink:0; }
+.bi-cat-bar-wrap{ flex:1; height:6px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden; }
+.bi-cat-bar{ height:100%; border-radius:3px; width:0%; transition:width 1s cubic-bezier(.4,0,.2,1); }
+.bi-cat-score{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gray); width:34px; text-align:right; flex-shrink:0; }
+.bi-cat-weight{ font-size:8px; color:rgba(255,255,255,.2); width:28px; flex-shrink:0; }
+.bi-section-lbl{ font-size:8px; letter-spacing:3px; color:var(--gray); text-transform:uppercase; margin:12px 0 6px; }
+.bi-warn-item{ font-size:10px; color:#e07b39; padding:4px 0; border-bottom:1px solid rgba(255,255,255,.04); line-height:1.5; }
+.bi-fail-item{ font-size:10px; color:var(--red); padding:3px 0; }
+.bi-audit-time{ font-size:8px; letter-spacing:2px; color:rgba(255,255,255,.15); text-transform:uppercase; margin-top:12px; text-align:right; }
+.bi-shimmer-block{ height:120px; border-radius:4px; background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.07) 50%,rgba(255,255,255,.03) 75%); background-size:400px 100%; animation:bacShimmer 1.2s infinite; }
+@media(max-width:768px){
+  .bi-hero{ flex-direction:column; align-items:flex-start; gap:16px; }
+  .bi-cat-lbl{ width:120px; font-size:8px; }
+  .bi-cat-weight{ display:none; }
+}
+
 /* ═══════════════════════════════════════════════════════════
    LOGIN SCREEN
    ═══════════════════════════════════════════════════════════ */
@@ -1781,6 +1822,50 @@ canvas{max-height:300px;}
       <div class="sec-hdr">
         <div class="sec-title">Model <span>Progress</span></div>
         <div class="sec-sub">◆ Brain Vault activity and verified prediction outcomes</div>
+      </div>
+
+      <!-- ═══ BRAIN INTEGRITY SCORE ═══ -->
+      <div class="panel bi-panel">
+        <div class="ph">
+          <div>
+            <div class="ph-title" style="color:var(--gold);">VESTEX Brain Integrity Score</div>
+            <div class="ph-sub">System health, data freshness, and logic consistency — not prediction accuracy</div>
+          </div>
+          <button onclick="renderBrainIntegrity()" class="bi-refresh-btn" id="bi-refresh-btn" title="Re-audit">↻ Audit Now</button>
+        </div>
+        <div class="pb">
+          <div class="bi-hero">
+            <div class="bi-ring-wrap">
+              <svg class="bi-ring-svg" viewBox="0 0 120 120">
+                <circle class="bi-ring-bg"   cx="60" cy="60" r="50" fill="none" stroke-width="10"/>
+                <circle class="bi-ring-fill" cx="60" cy="60" r="50" fill="none" stroke-width="10"
+                        id="bi-ring" stroke-dasharray="314" stroke-dashoffset="314"
+                        style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke .4s"/>
+              </svg>
+              <div class="bi-score-inner">
+                <div class="bi-score-num" id="bi-score">—</div>
+                <div class="bi-score-label">/ 100</div>
+              </div>
+            </div>
+            <div class="bi-hero-right">
+              <div class="bi-status-badge" id="bi-status-badge">—</div>
+              <div class="bi-explain">Brain Integrity measures whether VESTEX is using fresh, consistent, reliable data today. It does not measure whether predictions were correct yet.</div>
+              <div class="bi-meta" id="bi-meta"></div>
+            </div>
+          </div>
+          <div class="bi-cats" id="bi-cats">
+            <div class="bi-shimmer-block"></div>
+          </div>
+          <div id="bi-warnings-wrap" style="display:none;">
+            <div class="bi-section-lbl">⚠ Warnings</div>
+            <div id="bi-warnings"></div>
+          </div>
+          <div id="bi-failed-wrap" style="display:none;">
+            <div class="bi-section-lbl" style="color:var(--red);">✗ Failed Checks</div>
+            <div id="bi-failed"></div>
+          </div>
+          <div class="bi-audit-time" id="bi-audit-time"></div>
+        </div>
       </div>
 
       <!-- HERO ACCURACY BAR -->
@@ -3443,6 +3528,9 @@ async function renderProgress() {
 
   // Brain Calendar
   renderBrainCalendar();
+
+  // Brain Integrity Score
+  renderBrainIntegrity();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3825,6 +3913,143 @@ function bacCloseDetail() {
   const detail = document.getElementById('bac-detail');
   if (detail) detail.style.display = 'none';
   _bacActive = null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BRAIN INTEGRITY SCORE — S7 2026-06-06
+// ═══════════════════════════════════════════════════════════
+async function renderBrainIntegrity() {
+  const btn = document.getElementById('bi-refresh-btn');
+  if (btn) btn.textContent = '↻ Auditing…';
+
+  try {
+    const res  = await fetch('/api/brain-integrity');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Audit failed');
+
+    _biRender(data);
+  } catch(e) {
+    const cats = document.getElementById('bi-cats');
+    if (cats) cats.innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;">Brain Integrity audit unavailable: ${e.message}</div>`;
+  } finally {
+    if (btn) btn.textContent = '↻ Audit Now';
+  }
+}
+
+function _biRender(d) {
+  const score  = d.score;
+  const status = d.status || '—';
+
+  // ── Score ring ──
+  const ring = document.getElementById('bi-ring');
+  if (ring) {
+    const circumference = 314;
+    const offset = circumference - (score / 100) * circumference;
+    // Color by score
+    const strokeColor = score >= 90 ? '#4caf50'
+                      : score >= 75 ? '#7bc47f'
+                      : score >= 60 ? '#c9a84c'
+                      : score >= 40 ? '#e07b39'
+                      : '#c0392b';
+    setTimeout(() => {
+      ring.style.strokeDashoffset = offset;
+      ring.style.stroke = strokeColor;
+    }, 80);
+  }
+
+  // ── Score number count-up ──
+  const numEl = document.getElementById('bi-score');
+  if (numEl) {
+    let t0 = null;
+    const dur = 1000;
+    const step = ts => {
+      if (!t0) t0 = ts;
+      const pct = Math.min((ts - t0) / dur, 1);
+      numEl.textContent = Math.round(score * pct);
+      numEl.style.color = score >= 90 ? '#4caf50'
+                        : score >= 75 ? '#7bc47f'
+                        : score >= 60 ? 'var(--gold)'
+                        : score >= 40 ? '#e07b39'
+                        : '#c0392b';
+      if (pct < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ── Status badge ──
+  const badge = document.getElementById('bi-status-badge');
+  if (badge) {
+    badge.textContent = status;
+    badge.className = 'bi-status-badge ' + status.toLowerCase().replace(/\s+/g, '').replace('donottrust','donotrust');
+  }
+
+  // ── Meta row ──
+  const meta = document.getElementById('bi-meta');
+  if (meta && d.meta) {
+    const m = d.meta;
+    const items = [
+      { l: 'Quotes',    v: `${m.quotedSymbols || 0}/5` },
+      { l: 'Sentiment', v: `${m.sentimentSymbols || 0}/5` },
+      { l: 'Events',    v: `${m.eventExtrSymbols || 0}/5` },
+      { l: 'Patterns',  v: m.patternCount || '—' },
+      { l: 'Eval Rate', v: m.evalRate != null ? m.evalRate + '%' : '—' },
+      { l: 'VI Logs',   v: m.viPredictions || 0 },
+      { l: 'Verified',  v: m.verifiedCount || 0 },
+    ];
+    meta.innerHTML = items.map(i => `<div class="bi-meta-item">${i.l}: <span>${i.v}</span></div>`).join('');
+  }
+
+  // ── Category bars ──
+  const cats = document.getElementById('bi-cats');
+  if (cats && d.categoryScores) {
+    const barColor = s => s >= 90 ? '#4caf50' : s >= 75 ? '#7bc47f' : s >= 60 ? '#c9a84c' : s >= 40 ? '#e07b39' : '#c0392b';
+    cats.innerHTML = Object.entries(d.categoryScores).map(([, c]) =>
+      `<div class="bi-cat-row">
+        <div class="bi-cat-lbl">${c.label}</div>
+        <div class="bi-cat-bar-wrap"><div class="bi-cat-bar" data-target="${c.score}" style="background:${barColor(c.score)};"></div></div>
+        <div class="bi-cat-score">${c.score}</div>
+        <div class="bi-cat-weight">${Math.round(c.weight * 100)}%</div>
+      </div>`
+    ).join('');
+    // Animate bars
+    requestAnimationFrame(() => {
+      cats.querySelectorAll('.bi-cat-bar').forEach(bar => {
+        bar.style.width = bar.dataset.target + '%';
+      });
+    });
+  }
+
+  // ── Warnings ──
+  const wWrap = document.getElementById('bi-warnings-wrap');
+  const wEl   = document.getElementById('bi-warnings');
+  if (wWrap && wEl) {
+    if (d.warnings && d.warnings.length > 0) {
+      wEl.innerHTML = d.warnings.map(w => `<div class="bi-warn-item">${w}</div>`).join('');
+      wWrap.style.display = 'block';
+    } else {
+      wWrap.style.display = 'none';
+    }
+  }
+
+  // ── Failed checks ──
+  const fWrap = document.getElementById('bi-failed-wrap');
+  const fEl   = document.getElementById('bi-failed');
+  if (fWrap && fEl) {
+    if (d.failedChecks && d.failedChecks.length > 0) {
+      fEl.innerHTML = d.failedChecks.map(f => `<div class="bi-fail-item">✗ ${f}</div>`).join('');
+      fWrap.style.display = 'block';
+    } else {
+      fEl.innerHTML = '<div style="font-size:10px;color:var(--green2);">✓ All checks passed</div>';
+      fWrap.style.display = 'block';
+    }
+  }
+
+  // ── Timestamp ──
+  const ts = document.getElementById('bi-audit-time');
+  if (ts && d.lastAuditAt) {
+    const dt = new Date(d.lastAuditAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    ts.textContent = `Last audit: ${dt}`;
+  }
 }
 
 function plbSort(field) {
