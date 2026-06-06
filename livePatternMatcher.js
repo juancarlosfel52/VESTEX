@@ -15,6 +15,7 @@
 // ═══════════════════════════════════════════════════════════
 'use strict';
 
+const { resolveWinRate } = require('./winRateRegistry');
 const DEFAULT_WIN_RATE = 0.55;
 
 // ── Technical indicator strength: how deeply is the condition met? ──
@@ -54,11 +55,16 @@ function computeCurrentStrength(pattern, indicators) {
 // ─────────────────────────────────────────────────────────
 //  2. historicalWinRate  (0.30 → 1.00)
 //     Fraction of times this pattern led to the correct move historically.
+//
+//  Resolution hierarchy (Phase 2A — winRateRegistry):
+//   1. VERIFIED   — ≥20 verified fires in vi_pattern_fires (7d window)
+//   2. HAND_CODED — pattern.win_rate set by developer
+//   3. DEFAULT    — 0.55
+//
+//  Returns { rate, source, uses } so callers can label the source.
 // ─────────────────────────────────────────────────────────
 function computeHistoricalWinRate(pattern) {
-  const wr = pattern.win_rate;
-  if (wr == null) return DEFAULT_WIN_RATE;
-  return +Math.min(1, Math.max(0.30, wr / 100)).toFixed(3);
+  return resolveWinRate(pattern.pattern_id, pattern.win_rate);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -141,23 +147,26 @@ function computeDataConf(pattern, indicators, macro, sentiment, edgar) {
 //  Per-pattern LPMS computation
 // ─────────────────────────────────────────────────────────
 function scoreOnePattern(pattern, indicators, macro, sentiment, edgar, fearGreed, vix) {
-  const strength   = computeCurrentStrength(pattern, indicators);
-  const winRate    = computeHistoricalWinRate(pattern);
-  const retQuality = computeReturnQuality(pattern);
-  const regimeComp = computeRegimeCompat(pattern, fearGreed, vix);
-  const dataConf   = computeDataConf(pattern, indicators, macro, sentiment, edgar);
+  const strength    = computeCurrentStrength(pattern, indicators);
+  const winRateRes  = computeHistoricalWinRate(pattern); // { rate, source, uses }
+  const winRate     = winRateRes.rate;
+  const retQuality  = computeReturnQuality(pattern);
+  const regimeComp  = computeRegimeCompat(pattern, fearGreed, vix);
+  const dataConf    = computeDataConf(pattern, indicators, macro, sentiment, edgar);
 
   const lpms = +(strength * winRate * retQuality * regimeComp * dataConf).toFixed(4);
 
   return {
-    pattern_id: pattern.pattern_id,
-    name:       pattern.name,
-    category:   pattern.category,
-    direction:  pattern.direction,
-    reason:     pattern.reason || null,
+    pattern_id:    pattern.pattern_id,
+    name:          pattern.name,
+    category:      pattern.category,
+    direction:     pattern.direction,
+    reason:        pattern.reason || null,
     lpms,
-    winRatePct: +(winRate * 100).toFixed(0),
-    components: { strength, winRate, retQuality, regimeComp, dataConf },
+    winRatePct:    +(winRate * 100).toFixed(0),
+    winRateSource: winRateRes.source,  // 'VERIFIED' | 'HAND_CODED' | 'DEFAULT'
+    winRateUses:   winRateRes.uses,    // verified fire count (0 until data accumulates)
+    components:    { strength, winRate, retQuality, regimeComp, dataConf },
   };
 }
 

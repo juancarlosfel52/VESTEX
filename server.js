@@ -6,6 +6,7 @@ const { runSentimentAnalysis, storeSentiment }          = require('./sentiment')
 const { fetchEdgarData, fetchAllEdgarData }             = require('./edgar');
 const { buildMasterIntelligence, calcMarketHealth, healthLabel } = require('./masterIntelligence');
 const { analyzeCatalysts, storeCatalystEvents }         = require('./catalystEngine');
+const { refreshRegistry, getRegistrySnapshot }          = require('./winRateRegistry');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -1021,6 +1022,10 @@ async function runVIVerification() {
   } catch(e3) { console.warn('[VI-CAT] Catalyst performance update error:', e3.message); }
 
   console.log(`[VI] Resolution complete — predictions: ${verifiedCount}, pattern fires: ${patVerified}, catalyst perf updates: ${catalystUpdated}`);
+
+  // Phase 2A: Refresh win rate registry so LPMS and Brain Vault pick up newly verified rates
+  refreshRegistry(db).catch(e => console.warn('[WinRateRegistry] Post-VI refresh failed:', e.message));
+
   return { verified: verifiedCount, patternFiresVerified: patVerified, catalystUpdated };
 }
 
@@ -1084,6 +1089,13 @@ app.get('/api/vi/catalyst-stats', async (req, res) => {
     docs.sort((a, b) => (b.uses7d || 0) - (a.uses7d || 0));
     res.json({ ok: true, stats: docs, totalEventTypes: docs.length });
   } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Phase 2A: Win rate registry — current state of verified vs hand-coded vs default
+// Shows which patterns have accumulated enough verified fires to use real win rates.
+// Refreshed automatically after each VI verification cycle.
+app.get('/api/win-rates', (req, res) => {
+  res.json({ ok: true, registry: getRegistrySnapshot() });
 });
 
 // Get full VI report

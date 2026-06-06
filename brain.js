@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');
+const { resolveWinRate } = require('./winRateRegistry');
 
 // ── Load all pattern databases at startup ──
 const TECHNICAL      = require('./brain/patterns/patterns.json');
@@ -95,12 +96,18 @@ async function fetchMarketRegime() {
 // ═══════════════════════════════════════════════════════════
 
 function mkMatch(p, direction, category, extras = {}) {
+  const handCoded  = extras.win_rate !== undefined ? extras.win_rate : (p.win_rate || null);
+  const patternId  = p.pattern_id;
+  const wrRes      = resolveWinRate(patternId, handCoded); // { rate, source, uses }
   return {
-    pattern_id:     p.pattern_id,
+    pattern_id:     patternId,
     name:           p.name,
     category:       category || p.category || 'technical',
     direction,
-    win_rate:       extras.win_rate    !== undefined ? extras.win_rate    : (p.win_rate    || null),
+    win_rate:       handCoded,                 // preserved as-is for display
+    winRateSource:  wrRes.source,              // 'VERIFIED' | 'HAND_CODED' | 'DEFAULT'
+    winRateUses:    wrRes.uses,                // verified fire count
+    _resolvedRate:  wrRes.rate,                // internal: decimal rate used in scoring
     confidence:     extras.confidence  !== undefined ? extras.confidence  : (p.confidence  || null),
     avg_return_7d:  extras.avg_return_7d  !== undefined ? extras.avg_return_7d  : (p.avg_return_7d  || null),
     avg_return_30d: extras.avg_return_30d !== undefined ? extras.avg_return_30d : (p.avg_return_30d || null),
@@ -110,9 +117,13 @@ function mkMatch(p, direction, category, extras = {}) {
 }
 
 function patternScore(p) {
-  const wr   = p.win_rate   || 55;
+  // Use _resolvedRate if already computed by mkMatch; otherwise resolve fresh.
+  // _resolvedRate is in decimal (0.30–1.00). Formula needs percentage (30–100).
+  const resolvedPct = p._resolvedRate != null
+    ? +(p._resolvedRate * 100).toFixed(0)
+    : +(resolveWinRate(p.pattern_id || '', p.win_rate).rate * 100).toFixed(0);
   const conf = p.confidence || 60;
-  const w    = ((wr - 50) / 50) * (conf / 100);
+  const w    = ((resolvedPct - 50) / 50) * (conf / 100);
   return p.direction === 'bullish' ? w : p.direction === 'bearish' ? -w : 0;
 }
 
