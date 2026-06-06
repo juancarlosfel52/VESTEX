@@ -738,125 +738,115 @@ app.post('/api/vi/log', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
-// Run verification: fill in 7d/30d results for pending predictions
-app.get('/api/vi/verify', async (req, res) => {
-  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
-  try {
-    const axios  = require('axios');
-    const key    = process.env.ALPACA_KEY;
-    const secret = process.env.ALPACA_SECRET;
-    const db     = admin.firestore();
-    const VI_7D  = 7  * 24 * 3600 * 1000;
-    const VI_30D = 30 * 24 * 3600 * 1000;
-    const now    = Date.now();
+// ── VI resolution core — called by cron + manual endpoint ──
+async function runVIVerification() {
+  const axios  = require('axios');
+  const key    = process.env.ALPACA_KEY;
+  const secret = process.env.ALPACA_SECRET;
+  const db     = admin.firestore();
+  const VI_7D  = 7  * 24 * 3600 * 1000;
+  const VI_30D = 30 * 24 * 3600 * 1000;
+  const now    = Date.now();
 
-    // Load predictions that still need verification
-    const snap = await db.collection(VI_COL)
-      .where('priceAtPrediction', '!=', null)
-      .limit(200).get();
+  function isCorrect(decision, ret) {
+    if (['STRONG BUY','BUY','BUY SMALL'].includes(decision)) return ret > 1;
+    if (['SELL','STRONG SELL'].includes(decision))           return ret < -1;
+    return Math.abs(ret) <= 5;
+  }
 
-    const pending = snap.docs
-      .map(d => ({ ref: d.ref, data: d.data() }))
-      .filter(e => !e.data.verification7d || !e.data.verification30d);
+  // ── Resolve vi_predictions ──
+  let verifiedCount = 0;
+  const snap = await db.collection(VI_COL)
+    .where('priceAtPrediction', '!=', null).limit(200).get();
 
-    if (!pending.length) return res.json({ ok: true, verified: 0, message: 'Nothing to verify' });
+  const pending = snap.docs
+    .map(d => ({ ref: d.ref, data: d.data() }))
+    .filter(e => !e.data.verification7d || !e.data.verification30d);
 
-    // Fetch current prices for all unique symbols
+  if (pending.length > 0) {
     const syms = [...new Set(pending.map(e => e.data.symbol).concat(['SPY']))];
     let prices = {};
-    if (key) {
-      try {
-        const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
-          params: { symbols: syms.join(','), feed: 'iex' },
-          headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
-          timeout: 10000,
-        });
-        syms.forEach(s => {
-          const snap = r.data[s];
-          if (snap) prices[s] = snap.latestTrade?.p ?? snap.latestQuote?.bp ?? null;
-        });
-      } catch(e) { console.warn('[VI] Price fetch failed:', e.message); }
-    }
+    try {
+      const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+        params: { symbols: syms.join(','), feed: 'iex' },
+        headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
+        timeout: 10000,
+      });
+      syms.forEach(s => {
+        const sn = r.data[s];
+        if (sn) prices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null;
+      });
+    } catch(e) { console.warn('[VI] Price fetch failed:', e.message); }
 
-    let verifiedCount = 0;
     const batch = db.batch();
-
     pending.forEach(({ ref, data: e }) => {
       const currentPrice = prices[e.symbol];
       const spyPrice     = prices['SPY'];
       if (!currentPrice) return;
-
-      const age       = now - e.timestamp;
-      const retPct    = +(((currentPrice - e.priceAtPrediction) / e.priceAtPrediction) * 100).toFixed(2);
-      const spyRet    = (spyPrice && e.spyAtPrediction) ? +(((spyPrice - e.spyAtPrediction) / e.spyAtPrediction) * 100).toFixed(2) : null;
-
-      function isCorrect(decision, ret) {
-        if (['STRONG BUY','BUY','BUY SMALL'].includes(decision)) return ret > 1;
-        if (['SELL','STRONG SELL'].includes(decision))           return ret < -1;
-        return Math.abs(ret) <= 5;
-      }
-
-      const verif = {
-        priceAfter:      currentPrice,
-        returnPct:       retPct,
-        spyReturn:       spyRet,
+      const age    = now - e.timestamp;
+      const retPct = +(((currentPrice - e.priceAtPrediction) / e.priceAtPrediction) * 100).toFixed(2);
+      const spyRet = (spyPrice && e.spyAtPrediction) ? +(((spyPrice - e.spyAtPrediction) / e.spyAtPrediction) * 100).toFixed(2) : null;
+      const verif  = {
+        priceAfter: currentPrice, returnPct: retPct, spyReturn: spyRet,
         outperformedSpy: spyRet != null ? retPct > spyRet : null,
-        correct:         isCorrect(e.decision, retPct),
-        verifiedAt:      now,
+        correct: isCorrect(e.decision, retPct), verifiedAt: now,
       };
-
       const update = {};
       if (!e.verification7d  && age >= VI_7D)  { update.verification7d  = verif; verifiedCount++; }
       if (!e.verification30d && age >= VI_30D) { update.verification30d = verif; verifiedCount++; }
       if (Object.keys(update).length) batch.update(ref, update);
     });
-
     await batch.commit();
+  }
 
-    // Phase 4: Also verify pattern fires in vi_pattern_fires collection
-    let patVerified = 0;
-    try {
-      const patSnap = await db.collection(VI_PAT_COL)
-        .where('priceAtFire', '!=', null).limit(300).get();
-      const patPending = patSnap.docs
-        .map(d => ({ ref: d.ref, data: d.data() }))
-        .filter(e => !e.data.verification7d || !e.data.verification30d);
+  // ── Resolve vi_pattern_fires ──
+  let patVerified = 0;
+  try {
+    const patSnap = await db.collection(VI_PAT_COL)
+      .where('priceAtFire', '!=', null).limit(300).get();
+    const patPending = patSnap.docs
+      .map(d => ({ ref: d.ref, data: d.data() }))
+      .filter(e => !e.data.verification7d || !e.data.verification30d);
 
-      if (patPending.length > 0) {
-        const patSyms = [...new Set(patPending.map(e => e.data.symbol).concat(['SPY']))];
-        let patPrices = {};
-        if (key) {
-          try {
-            const pr = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
-              params: { symbols: patSyms.join(','), feed: 'iex' },
-              headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret }, timeout: 10000,
-            });
-            patSyms.forEach(s => {
-              const sn = pr.data[s];
-              if (sn) patPrices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null;
-            });
-          } catch(e2) { /* price fetch failed, skip */ }
-        }
-        const patBatch = db.batch();
-        patPending.forEach(({ ref, data: e }) => {
-          const cp = patPrices[e.symbol], spyP = patPrices['SPY'];
-          if (!cp) return;
-          const age    = now - e.timestamp;
-          const retPct = +(((cp - e.priceAtFire) / e.priceAtFire) * 100).toFixed(2);
-          const spyRet = (spyP && e.spyPriceAtFire) ? +(((spyP - e.spyPriceAtFire) / e.spyPriceAtFire) * 100).toFixed(2) : null;
-          // Pattern correctness: bullish=correct if ret>1%, bearish=correct if ret<-1%
-          const correct = e.direction === 'bullish' ? retPct > 1 : e.direction === 'bearish' ? retPct < -1 : Math.abs(retPct) <= 3;
-          const verif = { priceAfter: cp, returnPct: retPct, spyReturn: spyRet, outperformedSpy: spyRet!=null?retPct>spyRet:null, correct, verifiedAt: now };
-          const upd = {};
-          if (!e.verification7d  && age >= VI_7D)  { upd.verification7d  = verif; patVerified++; }
-          if (!e.verification30d && age >= VI_30D) { upd.verification30d = verif; patVerified++; }
-          if (Object.keys(upd).length) patBatch.update(ref, upd);
+    if (patPending.length > 0) {
+      const patSyms = [...new Set(patPending.map(e => e.data.symbol).concat(['SPY']))];
+      let patPrices = {};
+      try {
+        const pr = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+          params: { symbols: patSyms.join(','), feed: 'iex' },
+          headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret }, timeout: 10000,
         });
-        await patBatch.commit();
-      }
-    } catch(e2) { console.warn('[VI-PAT] Verify error:', e2.message); }
+        patSyms.forEach(s => { const sn = pr.data[s]; if (sn) patPrices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null; });
+      } catch(e2) { /* skip */ }
 
-    res.json({ ok: true, verified: verifiedCount, patternFiresVerified: patVerified });
+      const patBatch = db.batch();
+      patPending.forEach(({ ref, data: e }) => {
+        const cp = patPrices[e.symbol], spyP = patPrices['SPY'];
+        if (!cp) return;
+        const age    = now - e.timestamp;
+        const retPct = +(((cp - e.priceAtFire) / e.priceAtFire) * 100).toFixed(2);
+        const spyRet = (spyP && e.spyPriceAtFire) ? +(((spyP - e.spyPriceAtFire) / e.spyPriceAtFire) * 100).toFixed(2) : null;
+        const correct = e.direction === 'bullish' ? retPct > 1 : e.direction === 'bearish' ? retPct < -1 : Math.abs(retPct) <= 3;
+        const verif = { priceAfter: cp, returnPct: retPct, spyReturn: spyRet, outperformedSpy: spyRet!=null?retPct>spyRet:null, correct, verifiedAt: now };
+        const upd = {};
+        if (!e.verification7d  && age >= VI_7D)  { upd.verification7d  = verif; patVerified++; }
+        if (!e.verification30d && age >= VI_30D) { upd.verification30d = verif; patVerified++; }
+        if (Object.keys(upd).length) patBatch.update(ref, upd);
+      });
+      await patBatch.commit();
+    }
+  } catch(e2) { console.warn('[VI-PAT] Verify error:', e2.message); }
+
+  console.log(`[VI] Resolution complete — predictions: ${verifiedCount}, pattern fires: ${patVerified}`);
+  return { verified: verifiedCount, patternFiresVerified: patVerified };
+}
+
+// Run verification: fill in 7d/30d results for pending predictions
+app.get('/api/vi/verify', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const result = await runVIVerification();
+    res.json({ ok: true, ...result });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -1081,6 +1071,12 @@ if (pipelineReady) {
   cron.schedule('0 18 * * 1', () => {
     console.log('[CRON] Weekly prediction verification triggered');
     verifyPredictions().catch(console.error);
+  }, { timezone: 'America/New_York' });
+
+  // VI resolution — daily 6:15pm ET Mon–Fri (resolves 7d/30d outcomes after market close)
+  cron.schedule('15 18 * * 1-5', () => {
+    console.log('[CRON] VI daily resolution triggered');
+    runVIVerification().catch(console.error);
   }, { timezone: 'America/New_York' });
 
   // Sentiment analysis — every morning 8am ET before market open
