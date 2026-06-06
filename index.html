@@ -1705,7 +1705,50 @@ canvas{max-height:300px;}
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- VERIFICATION INTELLIGENCE -->
+      <div class="panel" style="margin-bottom:6px;background:linear-gradient(135deg,rgba(10,10,10,.97),rgba(26,14,0,.95));border-color:rgba(201,168,76,.3);">
+        <div class="ph">
+          <div><div class="ph-title" style="color:var(--gold);">Verification Intelligence</div><div class="ph-sub">Did the predictions actually work? Tracked over 7 and 30 days.</div></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="viRefreshDashboard()" style="background:none;border:1px solid var(--border);color:var(--gray);font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:2px;padding:5px 12px;cursor:pointer;text-transform:uppercase;">↻ Verify Now</button>
+          </div>
+        </div>
+        <div class="pb">
+          <div class="prog-grid" style="margin-bottom:18px;" id="vi-stats-grid">
+            <div class="prog-stat"><div class="prog-stat-lbl">Predictions Logged</div><div class="prog-stat-val" id="vi-total">0</div><div class="prog-stat-note">Since tracking began</div></div>
+            <div class="prog-stat"><div class="prog-stat-lbl">7-Day Verified</div><div class="prog-stat-val" id="vi-verified7">0</div><div class="prog-stat-note">Results confirmed</div></div>
+            <div class="prog-stat"><div class="prog-stat-lbl">30-Day Verified</div><div class="prog-stat-val" id="vi-verified30">0</div><div class="prog-stat-note">Full-cycle results</div></div>
+            <div class="prog-stat"><div class="prog-stat-lbl">Overall Accuracy</div><div class="prog-stat-val" id="vi-accuracy" style="color:var(--gold);">—</div><div class="prog-stat-note" id="vi-accuracy-note">Verified predictions only</div></div>
+          </div>
+          <div id="vi-empty-state" style="font-size:11px;color:var(--gray);padding:16px 0;text-align:center;">No predictions logged yet. Open Master Intelligence for any stock to start tracking.</div>
+          <div id="vi-dashboard" style="display:none;">
+            <!-- Recent predictions log -->
+            <div style="margin-bottom:20px;">
+              <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Recent Prediction Log</div>
+              <div id="vi-log-rows"></div>
+            </div>
+            <!-- Pattern Leaderboard -->
+            <div style="margin-bottom:20px;border-top:1px solid var(--border);padding-top:16px;">
+              <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Pattern Leaderboard</div>
+              <div id="vi-pattern-board"></div>
+            </div>
+            <!-- Decision Leaderboard -->
+            <div style="margin-bottom:20px;border-top:1px solid var(--border);padding-top:16px;">
+              <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Decision Leaderboard</div>
+              <div id="vi-decision-board"></div>
+            </div>
+            <!-- Confidence Accuracy Analysis -->
+            <div style="border-top:1px solid var(--border);padding-top:16px;">
+              <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);margin-bottom:10px;">◆ Confidence Accuracy Analysis</div>
+              <div style="font-size:10px;color:var(--gray);margin-bottom:10px;">Does higher confidence actually mean more correct predictions?</div>
+              <div id="vi-conf-board"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end page-progress -->
 
     <!-- ═══ MASTER INTELLIGENCE ═══ -->
     <div class="page" id="page-master">
@@ -2055,7 +2098,7 @@ function nav(el, id) {
   if (id==='predictions') { renderPredsFull(); renderEdgar(); }
   if (id==='portfolio')   renderPortfolio();
   if (id==='news')        renderNewsFull();
-  if (id==='progress')    renderProgress();
+  if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
   if (id==='master')      renderMasterPage();
 }
 
@@ -2070,7 +2113,7 @@ function mobNav(el, id) {
   if (id==='portfolio')   renderPortfolio();
   if (id==='master')      renderMasterPage();
   if (id==='news')        renderNewsFull();
-  if (id==='progress')    renderProgress();
+  if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2356,6 +2399,219 @@ function updateDashKPIs() {
     bestNote.className = 'kpi-note';
     bestNote.style.color = 'var(--gray)';
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VERIFICATION INTELLIGENCE SYSTEM
+// ═══════════════════════════════════════════════════════════
+// ── VI: Firestore-backed via server endpoints ──
+async function viLogPrediction(d) {
+  try {
+    await fetch('/api/vi/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol:            d.symbol,
+        priceAtPrediction: STOCKS[d.symbol]?.price ?? null,
+        spyAtPrediction:   STOCKS['SPY']?.price    ?? null,
+        masterScore:       d.masterScore,
+        decision:          d.decision,
+        confidence:        d.confidence,
+        systemVotes:       d.systemVotes ? { BUY: d.systemVotes.votes.BUY, HOLD: d.systemVotes.votes.HOLD, SELL: d.systemVotes.votes.SELL, agreementPct: d.systemVotes.agreementPct } : null,
+        topPatterns:       (d.topPatterns || []).map(p => p.name),
+        marketRegime:      d.scoreBreakdown?.regime?.detail?.regime || null,
+      }),
+    });
+  } catch(e) { console.warn('[VI] Log failed:', e.message); }
+}
+
+async function viVerifyPending() {
+  try {
+    const r = await fetch('/api/vi/verify').then(r => r.json());
+    if (r.verified > 0) console.log(`[VI] Verified ${r.verified} predictions`);
+  } catch(e) {}
+}
+
+async function viLoadReport() {
+  try {
+    const r = await fetch('/api/vi/report').then(r => r.json());
+    return r.ok ? r.log : [];
+  } catch(e) { return []; }
+}
+
+async function viRefreshDashboard() {
+  await viVerifyPending();
+  const log = await viLoadReport();
+  renderViDashboard(log);
+}
+
+function viComputeReport(log) {
+  const verified = log.filter(e => e.verification7d || e.verification30d);
+  const v7  = log.filter(e => e.verification7d);
+  const v30 = log.filter(e => e.verification30d);
+
+  // Overall accuracy
+  const correct = verified.filter(e => (e.verification7d || e.verification30d).correct).length;
+  const accuracy = verified.length > 0 ? Math.round(correct / verified.length * 100) : null;
+
+  // Avg return
+  const returns = verified.map(e => (e.verification7d || e.verification30d).returnPct).filter(r => r != null);
+  const avgReturn = returns.length > 0 ? +(returns.reduce((a,b)=>a+b,0)/returns.length).toFixed(2) : null;
+
+  // Pattern leaderboard
+  const pMap = {};
+  verified.forEach(entry => {
+    const v = entry.verification7d || entry.verification30d;
+    (entry.topPatterns || []).forEach(p => {
+      if (!pMap[p]) pMap[p] = { name:p, correct:0, total:0, totalReturn:0 };
+      pMap[p].total++;
+      if (v.correct) pMap[p].correct++;
+      pMap[p].totalReturn += v.returnPct || 0;
+    });
+  });
+  const patternBoard = Object.values(pMap).map(p => ({
+    name: p.name, total: p.total,
+    accuracy: Math.round(p.correct / p.total * 100),
+    avgReturn: +(p.totalReturn / p.total).toFixed(2),
+  })).sort((a,b) => b.accuracy - a.accuracy || b.total - a.total);
+
+  // Decision leaderboard
+  const dMap = {};
+  verified.forEach(entry => {
+    const v = entry.verification7d || entry.verification30d;
+    const d = entry.decision;
+    if (!dMap[d]) dMap[d] = { decision:d, correct:0, total:0, totalReturn:0 };
+    dMap[d].total++;
+    if (v.correct) dMap[d].correct++;
+    dMap[d].totalReturn += v.returnPct || 0;
+  });
+  const decisionBoard = Object.values(dMap).map(d => ({
+    ...d, accuracy: Math.round(d.correct/d.total*100),
+    avgReturn: +(d.totalReturn/d.total).toFixed(2),
+  })).sort((a,b) => b.total - a.total);
+
+  // Confidence analysis
+  const buckets = [
+    { label:'20–40%', min:20, max:40, correct:0, total:0, returns:[] },
+    { label:'40–60%', min:40, max:60, correct:0, total:0, returns:[] },
+    { label:'60–75%', min:60, max:75, correct:0, total:0, returns:[] },
+    { label:'75%+',   min:75, max:100, correct:0, total:0, returns:[] },
+  ];
+  verified.forEach(entry => {
+    const v = entry.verification7d || entry.verification30d;
+    const bucket = buckets.find(b => entry.confidence >= b.min && entry.confidence < b.max + 1);
+    if (!bucket) return;
+    bucket.total++;
+    if (v.correct) bucket.correct++;
+    bucket.returns.push(v.returnPct || 0);
+  });
+  const confBoard = buckets.map(b => ({
+    label: b.label, total: b.total,
+    accuracy: b.total > 0 ? Math.round(b.correct/b.total*100) : null,
+    avgReturn: b.returns.length > 0 ? +(b.returns.reduce((a,c)=>a+c,0)/b.returns.length).toFixed(2) : null,
+  }));
+
+  return { accuracy, correct, total: verified.length, v7Count: v7.length, v30Count: v30.length, avgReturn, patternBoard, decisionBoard, confBoard };
+}
+
+function viRefreshDashboard() {
+  const log = viVerifyPending();
+  renderViDashboard(log);
+}
+
+function renderViDashboard(log) {
+  const allLog = log || viLoad();
+  document.getElementById('vi-total').textContent = allLog.length;
+
+  const r = viComputeReport(allLog);
+  document.getElementById('vi-verified7').textContent  = r.v7Count;
+  document.getElementById('vi-verified30').textContent = r.v30Count;
+  const accEl = document.getElementById('vi-accuracy');
+  const noteEl = document.getElementById('vi-accuracy-note');
+  if (r.accuracy != null) {
+    accEl.textContent = r.accuracy + '%';
+    accEl.style.color = r.accuracy >= 65 ? 'var(--green)' : r.accuracy >= 50 ? 'var(--gold)' : 'var(--red)';
+    noteEl.textContent = `${r.correct}/${r.total} correct · avg return ${r.avgReturn >= 0 ? '+' : ''}${r.avgReturn}%`;
+  } else {
+    accEl.textContent = '—';
+    noteEl.textContent = 'Awaiting 7-day verification windows';
+  }
+
+  const hasVerified = r.total > 0;
+  document.getElementById('vi-empty-state').style.display  = allLog.length === 0 ? 'block' : 'none';
+  document.getElementById('vi-dashboard').style.display    = allLog.length > 0 ? 'block' : 'none';
+
+  // Recent log
+  const logRows = [...allLog].reverse().slice(0, 20).map(e => {
+    const v = e.verification7d || e.verification30d;
+    const period = e.verification30d ? '30d' : e.verification7d ? '7d' : '—';
+    const status = !v ? 'PENDING' : v.correct ? 'CORRECT' : 'WRONG';
+    const sCls   = status === 'CORRECT' ? '#4aa870' : status === 'WRONG' ? '#e07b39' : '#aaa';
+    const ret    = v ? `${v.returnPct >= 0 ? '+' : ''}${v.returnPct}%` : '—';
+    const spy    = v?.spyReturn != null ? `SPY: ${v.spyReturn >= 0 ? '+' : ''}${v.spyReturn}%` : '';
+    const outper = v?.outperformedSpy != null ? (v.outperformedSpy ? ' ▲ beat SPY' : ' ▼ below SPY') : '';
+    const daysAgo = Math.floor((Date.now() - e.timestamp) / 86400000);
+    return `<div style="display:grid;grid-template-columns:48px 90px 80px 60px 60px 1fr;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px;">
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text);">${e.symbol}</span>
+      <span style="color:var(--gray);">${new Date(e.timestamp).toLocaleDateString()}</span>
+      <span style="letter-spacing:1px;color:var(--text);">${e.decision}</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:${ret.startsWith('+') ? '#4aa870' : ret === '—' ? '#aaa' : '#e07b39'};">${ret}</span>
+      <span style="font-size:9px;color:${sCls};letter-spacing:1px;">${status}${period !== '—' ? ' ('+period+')' : ''}</span>
+      <span style="font-size:9px;color:var(--gray);">${spy}${outper}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('vi-log-rows').innerHTML = logRows || '<div style="font-size:11px;color:var(--gray);padding:8px 0;">No predictions logged yet.</div>';
+
+  // Pattern leaderboard
+  const patHtml = r.patternBoard.length > 0
+    ? r.patternBoard.map(p => {
+        const barW = p.accuracy;
+        const col  = p.accuracy >= 65 ? '#4aa870' : p.accuracy >= 50 ? '#C9A84C' : '#e07b39';
+        return `<div style="display:grid;grid-template-columns:1fr 80px 70px 60px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+          <div>
+            <div style="font-size:10px;color:var(--text);">${p.name}</div>
+            <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:3px;"><div style="height:100%;width:${barW}%;background:${col};border-radius:2px;transition:width .8s;"></div></div>
+          </div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${col};">${p.accuracy}%</span>
+          <span style="font-size:9px;color:var(--gray);">Avg: ${p.avgReturn >= 0 ? '+' : ''}${p.avgReturn}%</span>
+          <span style="font-size:9px;color:var(--gray);">${p.total} use${p.total !== 1 ? 's' : ''}</span>
+        </div>`;
+      }).join('')
+    : '<div style="font-size:11px;color:var(--gray);">Awaiting verified predictions with active patterns.</div>';
+  document.getElementById('vi-pattern-board').innerHTML = patHtml;
+
+  // Decision leaderboard
+  const decHtml = r.decisionBoard.length > 0
+    ? r.decisionBoard.map(d => {
+        const col = d.accuracy >= 65 ? '#4aa870' : d.accuracy >= 50 ? '#C9A84C' : '#e07b39';
+        return `<div style="display:grid;grid-template-columns:100px 1fr 70px 70px 50px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+          <span style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text);">${d.decision}</span>
+          <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;"><div style="height:100%;width:${d.accuracy}%;background:${col};border-radius:2px;transition:width .8s;"></div></div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${col};">${d.accuracy}%</span>
+          <span style="font-size:9px;color:var(--gray);">Avg: ${d.avgReturn >= 0 ? '+' : ''}${d.avgReturn}%</span>
+          <span style="font-size:9px;color:var(--gray);">${d.total} calls</span>
+        </div>`;
+      }).join('')
+    : '<div style="font-size:11px;color:var(--gray);">Awaiting verified decisions.</div>';
+  document.getElementById('vi-decision-board').innerHTML = decHtml;
+
+  // Confidence accuracy
+  const confHtml = r.confBoard.map(b => {
+    if (b.total === 0) return `<div style="display:grid;grid-template-columns:70px 1fr 70px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+      <span style="font-size:10px;color:var(--gray);">${b.label}</span>
+      <span style="font-size:9px;color:rgba(255,255,255,.15);">no data yet</span>
+      <span></span>
+    </div>`;
+    const col = b.accuracy >= 65 ? '#4aa870' : b.accuracy >= 50 ? '#C9A84C' : '#e07b39';
+    return `<div style="display:grid;grid-template-columns:70px 1fr 70px 70px 50px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+      <span style="font-size:10px;color:var(--text);">${b.label}</span>
+      <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;"><div style="height:100%;width:${b.accuracy}%;background:${col};border-radius:2px;transition:width .8s;"></div></div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${col};">${b.accuracy}%</span>
+      <span style="font-size:9px;color:var(--gray);">Avg: ${b.avgReturn >= 0 ? '+' : ''}${b.avgReturn}%</span>
+      <span style="font-size:9px;color:var(--gray);">${b.total} samples</span>
+    </div>`;
+  }).join('');
+  document.getElementById('vi-conf-board').innerHTML = confHtml;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4479,6 +4735,9 @@ async function renderMasterSym(sym) {
   }
 
   container.innerHTML = miRenderCard(data);
+
+  // Auto-log prediction for verification tracking
+  viLogPrediction(data);
 
   // Animate arc after paint
   requestAnimationFrame(() => {

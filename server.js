@@ -67,7 +67,7 @@ app.get('/api/quotes', async (req, res) => {
 // Uses /v2/stocks/snapshots which returns dailyBar, prevDailyBar, latestTrade in one call.
 // 30-second in-memory cache so rapid page refreshes don't hammer Alpaca.
 let _lqCache = {}, _lqCachedAt = 0;
-const LQ_SYMBOLS = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN'];
+const LQ_SYMBOLS = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN', 'SPY'];
 
 app.get('/api/live-quotes', async (req, res) => {
   const key    = process.env.ALPACA_KEY;
@@ -637,6 +637,130 @@ app.get('/api/master-intelligence/:symbol', async (req, res) => {
 });
 
 // ── API: Market Health — all systems combined ──
+// ═══════════════════════════════════════════════════════════
+//  VERIFICATION INTELLIGENCE — Firestore-backed prediction log
+// ═══════════════════════════════════════════════════════════
+const VI_COL = 'vi_predictions';
+
+// Log a prediction snapshot
+app.post('/api/vi/log', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const d = req.body;
+    if (!d?.symbol || !d?.decision) return res.json({ ok: false, error: 'Missing required fields' });
+    const db     = admin.firestore();
+    const today  = new Date().toISOString().split('T')[0];
+    const id     = `${d.symbol}_${today}`;
+    const docRef = db.collection(VI_COL).doc(id);
+    const existing = await docRef.get();
+    // One entry per symbol per day — don't overwrite
+    if (existing.exists) return res.json({ ok: true, id, skipped: true });
+    await docRef.set({
+      id, symbol: d.symbol, timestamp: Date.now(), date: today,
+      priceAtPrediction: d.priceAtPrediction ?? null,
+      spyAtPrediction:   d.spyAtPrediction   ?? null,
+      masterScore:       d.masterScore        ?? null,
+      decision:          d.decision,
+      confidence:        d.confidence         ?? null,
+      systemVotes:       d.systemVotes        ?? null,
+      topPatterns:       d.topPatterns        ?? [],
+      marketRegime:      d.marketRegime       ?? null,
+      verification7d:    null,
+      verification30d:   null,
+    });
+    res.json({ ok: true, id });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Run verification: fill in 7d/30d results for pending predictions
+app.get('/api/vi/verify', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const axios  = require('axios');
+    const key    = process.env.ALPACA_KEY;
+    const secret = process.env.ALPACA_SECRET;
+    const db     = admin.firestore();
+    const VI_7D  = 7  * 24 * 3600 * 1000;
+    const VI_30D = 30 * 24 * 3600 * 1000;
+    const now    = Date.now();
+
+    // Load predictions that still need verification
+    const snap = await db.collection(VI_COL)
+      .where('priceAtPrediction', '!=', null)
+      .limit(200).get();
+
+    const pending = snap.docs
+      .map(d => ({ ref: d.ref, data: d.data() }))
+      .filter(e => !e.data.verification7d || !e.data.verification30d);
+
+    if (!pending.length) return res.json({ ok: true, verified: 0, message: 'Nothing to verify' });
+
+    // Fetch current prices for all unique symbols
+    const syms = [...new Set(pending.map(e => e.data.symbol).concat(['SPY']))];
+    let prices = {};
+    if (key) {
+      try {
+        const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+          params: { symbols: syms.join(','), feed: 'iex' },
+          headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
+          timeout: 10000,
+        });
+        syms.forEach(s => {
+          const snap = r.data[s];
+          if (snap) prices[s] = snap.latestTrade?.p ?? snap.latestQuote?.bp ?? null;
+        });
+      } catch(e) { console.warn('[VI] Price fetch failed:', e.message); }
+    }
+
+    let verifiedCount = 0;
+    const batch = db.batch();
+
+    pending.forEach(({ ref, data: e }) => {
+      const currentPrice = prices[e.symbol];
+      const spyPrice     = prices['SPY'];
+      if (!currentPrice) return;
+
+      const age       = now - e.timestamp;
+      const retPct    = +(((currentPrice - e.priceAtPrediction) / e.priceAtPrediction) * 100).toFixed(2);
+      const spyRet    = (spyPrice && e.spyAtPrediction) ? +(((spyPrice - e.spyAtPrediction) / e.spyAtPrediction) * 100).toFixed(2) : null;
+
+      function isCorrect(decision, ret) {
+        if (['STRONG BUY','BUY','BUY SMALL'].includes(decision)) return ret > 1;
+        if (['SELL','STRONG SELL'].includes(decision))           return ret < -1;
+        return Math.abs(ret) <= 5;
+      }
+
+      const verif = {
+        priceAfter:      currentPrice,
+        returnPct:       retPct,
+        spyReturn:       spyRet,
+        outperformedSpy: spyRet != null ? retPct > spyRet : null,
+        correct:         isCorrect(e.decision, retPct),
+        verifiedAt:      now,
+      };
+
+      const update = {};
+      if (!e.verification7d  && age >= VI_7D)  { update.verification7d  = verif; verifiedCount++; }
+      if (!e.verification30d && age >= VI_30D) { update.verification30d = verif; verifiedCount++; }
+      if (Object.keys(update).length) batch.update(ref, update);
+    });
+
+    await batch.commit();
+    res.json({ ok: true, verified: verifiedCount });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Get full VI report
+app.get('/api/vi/report', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const db   = admin.firestore();
+    const snap = await db.collection(VI_COL).orderBy('timestamp', 'desc').limit(200).get();
+    const log  = snap.docs.map(d => d.data());
+    res.json({ ok: true, log });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 app.get('/api/market-health', async (req, res) => {
   try {
     const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
