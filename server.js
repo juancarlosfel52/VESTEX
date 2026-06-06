@@ -216,26 +216,52 @@ app.get('/api/chart/:symbol', async (req, res) => {
 
 // ── API: Get prediction accuracy stats ──
 // Single-field query only — no composite index required.
+// Reads from vi_predictions (source of truth for all VI tracking).
 // All filtering/sorting/grouping done in memory.
 app.get('/api/accuracy', async (req, res) => {
   if (!pipelineReady) return notReady(res);
   try {
-    // Fetch recent predictions ordered by generatedAt only (no composite index needed)
-    const snap = await admin.firestore().collection('predictions')
-      .orderBy('generatedAt', 'desc').limit(500).get();
+    // Fetch from vi_predictions — the single source of truth
+    const snap = await admin.firestore().collection(VI_COL)
+      .orderBy('timestamp', 'desc').limit(500).get();
 
     const all = [];
     snap.forEach(doc => all.push(doc.data()));
 
-    // Split verified vs pending in memory
-    const verified = all.filter(p => p.wasCorrect !== null && p.wasCorrect !== undefined);
-    const pending  = all.filter(p => p.wasCorrect === null || p.wasCorrect === undefined);
+    // Normalize: vi_predictions uses verification7d/verification30d objects
+    // A prediction is "verified" if verification7d is filled in
+    // A prediction is "correct" if verification7d.correct === true
+    const normalize = p => ({
+      symbol:     p.symbol,
+      direction:  p.decision,     // vi_predictions uses 'decision' not 'direction'
+      confidence: p.confidence,
+      masterScore: p.masterScore,
+      wasCorrect: p.verification7d !== null && p.verification7d !== undefined
+                    ? (p.verification7d.correct === true)
+                    : null,
+      actualPct:  p.verification7d?.returnPct ?? null,
+      generatedAt: p.date || new Date(p.timestamp).toISOString(),
+      checkedAt:  p.verification7d?.checkedAt ?? null,
+    });
+
+    const normalized = all.map(normalize);
+    const verified   = normalized.filter(p => p.wasCorrect !== null);
+    const pending    = normalized.filter(p => p.wasCorrect === null);
 
     if (!verified.length) {
+      // Compute first expected verification date from earliest pending prediction
+      let firstExpected = null;
+      const oldest = all.reduce((m, p) => (!m || p.timestamp < m.timestamp ? p : m), null);
+      if (oldest?.timestamp) {
+        const exp = new Date(oldest.timestamp + 7 * 24 * 3600 * 1000);
+        firstExpected = exp.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
       return res.json({
         ok: true,
+        total: all.length,
         totalVerified: 0,
         pending: pending.length,
+        firstExpected,
         message: 'No verified predictions yet. Accuracy will populate after the first verification cycle.',
       });
     }
@@ -294,32 +320,25 @@ app.get('/api/accuracy', async (req, res) => {
       byMasterScoreBucket[b].accuracy = +(byMasterScoreBucket[b].correct / byMasterScoreBucket[b].total * 100).toFixed(1);
     });
 
-    // Recent results — last 20 verified, sorted newest first
-    const recentResults = verified
+    // Recent results — last 20 (mix of verified + pending), sorted newest first
+    const recent = [...normalized]
       .sort((a, b) => new Date(b.generatedAt || 0) - new Date(a.generatedAt || 0))
-      .slice(0, 20)
-      .map(p => ({
-        symbol:     p.symbol,
-        direction:  p.direction,
-        confidence: p.confidence,
-        wasCorrect: p.wasCorrect,
-        actualPct:  p.actualPct ?? null,
-        generatedAt: p.generatedAt,
-        checkedAt:   p.checkedAt,
-      }));
+      .slice(0, 20);
 
     res.json({
       ok: true,
+      total:         all.length,          // total logged (verified + pending)
       totalVerified: verified.length,
       correct,
       incorrect,
-      accuracyPercent: accuracyPct,
-      pending: pending.length,
+      pending:       pending.length,
+      accuracy:      accuracyPct,         // client reads data.accuracy
+      accuracyPercent: accuracyPct,       // keep for any other callers
+      recent,                             // client reads data.recent
       bySymbol,
       byDecision,
       byConfidenceBucket,
       byMasterScoreBucket,
-      recentResults,
     });
 
   } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -1055,18 +1074,28 @@ app.get('/api/vi/pattern-stats', async (req, res) => {
       if (d.verification7d)  { s.uses7d++;  if (d.verification7d.correct)  s.wins7d++;  s.avgReturn7d.push(d.verification7d.returnPct); }
       if (d.verification30d) { s.uses30d++; if (d.verification30d.correct) s.wins30d++; s.avgReturn30d.push(d.verification30d.returnPct); }
     });
+    // Join with Win Rate Registry for authoritative stage classification
+    const registry = getRegistrySnapshot();
     // Compute averages
-    const result = Object.values(stats).map(s => ({
-      patternId:    s.patternId,
-      name:         s.name,
-      uses7d:       s.uses7d,
-      winRate7d:    s.uses7d > 0 ? +(s.wins7d / s.uses7d * 100).toFixed(1) : null,
-      avgReturn7d:  s.avgReturn7d.length > 0 ? +(s.avgReturn7d.reduce((a,b)=>a+b,0)/s.avgReturn7d.length).toFixed(2) : null,
-      uses30d:      s.uses30d,
-      winRate30d:   s.uses30d > 0 ? +(s.wins30d / s.uses30d * 100).toFixed(1) : null,
-      avgReturn30d: s.avgReturn30d.length > 0 ? +(s.avgReturn30d.reduce((a,b)=>a+b,0)/s.avgReturn30d.length).toFixed(2) : null,
-      dataQuality:  s.uses7d >= 20 ? 'validated' : s.uses7d >= 5 ? 'emerging' : 'insufficient',
-    })).sort((a, b) => (b.uses7d) - (a.uses7d));
+    const result = Object.values(stats).map(s => {
+      const reg = registry[s.patternId];
+      // winRateSource from registry: VERIFIED, HAND_CODED, or DEFAULT
+      const winRateSource = reg?.source || 'DEFAULT';
+      const winRateUses   = reg?.uses   ?? 0;
+      return {
+        patternId:    s.patternId,
+        name:         s.name,
+        uses7d:       s.uses7d,
+        winRate7d:    s.uses7d > 0 ? +(s.wins7d / s.uses7d * 100).toFixed(1) : null,
+        avgReturn7d:  s.avgReturn7d.length > 0 ? +(s.avgReturn7d.reduce((a,b)=>a+b,0)/s.avgReturn7d.length).toFixed(2) : null,
+        uses30d:      s.uses30d,
+        winRate30d:   s.uses30d > 0 ? +(s.wins30d / s.uses30d * 100).toFixed(1) : null,
+        avgReturn30d: s.avgReturn30d.length > 0 ? +(s.avgReturn30d.reduce((a,b)=>a+b,0)/s.avgReturn30d.length).toFixed(2) : null,
+        dataQuality:  s.uses7d >= 20 ? 'validated' : s.uses7d >= 5 ? 'emerging' : 'insufficient',
+        winRateSource,
+        winRateUses,
+      };
+    }).sort((a, b) => (b.uses7d) - (a.uses7d));
     res.json({ ok: true, stats: result, totalFires: docs.length });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
@@ -1446,15 +1475,23 @@ app.get('/api/brain-integrity', async (req, res) => {
         }
       } catch(e) {}
 
-      // Has verified predictions (25 pts — not penalized if too early)
+      // Has verified predictions — neutral (25 pts) if brain is too young for any window to close
+      const tooYoungToVerify = brainAgeDays !== null && brainAgeDays < 7;
       if (verifiedCount > 0) cat6 += 25;
-      else { cat6 += 15; } // still collecting — partial credit
+      else if (tooYoungToVerify) cat6 += 25; // pending first window — not a failure
+      else { cat6 += 15; } // older than 7 days but 0 verified — partial credit
 
       // No fake accuracy: 15 pts — always pass (backend never shows accuracy without verified data)
       cat6 += 15;
     } else {
-      warnings.push('No predictions logged — VI pipeline not yet started');
-      failed.push('VI predictions present');
+      // No predictions logged — only flag as failure if brain has had time to collect
+      const tooYoungToLog = brainAgeDays !== null && brainAgeDays < 2;
+      if (!tooYoungToLog) {
+        warnings.push('No predictions logged — open Master Intelligence on any stock to start tracking');
+        failed.push('VI predictions present');
+      }
+      // Young brain with 0 predictions: add 15 pts partial (pipeline ready, just not used yet)
+      cat6 += tooYoungToLog ? 20 : 0;
     }
   } else {
     cat6 += 20; // partial: pipeline not ready but no fake accuracy shown

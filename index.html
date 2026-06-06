@@ -1951,7 +1951,7 @@ canvas{max-height:300px;}
             <div class="prog-bar-fill" id="prog-fill" style="width:0%"></div>
           </div>
           <div class="prog-bar-labels">
-            <span class="prog-bar-lbl">0% — Guessing</span>
+            <span class="prog-bar-lbl">0%</span>
             <span class="prog-bar-lbl">50% — Coin Flip</span>
             <span class="prog-bar-lbl">70% — Good</span>
             <span class="prog-bar-lbl">90% — Excellent</span>
@@ -1977,9 +1977,9 @@ canvas{max-height:300px;}
           <div class="prog-stat-note">Direction was wrong</div>
         </div>
         <div class="prog-stat">
-          <div class="prog-stat-lbl">Brain Phase</div>
-          <div class="prog-stat-val" id="prog-phase-val" style="font-size:10px;letter-spacing:1.5px;line-height:1.3;">—</div>
-          <div class="prog-stat-note" id="prog-phase-note">Initializing</div>
+          <div class="prog-stat-lbl">Pending Verification</div>
+          <div class="prog-stat-val" id="prog-pending">—</div>
+          <div class="prog-stat-note" id="prog-pending-note">Awaiting 7-day window</div>
         </div>
       </div>
 
@@ -2035,7 +2035,7 @@ canvas{max-height:300px;}
       <!-- THIS WEEK'S PREDICTIONS TABLE -->
       <div class="panel" style="margin-bottom:20px;">
         <div class="ph">
-          <div><div class="ph-title">This Week's Predictions</div><div class="ph-sub">Each stock — what we said vs what happened</div></div>
+          <div><div class="ph-title">Logged Predictions</div><div class="ph-sub">Real predictions tracked by VESTEX — logged, pending, and verified results</div></div>
           <div style="font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;">Week of <span id="prog-week"></span></div>
         </div>
         <div class="pt-head" style="grid-template-columns:80px 1fr 80px 100px 80px;padding:10px 22px;">
@@ -3471,51 +3471,54 @@ async function renderProgress() {
     mon.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' — ' +
     fri.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 
-  // Try to load real accuracy from server
-  let total=0, correct=0, accuracy=null, recent=[];
+  // ── Fetch Brain Integrity once — shared by all lifecycle panels ──
+  let _cachedIntData = null;
+  try {
+    const r = await fetch('/api/brain-integrity');
+    const d = await r.json();
+    if (d.ok) _cachedIntData = d;
+  } catch(e) {}
+
+  // ── Load real accuracy from vi_predictions (unified source) ──
+  let total=0, totalVerified=0, pending=0, correct=0, accuracy=null, recent=[], firstExpected=null;
   try {
     const res  = await fetch('/api/accuracy');
     const data = await res.json();
-    if (data.ok && data.total > 0) {
-      total    = data.total;
-      correct  = data.correct;
-      accuracy = data.accuracy;
-      recent   = data.recent || [];
+    if (data.ok) {
+      total         = data.total         || 0;
+      totalVerified = data.totalVerified || 0;
+      pending       = data.pending       || 0;
+      correct       = data.correct       || 0;
+      accuracy      = data.accuracy      ?? null;   // null until first verified
+      recent        = data.recent        || [];
+      firstExpected = data.firstExpected || null;
     }
   } catch(e) {}
 
-  // If no server data yet — generate demo week from current predictions
-  const demoRows = Object.entries(STOCKS).map(([s,st]) => {
-    const p = calcPred(s);
-    return { sym:s, dir:p.dir, conf:p.conf, result:'pending', actualPct:null };
-  });
-  if (!recent.length) recent = demoRows;
+  const wrong = totalVerified > 0 ? totalVerified - correct : 0;
 
-  // Stats
-  const pct = accuracy !== null ? accuracy : 0;
-  const wrong = total - correct;
-
-  // Animate hero bar
+  // ── Hero accuracy bar ──
   document.getElementById('prog-pct').innerHTML = accuracy !== null
     ? `${accuracy}<span>%</span>`
     : `—<span>%</span>`;
   document.getElementById('prog-sub').textContent = accuracy !== null
-    ? `Based on ${total} verified predictions over the past week`
-    : total > 0
+    ? `Based on ${totalVerified} verified prediction${totalVerified !== 1 ? 's' : ''}`
+    : totalVerified === 0 && total > 0
     ? `${total} prediction${total > 1 ? 's' : ''} logged — collecting verification data (results appear after 7 days)`
-    : 'Collecting evidence — open Master Intelligence on any stock to start tracking';
+    : total === 0
+    ? 'No predictions logged yet — open Master Intelligence on any stock to start tracking'
+    : 'Collecting verification data';
   setTimeout(() => {
     document.getElementById('prog-fill').style.width = (accuracy || 0) + '%';
   }, 100);
 
-  // Stats grid
-  document.getElementById('prog-total').textContent   = total || Object.keys(STOCKS).length;
-  document.getElementById('prog-correct').textContent = correct || '—';
-  document.getElementById('prog-wrong').textContent   = wrong || '—';
-
-  // Phase indicator — updated from lifecycle panel async; show placeholder for now
-  document.getElementById('prog-phase-val').textContent  = 'COLLECTING';
-  document.getElementById('prog-phase-note').textContent = 'Building evidence base';
+  // ── Stats grid — all real values, no substitution ──
+  document.getElementById('prog-total').textContent   = total;
+  document.getElementById('prog-correct').textContent = totalVerified > 0 ? correct : '—';
+  document.getElementById('prog-wrong').textContent   = totalVerified > 0 ? wrong   : '—';
+  document.getElementById('prog-pending').textContent = pending > 0 ? pending : (total > 0 ? '0' : '—');
+  document.getElementById('prog-pending-note').textContent = firstExpected
+    ? `First result: ${firstExpected}` : 'Awaiting 7-day window';
 
   // Seasonal banner
   const sw   = getSeasonalWeight();
@@ -3533,30 +3536,37 @@ async function renderProgress() {
       ${sw >= 0 ? '+' : ''}${(sw * 10).toFixed(0)} pts
     </div>`;
 
-  // Predictions table rows
-  document.getElementById('prog-rows').innerHTML = recent.map(r => {
-    const isCorrect = r.wasCorrect === true  || r.result === 'correct';
-    const isWrong   = r.wasCorrect === false || r.result === 'wrong';
-    const isPending = !isCorrect && !isWrong;
-    const conf      = r.confidence || r.conf || 70;
-    const sym       = r.symbol     || r.sym;
-    const dir       = r.direction  || r.dir || '—';
-    const barColor  = isCorrect ? 'var(--green)' : isWrong ? 'var(--red)' : 'var(--gold)';
-    const resClass  = isCorrect ? 'win' : isWrong ? 'lose' : 'pending';
-    const resLabel  = isCorrect ? '✓ Correct' : isWrong ? '✗ Wrong' : '◷ Pending';
-    const accPct    = r.actualPct != null ? (r.actualPct > 0 ? '+' : '') + r.actualPct.toFixed(1) + '%' : '—';
-
-    return `<div class="week-row">
-      <div class="wr-sym">${sym}</div>
-      <div class="wr-bar-wrap">
-        <div class="wr-bar"><div class="wr-bar-inner" style="width:${conf}%;background:${barColor};"></div></div>
-        <div class="wr-pct">${conf}%</div>
-      </div>
-      <div class="wr-dir">${dir}</div>
-      <div class="wr-result ${resClass}">${resLabel}</div>
-      <div class="wr-pct" style="color:${r.actualPct > 0 ? 'var(--green)' : r.actualPct < 0 ? 'var(--red)' : 'var(--gray)'};">${accPct}</div>
+  // Predictions table rows — only real logged predictions, no synthetic fallback
+  const rowsEl = document.getElementById('prog-rows');
+  if (!recent.length) {
+    rowsEl.innerHTML = `<div style="padding:20px 22px;text-align:center;font-size:11px;color:var(--gray);letter-spacing:.5px;">
+      No logged predictions yet.<br>
+      <span style="font-size:10px;color:rgba(255,255,255,.3);">Open Master Intelligence on any stock to start tracking predictions.</span>
     </div>`;
-  }).join('');
+  } else {
+    rowsEl.innerHTML = recent.map(r => {
+      const isCorrect = r.wasCorrect === true;
+      const isWrong   = r.wasCorrect === false;
+      const conf      = r.confidence || 70;
+      const sym       = r.symbol;
+      const dir       = r.direction || '—';
+      const barColor  = isCorrect ? 'var(--green)' : isWrong ? 'var(--red)' : 'var(--gold)';
+      const resClass  = isCorrect ? 'win' : isWrong ? 'lose' : 'pending';
+      const resLabel  = isCorrect ? '✓ Correct' : isWrong ? '✗ Wrong' : '◷ Pending';
+      const accPct    = r.actualPct != null ? (r.actualPct > 0 ? '+' : '') + r.actualPct.toFixed(1) + '%' : '—';
+
+      return `<div class="week-row">
+        <div class="wr-sym">${sym}</div>
+        <div class="wr-bar-wrap">
+          <div class="wr-bar"><div class="wr-bar-inner" style="width:${conf}%;background:${barColor};"></div></div>
+          <div class="wr-pct">${conf}%</div>
+        </div>
+        <div class="wr-dir">${dir}</div>
+        <div class="wr-result ${resClass}">${resLabel}</div>
+        <div class="wr-pct" style="color:${r.actualPct > 0 ? 'var(--green)' : r.actualPct < 0 ? 'var(--red)' : 'var(--gray)'};">${accPct}</div>
+      </div>`;
+    }).join('');
+  }
 
   // Signal Leaderboard
   try {
@@ -3675,19 +3685,20 @@ async function renderProgress() {
   // Brain Calendar
   renderBrainCalendar();
 
-  // Brain Integrity Score
-  renderBrainIntegrity();
+  // Brain Integrity Score — pass cached data so it doesn't re-fetch
+  renderBrainIntegrity(_cachedIntData);
 
-  // Brain Lifecycle + Phase 2 panels
-  renderBrainLifecycle();
-  renderPatternLogicHealth();
-  renderLearningTimeline();
+  // Brain Lifecycle + Phase 2 panels — all share the same cached intData
+  renderBrainLifecycle(_cachedIntData);
+  renderPatternLogicHealth(_cachedIntData);
+  renderLearningTimeline(_cachedIntData);
 }
 
 // ═══════════════════════════════════════════════════════════
 //  BRAIN LIFECYCLE — S8
 // ═══════════════════════════════════════════════════════════
-async function renderBrainLifecycle() {
+// preloaded: brain-integrity data cached by renderProgress(); pass null to fetch fresh
+async function renderBrainLifecycle(preloaded) {
   const PHASES = [
     { id: 'bl-phase-0', line: 'bl-line-0', max: 30,  label: 'COLLECTING EVIDENCE' },
     { id: 'bl-phase-1', line: 'bl-line-1', max: 90,  label: 'LEARNING'             },
@@ -3695,85 +3706,90 @@ async function renderBrainLifecycle() {
     { id: 'bl-phase-3', line: null,        max: Infinity, label: 'VERIFIED INTELLIGENCE' },
   ];
 
-  let intData = null;
-  try {
-    const r  = await fetch('/api/brain-integrity');
-    const d  = await r.json();
-    if (d.ok) intData = d;
-  } catch(e) {}
-
-  let viTotal = 0, viVerified = 0, patFires = 0, patsWithData = 0, sigsVerified = 0, brainAgeDays = null;
-
-  if (intData?.meta) {
-    const m = intData.meta;
-    brainAgeDays  = m.brainAgeDays  ?? null;
-    viTotal       = m.viPredictions ?? 0;
-    viVerified    = m.verifiedCount ?? 0;
-    patFires      = m.patternCount  ?? 0;  // reuse loadedPatterns as proxy; real fires from leaderboard
-    sigsVerified  = m.registryEntries ?? 0;
+  // Use pre-fetched data or fetch fresh (standalone call)
+  let intData = preloaded || null;
+  if (!intData) {
+    try {
+      const r = await fetch('/api/brain-integrity');
+      const d = await r.json();
+      if (d.ok) intData = d;
+    } catch(e) {}
   }
 
-  // Also pull pattern leaderboard summary if available
+  // Core values from brain-integrity — no wrong-metric substitutions
+  let brainAgeDays = null, viTotal = 0, viVerified = 0;
+  if (intData?.meta) {
+    brainAgeDays = intData.meta.brainAgeDays  ?? null;
+    viTotal      = intData.meta.viPredictions ?? 0;
+    viVerified   = intData.meta.verifiedCount ?? 0;
+  }
+
+  // Pattern fires and patterns with data — only from real pattern stats
+  let patFires = null, patsWithData = null;
   try {
     const r = await fetch('/api/vi/pattern-stats');
     const d = await r.json();
     if (d.ok && d.stats) {
-      patFires    = d.totalFires || 0;
+      patFires     = d.totalFires || 0;
       patsWithData = d.stats.filter(p => (p.uses7d || 0) > 0).length;
     }
   } catch(e) {}
 
-  // Also count signals with ≥20 uses
+  // Signals verified — only from real signal performance, not registry count
+  let sigsVerified = null;
   try {
     const r = await fetch('/api/signal-performance');
     const d = await r.json();
     if (d.ok && d.signals) {
+      // Only count signals with actual verified data (totalUses >= 20), not pipeline defaults
       sigsVerified = d.signals.filter(s => s.totalUses >= 20).length;
     }
   } catch(e) {}
 
-  // Phase determination
-  const age  = brainAgeDays ?? 0;
-  const phaseIdx = age >= 180 ? 3 : age >= 91 ? 2 : age >= 31 ? 1 : 0;
-  const phaseLabel = PHASES[phaseIdx].label;
+  // Phase determination — use 0 if brain age unknown (not started)
+  const age        = brainAgeDays ?? 0;
+  const notStarted = brainAgeDays === null && viTotal === 0;
+  const phaseIdx   = age >= 180 ? 3 : age >= 91 ? 2 : age >= 31 ? 1 : 0;
+  const phaseLabel = notStarted ? 'NOT STARTED' : PHASES[phaseIdx].label;
   const ageLabel   = brainAgeDays === null ? '—' : age === 0 ? 'Day 1' : `${age} days`;
 
-  // Update stat cards
+  // Update stat cards — show "Collecting Data" not wrong proxy values
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('bl-age',       ageLabel);
-  set('bl-preds',     viTotal    || '—');
-  set('bl-verified',  viVerified || '—');
-  set('bl-pat-fires', patFires   || '—');
-  set('bl-pat-ver',   patsWithData > 0 ? patsWithData : '—');
-  set('bl-sig-ver',   sigsVerified > 0 ? sigsVerified : '—');
+  set('bl-preds',     viTotal > 0 ? viTotal : (viTotal === 0 ? '0' : '—'));
+  set('bl-verified',  viVerified > 0 ? viVerified : '0');
+  set('bl-pat-fires', patFires   !== null ? patFires   : 'Collecting Data');
+  set('bl-pat-ver',   patsWithData !== null ? patsWithData : 'Collecting Data');
+  set('bl-sig-ver',   sigsVerified !== null ? sigsVerified : 'Collecting Data');
 
-  // Update phase badge + mini card
+  // Update phase badge
   const badge = document.getElementById('bl-phase-badge');
-  if (badge) { badge.textContent = phaseLabel; badge.classList.add('active'); }
-  const pv = document.getElementById('prog-phase-val');
-  const pn = document.getElementById('prog-phase-note');
-  if (pv) pv.textContent = phaseLabel;
-  if (pn) pn.textContent = age > 0 ? `Day ${age}` : 'Just started';
+  if (badge) {
+    badge.textContent = phaseLabel;
+    badge.classList.toggle('active', !notStarted);
+  }
 
   // Animate timeline
   PHASES.forEach((p, i) => {
     const dot  = document.querySelector(`#${p.id} .bl-tl-dot`);
     const lbl  = document.querySelector(`#${p.id} .bl-tl-label`);
     const line = p.line ? document.getElementById(p.line) : null;
-    if (i < phaseIdx)       { dot?.classList.add('reached'); lbl?.classList.add('active'); line?.classList.add('reached'); }
-    else if (i === phaseIdx){ dot?.classList.add('current'); lbl?.classList.add('active'); }
+    if (!notStarted && i < phaseIdx)       { dot?.classList.add('reached'); lbl?.classList.add('active'); line?.classList.add('reached'); }
+    else if (!notStarted && i === phaseIdx){ dot?.classList.add('current'); lbl?.classList.add('active'); }
   });
 
-  // Collecting state overlay
+  // Collecting state overlay — context-aware, never says "collecting" for a not-started system
   const cs = document.getElementById('bl-collect-state');
   const csMsg = document.getElementById('bl-cs-msg');
-  if (viTotal === 0) {
+  if (notStarted) {
     cs && (cs.style.display = 'flex');
-    csMsg && (csMsg.textContent = 'No predictions logged yet. Open Master Intelligence on any stock to start tracking.');
+    csMsg && (csMsg.textContent = 'No predictions have been logged yet. Open Master Intelligence on any stock to begin tracking.');
   } else if (viVerified === 0) {
     cs && (cs.style.display = 'flex');
-    const firstExpected = brainAgeDays !== null ? `Results begin appearing on Day ${Math.min(age + 7, age + 7)}.` : 'First verification expected within 7 days of your first prediction.';
-    csMsg && (csMsg.textContent = `${viTotal} prediction${viTotal > 1 ? 's' : ''} logged — waiting for 7-day verification window. ${firstExpected}`);
+    const windowMsg = age > 0
+      ? `Results appear after the 7-day window closes (around Day ${age + 7}).`
+      : 'First verification expected within 7 days of your first prediction.';
+    csMsg && (csMsg.textContent = `${viTotal} prediction${viTotal > 1 ? 's' : ''} logged — waiting for first verification window. ${windowMsg}`);
   } else {
     cs && (cs.style.display = 'none');
   }
@@ -3782,59 +3798,87 @@ async function renderBrainLifecycle() {
 // ═══════════════════════════════════════════════════════════
 //  PATTERN LOGIC HEALTH — S8
 // ═══════════════════════════════════════════════════════════
-async function renderPatternLogicHealth() {
+async function renderPatternLogicHealth(preloaded) {
   const el = document.getElementById('plh-bars');
+  const bodyEl = document.getElementById('plh-body');
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   const setNote = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
 
-  // Derive from brain-integrity runBrainAnalysis diagnostic
-  let evaluated = 0, skipped = 0, disabled = 0, unevaluable = 0, total = 113;
-  try {
-    const r = await fetch('/api/brain-integrity');
-    const d = await r.json();
-    if (d.ok) {
-      const m = d.meta;
-      evaluated   = m.patternCount ? Math.round((m.evalRate || 0) / 100 * (m.patternCount || 113)) : 0;
-      disabled    = 6;  // Phase 1 disabled patterns (hardcoded from Brain Vault Phase 1)
-      unevaluable = 24; // sum of UNEVALUATABLE sets from brain.js
-      skipped     = Math.max(0, total - evaluated - disabled - unevaluable);
-    }
-  } catch(e) {}
+  // Use pre-fetched data or fetch fresh
+  let intData = preloaded || null;
+  if (!intData) {
+    try {
+      const r = await fetch('/api/brain-integrity');
+      const d = await r.json();
+      if (d.ok) intData = d;
+    } catch(e) {}
+  }
 
-  const evalPct = Math.round(evaluated / total * 100);
-  set('plh-eval', evaluated || '—');
-  set('plh-skip', skipped   || '—');
-  set('plh-dis',  disabled);
-  set('plh-une',  unevaluable);
-  setNote('plh-eval-pct', evaluated ? `${evalPct}% of patterns` : 'Pipeline loading…');
+  const DISABLED    = 6;   // Phase 1 offline patterns (Brain Vault Phase 1)
+  const UNEVALUABLE = 24;  // Patterns requiring data VESTEX doesn't have yet
+  const TOTAL       = 113;
+
+  // Derive evaluated count from brain diagnostic
+  let evaluated = 0, hasRealData = false;
+  if (intData?.meta) {
+    const m = intData.meta;
+    if (m.patternCount && m.evalRate != null) {
+      evaluated   = Math.round(m.evalRate / 100 * m.patternCount);
+      hasRealData = true;
+    }
+  }
+
+  // Only show counts after pattern engine has actually run (evaluated > 0)
+  if (!hasRealData || evaluated === 0) {
+    if (bodyEl) bodyEl.innerHTML = `<div style="padding:18px 0;text-align:center;font-size:11px;color:var(--gray);letter-spacing:.5px;">
+      Pipeline Loading — pattern audit runs on the next prediction cycle.<br>
+      <span style="font-size:10px;color:rgba(255,255,255,.25);">${DISABLED} patterns offline (Phase 1) · ${UNEVALUABLE} patterns unevaluable</span>
+    </div>`;
+    return;
+  }
+
+  const skipped = Math.max(0, TOTAL - evaluated - DISABLED - UNEVALUABLE);
+  const evalPct = Math.round(evaluated / TOTAL * 100);
+
+  set('plh-eval', evaluated);
+  set('plh-skip', skipped);
+  set('plh-dis',  DISABLED);
+  set('plh-une',  UNEVALUABLE);
+  setNote('plh-eval-pct', `${evalPct}% of patterns`);
 
   if (el) {
-    const total2 = evaluated + skipped + disabled + unevaluable || 1;
-    const pct = v => (v / total2 * 100).toFixed(1);
+    const pct = v => (v / TOTAL * 100).toFixed(1);
     el.innerHTML = `
       <div class="plh-bar-seg" style="width:${pct(evaluated)}%;background:var(--green);" title="Evaluated: ${evaluated}"></div>
       <div class="plh-bar-seg" style="width:${pct(skipped)}%;background:var(--gold);" title="Skipped: ${skipped}"></div>
-      <div class="plh-bar-seg" style="width:${pct(disabled)}%;background:var(--red);" title="Disabled: ${disabled}"></div>
-      <div class="plh-bar-seg" style="width:${pct(unevaluable)}%;background:rgba(255,255,255,.15);" title="Unevaluable: ${unevaluable}"></div>`;
+      <div class="plh-bar-seg" style="width:${pct(DISABLED)}%;background:var(--red);" title="Disabled: ${DISABLED}"></div>
+      <div class="plh-bar-seg" style="width:${pct(UNEVALUABLE)}%;background:rgba(255,255,255,.15);" title="Unevaluable: ${UNEVALUABLE}"></div>`;
   }
 }
 
 // ═══════════════════════════════════════════════════════════
 //  LEARNING TIMELINE + TRANSPARENCY PANELS — S8
 // ═══════════════════════════════════════════════════════════
-async function renderLearningTimeline() {
+// preloaded: brain-integrity data cached by renderProgress()
+async function renderLearningTimeline(preloaded) {
   let viTotal = 0, viVerified = 0, patFires = 0, sigsVerified = 0, age = 0;
 
-  try {
-    const r = await fetch('/api/brain-integrity');
-    const d = await r.json();
-    if (d.ok && d.meta) {
-      viTotal      = d.meta.viPredictions ?? 0;
-      viVerified   = d.meta.verifiedCount ?? 0;
-      sigsVerified = 0; // will update below
-      age          = d.meta.brainAgeDays  ?? 0;
-    }
-  } catch(e) {}
+  // Extract from pre-fetched brain-integrity data
+  if (preloaded?.meta) {
+    viTotal    = preloaded.meta.viPredictions ?? 0;
+    viVerified = preloaded.meta.verifiedCount ?? 0;
+    age        = preloaded.meta.brainAgeDays  ?? 0;
+  } else {
+    try {
+      const r = await fetch('/api/brain-integrity');
+      const d = await r.json();
+      if (d.ok && d.meta) {
+        viTotal    = d.meta.viPredictions ?? 0;
+        viVerified = d.meta.verifiedCount ?? 0;
+        age        = d.meta.brainAgeDays  ?? 0;
+      }
+    } catch(e) {}
+  }
   try {
     const r = await fetch('/api/vi/pattern-stats');
     const d = await r.json();
@@ -4322,21 +4366,34 @@ function bacCloseDetail() {
 // ═══════════════════════════════════════════════════════════
 //  BRAIN INTEGRITY SCORE — S7 2026-06-06
 // ═══════════════════════════════════════════════════════════
-async function renderBrainIntegrity() {
+// preloaded: optional pre-fetched data from renderProgress(); if null, fetches fresh
+async function renderBrainIntegrity(preloaded) {
   const btn = document.getElementById('bi-refresh-btn');
-  if (btn) btn.textContent = '↻ Auditing…';
 
+  // If manually triggered (no preloaded data), fetch fresh
+  if (!preloaded) {
+    if (btn) btn.textContent = '↻ Auditing…';
+    try {
+      const res  = await fetch('/api/brain-integrity');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Audit failed');
+      _biRender(data);
+    } catch(e) {
+      const cats = document.getElementById('bi-cats');
+      if (cats) cats.innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;">Brain Integrity audit unavailable: ${e.message}</div>`;
+    } finally {
+      if (btn) btn.textContent = '↻ Audit Now';
+    }
+    return;
+  }
+
+  // Use pre-fetched data — skip the extra network call
+  if (btn) btn.textContent = '↻ Audit Now';
   try {
-    const res  = await fetch('/api/brain-integrity');
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Audit failed');
-
-    _biRender(data);
+    _biRender(preloaded);
   } catch(e) {
     const cats = document.getElementById('bi-cats');
-    if (cats) cats.innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;">Brain Integrity audit unavailable: ${e.message}</div>`;
-  } finally {
-    if (btn) btn.textContent = '↻ Audit Now';
+    if (cats) cats.innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;">Brain Integrity render error: ${e.message}</div>`;
   }
 }
 
@@ -4492,12 +4549,15 @@ function plbRender() {
     const ret = p.avgReturn7d != null ? (p.avgReturn7d >= 0 ? '+' : '') + p.avgReturn7d + '%' : '—';
     const wrColor  = p.winRate7d  != null ? (p.winRate7d  >= 60 ? 'var(--green)' : p.winRate7d  >= 45 ? 'var(--gold)' : 'var(--red)') : 'var(--gray)';
     const retColor = p.avgReturn7d != null ? (p.avgReturn7d > 0 ? 'var(--green)' : p.avgReturn7d < 0 ? 'var(--red)' : 'var(--gray)') : 'var(--gray)';
-    const catLabel = (p.category || '').toUpperCase() || 'BRAIN';
+    const catLabel   = (p.category || '').toUpperCase() || 'BRAIN';
     const totalFires = p.uses7d || 0;
-    const stage = totalFires >= 20 ? { label:'VERIFIED', c:'var(--green)' }
-                : totalFires >= 5  ? { label:'EMERGING', c:'var(--gold)' }
-                : totalFires > 0   ? { label:'COLLECTING', c:'rgba(255,255,255,.3)' }
-                : { label:'NO DATA', c:'rgba(255,255,255,.15)' };
+    // Stage classification: use Win Rate Registry source (lifetime), not 7-day window
+    // winRateSource: VERIFIED = ≥20 lifetime fires · HAND_CODED = developer-set · DEFAULT = not enough data
+    const src = p.winRateSource || 'DEFAULT';
+    const stage = src === 'VERIFIED'   ? { label:'VERIFIED',   c:'var(--green)' }
+                : src === 'HAND_CODED' ? { label:'EMERGING',   c:'var(--gold)'  }
+                : totalFires > 0       ? { label:'COLLECTING', c:'rgba(255,255,255,.3)' }
+                : { label:'NO DATA',   c:'rgba(255,255,255,.15)' };
     return `<div class="plb-row">
       <div>
         <div style="display:flex;align-items:center;gap:8px;">
