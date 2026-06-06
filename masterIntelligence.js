@@ -349,10 +349,16 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   const sent   = calcSentimentScore(sentiment);
   const fund   = calcFundamentalsScore(edgar);
 
-  const masterScore = Math.min(100, Math.max(0, Math.round(
+  let masterScore = Math.min(100, Math.max(0, Math.round(
     tech.score + brain.score + signal.score + regime.score +
     macro.score + sent.score + fund.score
   )));
+
+  // Pattern_125: High ATR reduces score certainty (small modifier — TSLA-level ATR ~4% → -2pts max)
+  const atrPct = indicators?.atrPct;
+  if (atrPct > 2.5) {
+    masterScore = Math.max(0, masterScore - Math.min(4, Math.round((atrPct - 2.5) * 1.2)));
+  }
 
   let decision, holdTime;
   if      (masterScore >= 85) { decision = 'STRONG BUY';  holdTime = '30–90 Days'; }
@@ -474,9 +480,11 @@ function buildConfidenceBreakdown(tech, brain, signal, regime, macro, sent, fund
   total += sentPts;
 
   // Penalties
-  if (indicators?.atrPct > 3) {
-    const vPen = -Math.min(10, Math.round(indicators.atrPct * 2));
-    breakdown.push({ label: 'High Volatility', pts: vPen, note: `ATR ${indicators.atrPct.toFixed(1)}% — elevated entry risk reduces certainty`, penalty: true });
+  // Pattern_125 — High ATR Conviction Reducer (fires at 2.5%, matches CHART_HIGH_ATR threshold)
+  if (indicators?.atrPct > 2.5) {
+    const vPen = -Math.min(12, Math.round((indicators.atrPct - 1.5) * 2.2));
+    breakdown.push({ label: 'Pattern_125 — High ATR Conviction Reducer', pts: vPen,
+      note: `ATR ${indicators.atrPct.toFixed(1)}% — high volatility reduces signal reliability; pattern thresholds are harder to interpret`, penalty: true });
     total += vPen;
   }
   if (sent.overall === 'negative' && tech.score >= 14) {

@@ -199,7 +199,7 @@ function computeLPMS(activePatterns, indicators, macro, sentiment, edgar, fearGr
 //  Detects tradeable chart patterns from OHLCV bar data.
 //  Works with 20–252 daily bars.
 // ─────────────────────────────────────────────────────────
-function analyzeChartStructure(bars, livePrice) {
+function analyzeChartStructure(bars, livePrice, spyData = null) {
   const patterns = [];
   const signals  = {};
 
@@ -224,16 +224,17 @@ function analyzeChartStructure(bars, livePrice) {
   signals.pctFromHigh = +pctFromHigh.toFixed(2);
   signals.pctFromLow  = +pctFromLow.toFixed(2);
 
-  // ── Pattern: Fresh ATH — no overhead resistance ──
+  // ── Pattern: Fresh 45-Day ATH — no overhead resistance (Pattern_122) ──
+  // NOTE: "ATH" here means 45-day period high only — not a multi-year or 5-year ATH
   if (pctFromHigh <= 2.5) {
     patterns.push({
-      pattern_id: 'CHART_ATH',
-      name: 'Price at Period High — No Overhead Resistance',
+      pattern_id: 'CHART_45D_ATH',
+      name: 'Price at 45-Day High — No Overhead Resistance',
       category: 'chart',
       direction: 'bullish',
       strength: +(1.0 - (pctFromHigh / 2.5) * 0.25).toFixed(3),
-      note: `${pctFromHigh.toFixed(1)}% off period high — price making new highs, no sellers above`,
-      win_rate: 68, avg_return_7d: 2.1, impact: 'high',
+      note: `${pctFromHigh.toFixed(1)}% off 45-day high — making new period highs, no sellers above in this window`,
+      win_rate: null, avg_return_7d: null, impact: 'high',
     });
   }
 
@@ -303,7 +304,8 @@ function analyzeChartStructure(bars, livePrice) {
     }
   }
 
-  // ── Pattern: Healthy Bull Trend — higher lows + near ATH ──
+  // ── Pattern: Higher Lows (20-Day) — Pattern_123 ──
+  // NOTE: "Multi-Year Higher Lows" label was misleading — this checks 20 daily bars (~4 weeks only)
   if (bars.length >= 22) {
     const recent20Lows = lows.slice(-20);
     let higherLows = 0;
@@ -312,18 +314,20 @@ function analyzeChartStructure(bars, livePrice) {
     }
     if (higherLows >= 12 && pctFromHigh <= 12) {
       patterns.push({
-        pattern_id: 'CHART_BULL_TREND',
-        name: 'Healthy Bull Trend — Institutional Accumulation',
+        pattern_id: 'CHART_HIGHER_LOWS_20D',
+        name: 'Higher Lows (20-Day Window) — Short-Term Accumulation',
         category: 'chart',
         direction: 'bullish',
         strength: +Math.min(1, higherLows / 19).toFixed(3),
-        note: `${higherLows}/19 higher lows — smart money consistently buying every dip`,
-        win_rate: 66, avg_return_7d: 2.4, impact: 'medium',
+        note: `${higherLows}/19 higher lows in 20-day window — consistent demand at each dip`,
+        win_rate: null, avg_return_7d: null, impact: 'medium',
       });
     }
   }
 
-  // ── Pattern: Post-Crash V-Recovery ──
+  // ── Pattern: Short-Term V-Recovery — Pattern_124 ──
+  // NOTE: "Post-Crash Full Recovery" was misleading — this detects any 25%+ drawdown+recovery
+  //       within the current bar window (max 45-252 days depending on endpoint), not a macro crash
   if (bars.length >= 30) {
     const crashLow     = Math.min(...lows.slice(0, -15));
     const crashLowIdx  = lows.slice(0, -15).indexOf(crashLow);
@@ -333,13 +337,13 @@ function analyzeChartStructure(bars, livePrice) {
 
     if (crashDepth > 25 && recovery > 50 && recovery < 105) {
       patterns.push({
-        pattern_id: 'CHART_VRECOVERY',
-        name: 'Post-Crash V-Recovery In Progress',
+        pattern_id: 'CHART_SHORT_TERM_VRECOVERY',
+        name: 'V-Recovery in Progress (Window Drawdown)',
         category: 'chart',
         direction: 'bullish',
         strength: +Math.min(1, recovery / 100).toFixed(3),
-        note: `Crashed ${crashDepth.toFixed(0)}% from peak, now ${recovery.toFixed(0)}% recovered — sellers exhausted`,
-        win_rate: 69, avg_return_7d: 3.1, impact: 'high',
+        note: `Down ${crashDepth.toFixed(0)}% within window, now ${recovery.toFixed(0)}% recovered from that low — selling pressure easing`,
+        win_rate: null, avg_return_7d: null, impact: 'high',
       });
     }
   }
@@ -369,6 +373,32 @@ function analyzeChartStructure(bars, livePrice) {
         note: `ATR = ${atrPct.toFixed(1)}% of price — signals less reliable, reduce position size`,
         win_rate: 50, avg_return_7d: 0, impact: 'low',
         isVolatilityWarning: true,
+      });
+    }
+  }
+
+  // ── Pattern: Relative Strength Outlier (Pattern_117) ──
+  // Requires SPY comparison data. Direction: bullish if outperforming, bearish if underperforming.
+  // win_rate intentionally null — pending Verification Intelligence validation.
+  if (spyData?.return10d != null && bars.length >= 10) {
+    const stockReturn10d = (price - closes[closes.length - 10]) / closes[closes.length - 10] * 100;
+    const relStrength    = +(stockReturn10d - spyData.return10d).toFixed(2);
+    const absRel         = Math.abs(relStrength);
+
+    if (absRel >= 5) {
+      patterns.push({
+        pattern_id:      'CHART_REL_STRENGTH',
+        name:            relStrength > 0 ? 'Relative Strength Outlier — Outperforming SPY' : 'Relative Weakness Outlier — Underperforming SPY',
+        category:        'chart',
+        direction:       relStrength > 0 ? 'bullish' : 'bearish',
+        strength:        +Math.min(1, absRel / 20).toFixed(3),
+        note:            `${relStrength > 0 ? '+' : ''}${relStrength.toFixed(1)}% vs SPY over 10 trading days — ${relStrength > 0 ? 'outperforming the market' : 'underperforming the market'}`,
+        win_rate:        null,  // not hardcoded — pending VI validation
+        avg_return_7d:   null,
+        impact:          absRel >= 10 ? 'high' : 'medium',
+        relStrength,
+        stockReturn10d:  +stockReturn10d.toFixed(2),
+        spyReturn10d:    +spyData.return10d.toFixed(2),
       });
     }
   }
@@ -635,19 +665,31 @@ function buildPredictionWarnings(indicators, chartStructure, macro, vix, fearGre
 //    vix          — {value, signal}
 //    miScores     — optional: scoreBreakdown from masterIntelligence.js (improves accuracy)
 // ═══════════════════════════════════════════════════════════
-function buildLivePrediction(symbol, bars, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix, miScores) {
+function buildLivePrediction(symbol, bars, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix, miScores, spyData = null) {
 
   // ── 1. Chart structure ──
   const livePrice      = bars?.length ? bars[bars.length - 1].close : null;
-  const chartStructure = analyzeChartStructure(bars || [], livePrice);
+  const chartStructure = analyzeChartStructure(bars || [], livePrice, spyData);
 
-  // ── 2. All active patterns: Brain Vault + chart-derived ──
+  // ── 2. All active patterns: Brain Vault + chart-derived (directional only) ──
   const brainPatterns   = brainResult?.active_patterns || [];
   const chartPatterns   = chartStructure.patterns.filter(p => !p.isVolatilityWarning);
   const allPatterns     = [...brainPatterns, ...chartPatterns];
 
   // ── 3. LPMS formula ──
   const lpms = computeLPMS(allPatterns, indicators, macroSnapshot, sentiment, edgar, fearGreed, vix);
+
+  // ── Pattern_125: High ATR Conviction Reducer ──
+  // CHART_HIGH_ATR is excluded from pattern scoring (direction=neutral) but it DOES
+  // reduce LPMS conviction — high-volatility stocks have less reliable pattern signals.
+  const atrPct = chartStructure.signals.atrPct ?? indicators?.atrPct ?? 0;
+  if (atrPct > 2.5) {
+    const originalScore = lpms.score;
+    const atrFactor     = +Math.max(0.72, 1 - (atrPct - 2.5) * 0.07).toFixed(3);
+    lpms.score          = +Math.max(0, (lpms.score * atrFactor)).toFixed(2);
+    lpms.atrReducer     = { atrPct, factor: atrFactor, originalScore: +originalScore.toFixed(2),
+      note: `Pattern_125 applied: ATR ${atrPct.toFixed(1)}% reduced LPMS by ${((1 - atrFactor) * 100).toFixed(1)}%` };
+  }
 
   // ── 4. Normalize component scores (0–1 each) ──
   // Use masterIntelligence scores if available; otherwise compute proxies.
@@ -771,4 +813,4 @@ function buildLivePrediction(symbol, bars, indicators, brainResult, signals, sen
   };
 }
 
-module.exports = { buildLivePrediction };
+module.exports = { buildLivePrediction, analyzeChartStructure };

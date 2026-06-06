@@ -573,12 +573,21 @@ app.get('/api/master-intelligence/:symbol', async (req, res) => {
     // 1. Fetch 40 days of bars → compute indicators
     const end = new Date(), start = new Date();
     start.setDate(start.getDate() - 45);
-    const barsResp = await axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`, {
-      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
-      params:  { timeframe:'1Day', start:start.toISOString().split('T')[0], end:end.toISOString().split('T')[0], limit:40, feed:'iex' },
-      timeout: 12000,
-    });
-    const bars = (barsResp.data.bars||[]).map(b=>({close:b.c,high:b.h,low:b.l,open:b.o,volume:b.v}));
+    const _barParams  = { timeframe:'1Day', start:start.toISOString().split('T')[0], end:end.toISOString().split('T')[0], limit:40, feed:'iex' };
+    const _barHeaders = { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec };
+
+    // Phase 1+3: fetch symbol bars and SPY bars in parallel for Pattern_117 (Relative Strength)
+    const [barsResp, spyBarsResp] = await Promise.all([
+      axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`,   { headers: _barHeaders, params: _barParams, timeout: 12000 }),
+      sym !== 'SPY'
+        ? axios.get('https://data.alpaca.markets/v2/stocks/SPY/bars', { headers: _barHeaders, params: _barParams, timeout: 12000 }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    const bars    = (barsResp.data.bars||[]).map(b=>({close:b.c,high:b.h,low:b.l,open:b.o,volume:b.v}));
+    const spyBars = spyBarsResp ? (spyBarsResp.data?.bars||[]).map(b=>({close:b.c})) : [];
+    const spyData = spyBars.length >= 10
+      ? { return10d: +((spyBars[spyBars.length-1].close - spyBars[spyBars.length-10].close) / spyBars[spyBars.length-10].close * 100).toFixed(2) }
+      : null;
     const indicators = _computeIndicators(bars);
 
     // 2. Brain analysis
@@ -615,8 +624,22 @@ app.get('/api/master-intelligence/:symbol', async (req, res) => {
     // 7. Fear & Greed + VIX (shared caches)
     const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
 
-    // 8. Build master score
-    const result = buildMasterIntelligence(sym, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
+    // Phase 1: Compute chart patterns and inject into brainResult so MI can see them
+    // Chart patterns are directional intelligence that should flow into Master Intelligence.
+    // CHART_HIGH_ATR (isVolatilityWarning) is excluded — it's handled via Pattern_125 ATR reducer.
+    let brainForMI = brainResult;
+    try {
+      const { analyzeChartStructure } = require('./livePatternMatcher');
+      const livePrice         = bars.length ? bars[bars.length - 1].close : null;
+      const chartResult       = analyzeChartStructure(bars, livePrice, spyData);
+      const directionalCharts = chartResult.patterns.filter(p => !p.isVolatilityWarning);
+      if (brainResult && directionalCharts.length > 0) {
+        brainForMI = { ...brainResult, active_patterns: [...(brainResult.active_patterns || []), ...directionalCharts] };
+      }
+    } catch(e) { console.warn('[MI] Chart injection failed:', e.message); }
+
+    // 8. Build master score (brainForMI includes chart patterns)
+    const result = buildMasterIntelligence(sym, indicators, brainForMI, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
 
     // 9. Store to Firestore for history tracking
     if (pipelineReady) {
@@ -640,7 +663,50 @@ app.get('/api/master-intelligence/:symbol', async (req, res) => {
 // ═══════════════════════════════════════════════════════════
 //  VERIFICATION INTELLIGENCE — Firestore-backed prediction log
 // ═══════════════════════════════════════════════════════════
-const VI_COL = 'vi_predictions';
+const VI_COL     = 'vi_predictions';
+const VI_PAT_COL = 'vi_pattern_fires';   // Phase 4: per-pattern validation tracking
+
+// Phase 4: Log individual pattern fires to Firestore for forward-looking validation.
+// Called from LP endpoint after each buildLivePrediction. One doc per pattern+symbol+day.
+// win_rate fields will be computed from these docs once enough data accumulates.
+// Helper: get current SPY price from snapshot
+async function _getSpyPrice(key, sec) {
+  if (!key) return null;
+  try {
+    const axios = require('axios');
+    const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+      params: { symbols: 'SPY', feed: 'iex' }, timeout: 6000,
+      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
+    });
+    return r.data?.SPY?.latestTrade?.p ?? null;
+  } catch(e) { return null; }
+}
+
+async function viLogPatternFires(db, sym, patterns, price, spyPrice) {
+  if (!db || !patterns || !patterns.length || !price) return;
+  const today = new Date().toISOString().split('T')[0];
+  const batch = db.batch();
+  let writes = 0;
+  for (const p of patterns) {
+    if (!p.pattern_id || p.direction === 'neutral') continue;
+    const id     = `${p.pattern_id}_${sym}_${today}`;
+    const docRef = db.collection(VI_PAT_COL).doc(id);
+    const snap   = await docRef.get().catch(() => null);
+    if (snap?.exists) continue;  // one entry per pattern+symbol per day
+    batch.set(docRef, {
+      id, patternId: p.pattern_id, patternName: p.name || p.pattern_id,
+      symbol: sym, date: today, timestamp: Date.now(),
+      priceAtFire: price, spyPriceAtFire: spyPrice || null,
+      direction: p.direction, strength: p.strength || null,
+      impact: p.impact || null, category: p.category || 'chart',
+      note: p.note || null,
+      verification7d: null, verification30d: null,
+    });
+    writes++;
+    if (writes >= 10) break; // cap batch per request
+  }
+  if (writes > 0) await batch.commit().catch(e => console.warn('[VI-PAT] Batch write failed:', e.message));
+}
 
 // Log a prediction snapshot
 app.post('/api/vi/log', async (req, res) => {
@@ -746,7 +812,81 @@ app.get('/api/vi/verify', async (req, res) => {
     });
 
     await batch.commit();
-    res.json({ ok: true, verified: verifiedCount });
+
+    // Phase 4: Also verify pattern fires in vi_pattern_fires collection
+    let patVerified = 0;
+    try {
+      const patSnap = await db.collection(VI_PAT_COL)
+        .where('priceAtFire', '!=', null).limit(300).get();
+      const patPending = patSnap.docs
+        .map(d => ({ ref: d.ref, data: d.data() }))
+        .filter(e => !e.data.verification7d || !e.data.verification30d);
+
+      if (patPending.length > 0) {
+        const patSyms = [...new Set(patPending.map(e => e.data.symbol).concat(['SPY']))];
+        let patPrices = {};
+        if (key) {
+          try {
+            const pr = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+              params: { symbols: patSyms.join(','), feed: 'iex' },
+              headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret }, timeout: 10000,
+            });
+            patSyms.forEach(s => {
+              const sn = pr.data[s];
+              if (sn) patPrices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null;
+            });
+          } catch(e2) { /* price fetch failed, skip */ }
+        }
+        const patBatch = db.batch();
+        patPending.forEach(({ ref, data: e }) => {
+          const cp = patPrices[e.symbol], spyP = patPrices['SPY'];
+          if (!cp) return;
+          const age    = now - e.timestamp;
+          const retPct = +(((cp - e.priceAtFire) / e.priceAtFire) * 100).toFixed(2);
+          const spyRet = (spyP && e.spyPriceAtFire) ? +(((spyP - e.spyPriceAtFire) / e.spyPriceAtFire) * 100).toFixed(2) : null;
+          // Pattern correctness: bullish=correct if ret>1%, bearish=correct if ret<-1%
+          const correct = e.direction === 'bullish' ? retPct > 1 : e.direction === 'bearish' ? retPct < -1 : Math.abs(retPct) <= 3;
+          const verif = { priceAfter: cp, returnPct: retPct, spyReturn: spyRet, outperformedSpy: spyRet!=null?retPct>spyRet:null, correct, verifiedAt: now };
+          const upd = {};
+          if (!e.verification7d  && age >= VI_7D)  { upd.verification7d  = verif; patVerified++; }
+          if (!e.verification30d && age >= VI_30D) { upd.verification30d = verif; patVerified++; }
+          if (Object.keys(upd).length) patBatch.update(ref, upd);
+        });
+        await patBatch.commit();
+      }
+    } catch(e2) { console.warn('[VI-PAT] Verify error:', e2.message); }
+
+    res.json({ ok: true, verified: verifiedCount, patternFiresVerified: patVerified });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Phase 4: Pattern fire stats — aggregated win rates per pattern from verified fires
+app.get('/api/vi/pattern-stats', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const db   = admin.firestore();
+    const snap = await db.collection(VI_PAT_COL).limit(500).get();
+    const docs = snap.docs.map(d => d.data());
+    const stats = {};
+    docs.forEach(d => {
+      if (!stats[d.patternId]) stats[d.patternId] = { patternId: d.patternId, name: d.patternName, uses7d: 0, wins7d: 0, uses30d: 0, wins30d: 0, avgReturn7d: [], avgReturn30d: [] };
+      const s = stats[d.patternId];
+      if (d.verification7d)  { s.uses7d++;  if (d.verification7d.correct)  s.wins7d++;  s.avgReturn7d.push(d.verification7d.returnPct); }
+      if (d.verification30d) { s.uses30d++; if (d.verification30d.correct) s.wins30d++; s.avgReturn30d.push(d.verification30d.returnPct); }
+    });
+    // Compute averages
+    const result = Object.values(stats).map(s => ({
+      patternId:    s.patternId,
+      name:         s.name,
+      uses7d:       s.uses7d,
+      winRate7d:    s.uses7d > 0 ? +(s.wins7d / s.uses7d * 100).toFixed(1) : null,
+      avgReturn7d:  s.avgReturn7d.length > 0 ? +(s.avgReturn7d.reduce((a,b)=>a+b,0)/s.avgReturn7d.length).toFixed(2) : null,
+      uses30d:      s.uses30d,
+      winRate30d:   s.uses30d > 0 ? +(s.wins30d / s.uses30d * 100).toFixed(1) : null,
+      avgReturn30d: s.avgReturn30d.length > 0 ? +(s.avgReturn30d.reduce((a,b)=>a+b,0)/s.avgReturn30d.length).toFixed(2) : null,
+      dataQuality:  s.uses7d >= 20 ? 'validated' : s.uses7d >= 5 ? 'emerging' : 'insufficient',
+    })).sort((a, b) => (b.uses7d) - (a.uses7d));
+    res.json({ ok: true, stats: result, totalFires: docs.length });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -807,14 +947,21 @@ app.get('/api/live-prediction/:symbol', async (req, res) => {
     const startDt = new Date();
     startDt.setFullYear(startDt.getFullYear() - 1);
 
-    const barsResp = await axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`, {
-      headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec },
-      params:  { timeframe: '1Day', start: startDt.toISOString().split('T')[0], end: endDt.toISOString().split('T')[0], limit: 252, feed: 'iex' },
-      timeout: 15000,
-    });
-    const bars = (barsResp.data.bars || []).map(b => ({
-      close: b.c, high: b.h, low: b.l, open: b.o, volume: b.v, time: b.t,
-    }));
+    const _lpBarParams  = { timeframe: '1Day', start: startDt.toISOString().split('T')[0], end: endDt.toISOString().split('T')[0], limit: 252, feed: 'iex' };
+    const _lpBarHeaders = { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec };
+
+    // Phase 1+3: fetch symbol + SPY bars in parallel
+    const [barsResp, spyBarsRespLP] = await Promise.all([
+      axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`, { headers: _lpBarHeaders, params: _lpBarParams, timeout: 15000 }),
+      sym !== 'SPY'
+        ? axios.get('https://data.alpaca.markets/v2/stocks/SPY/bars', { headers: _lpBarHeaders, params: { ..._lpBarParams, limit: 40 }, timeout: 12000 }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    const bars    = (barsResp.data.bars || []).map(b => ({ close: b.c, high: b.h, low: b.l, open: b.o, volume: b.v, time: b.t }));
+    const spyBarsLP = spyBarsRespLP ? (spyBarsRespLP.data?.bars||[]).map(b=>({close:b.c})) : [];
+    const spyDataLP = spyBarsLP.length >= 10
+      ? { return10d: +((spyBarsLP[spyBarsLP.length-1].close - spyBarsLP[spyBarsLP.length-10].close) / spyBarsLP[spyBarsLP.length-10].close * 100).toFixed(2) }
+      : null;
     const indicators = _computeIndicators(bars);
 
     // 2. Brain analysis (with macro + sentiment context)
@@ -855,14 +1002,27 @@ app.get('/api/live-prediction/:symbol', async (req, res) => {
     // 7. Fear & Greed + VIX (shared cache)
     const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
 
-    // 8. Master intelligence scores (pass as hints for more accurate consensus)
-    const miResult = buildMasterIntelligence(sym, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
+    // Phase 1: Inject chart patterns into a MI-only brainResult copy so MI sees chart intelligence.
+    // buildLivePrediction handles chart patterns internally — using original brainResult avoids double-counting.
+    let brainForMILP = brainResult;
+    try {
+      const { analyzeChartStructure: _acs } = require('./livePatternMatcher');
+      const _lpLivePrice     = bars.length ? bars[bars.length - 1].close : null;
+      const _lpChartResult   = _acs(bars, _lpLivePrice, spyDataLP);
+      const _lpDirCharts     = _lpChartResult.patterns.filter(p => !p.isVolatilityWarning);
+      if (brainResult && _lpDirCharts.length > 0) {
+        brainForMILP = { ...brainResult, active_patterns: [...(brainResult.active_patterns || []), ..._lpDirCharts] };
+      }
+    } catch(e) { /* chart injection is non-critical */ }
 
-    // 9. Build live prediction
+    // 8. Master intelligence scores (brainForMILP includes chart patterns)
+    const miResult = buildMasterIntelligence(sym, indicators, brainForMILP, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
+
+    // 9. Build live prediction (original brainResult — chart patterns computed internally via spyDataLP)
     const { buildLivePrediction } = require('./livePatternMatcher');
     const result = buildLivePrediction(
       sym, bars, indicators, brainResult, signals, sentiment, edgar, macroSnapshot, fearGreed, vix,
-      miResult?.scoreBreakdown || null
+      miResult?.scoreBreakdown || null, spyDataLP
     );
 
     // Attach master intelligence score for UI context
@@ -872,6 +1032,21 @@ app.get('/api/live-prediction/:symbol', async (req, res) => {
       marketHealth: miResult.marketHealth,
       scoreBreakdown: miResult.scoreBreakdown,
     };
+
+    // Phase 4: Log individual pattern fires for forward-looking validation framework.
+    // Tracks each pattern's actual outcomes so win_rate can be computed from real data.
+    if (pipelineReady) {
+      const currentPrice = bars.length ? bars[bars.length-1].close : null;
+      const allFiredPats = [
+        ...(result.activeLivePatterns || []),
+        ...(result.chartStructure?.detectedPatterns || []),
+      ].filter(p => p.pattern_id && p.direction !== 'neutral');
+      if (allFiredPats.length > 0 && currentPrice) {
+        // Fetch SPY price for benchmark comparison at fire time
+        const spySnapshot = await _getSpyPrice(key, sec).catch(() => null);
+        viLogPatternFires(admin.firestore(), sym, allFiredPats, currentPrice, spySnapshot).catch(() => {});
+      }
+    }
 
     _lpCache[sym]     = result;
     _lpFetchedAt[sym] = now;
