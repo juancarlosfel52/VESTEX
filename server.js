@@ -726,10 +726,11 @@ app.get('/api/master-intelligence/:symbol', async (req, res) => {
       const now2 = Date.now();
       let catalystData = _catalystCache[sym];
       if (!catalystData || (now2 - (_catalystFetchedAt[sym] || 0) > CATALYST_TTL)) {
-        const headlines = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
-        const predDir   = result.decision?.toLowerCase().includes('buy') ? 'bullish'
-                        : result.decision?.toLowerCase().includes('sell') ? 'bearish' : 'neutral';
-        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir);
+        const headlines      = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
+        const sentimentEvts  = sentiment?.events || [];
+        const predDir        = result.decision?.toLowerCase().includes('buy') ? 'bullish'
+                             : result.decision?.toLowerCase().includes('sell') ? 'bearish' : 'neutral';
+        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir, sentimentEvts);
         _catalystCache[sym]     = catalystData;
         _catalystFetchedAt[sym] = now2;
         if (pipelineReady) storeCatalystEvents(admin.firestore(), sym, catalystData.events).catch(() => {});
@@ -1362,9 +1363,10 @@ app.get('/api/live-prediction/:symbol', async (req, res) => {
       const now2 = Date.now();
       let catalystData = _catalystCache[sym];
       if (!catalystData || (now2 - (_catalystFetchedAt[sym] || 0) > CATALYST_TTL)) {
-        const headlines = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
-        const predDir   = (result.direction || 'neutral').toLowerCase();
-        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir);
+        const headlines      = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
+        const sentimentEvts  = sentiment?.events || [];
+        const predDir        = (result.direction || 'neutral').toLowerCase();
+        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir, sentimentEvts);
         _catalystCache[sym]     = catalystData;
         _catalystFetchedAt[sym] = now2;
         if (pipelineReady) storeCatalystEvents(admin.firestore(), sym, catalystData.events).catch(() => {});

@@ -91,9 +91,18 @@ function isWithin(dateStr, days) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  1. EXTRACT EVENTS FROM NEWS HEADLINES (Claude Haiku)
+//  1. EXTRACT EVENTS FROM NEWS HEADLINES
+//  If preExtractedEvents are provided (from unified sentiment call),
+//  use them directly — no second Claude call needed.
+//  Falls back to its own Claude call only when no pre-extracted data exists.
 // ─────────────────────────────────────────────────────────────
-async function extractEventsFromHeadlines(symbol, company, headlines) {
+async function extractEventsFromHeadlines(symbol, company, headlines, preExtractedEvents) {
+  // Fast path: unified sentiment already extracted events — use them, skip Claude call
+  if (Array.isArray(preExtractedEvents) && preExtractedEvents.length > 0) {
+    console.log(`[CATALYST] ${symbol}: using ${preExtractedEvents.length} pre-extracted events from sentiment (skipping Claude call)`);
+    return preExtractedEvents;
+  }
+
   if (!CLAUDE_KEY || !headlines || headlines.length === 0) return [];
 
   const headlineList = headlines.slice(0, 8).map((h, i) => `${i + 1}. ${h}`).join('\n');
@@ -113,23 +122,28 @@ Return ONLY a JSON array. Each element must match this schema:
   "eventDate": "YYYY-MM-DD if date is mentioned, else null",
   "status": one of [CONFIRMED, RUMORED, PENDING, SCHEDULED, COMPLETED, CANCELLED, UNKNOWN],
   "expectedDirection": one of [BULLISH, BEARISH, NEUTRAL],
-  "impactScore": integer 1-10 (how significant this event is),
+  "impactScore": integer 1-10,
+  "impactMagnitude": "low" | "medium" | "high",
+  "impactDuration": "1d" | "1w" | "1m",
+  "durationDays": integer (1 for 1d, 7 for 1w, 30 for 1m),
+  "materialityScore": integer 0-100,
+  "confirmed": true | false,
   "summary": "One plain-English sentence. No jargon. Max 20 words."
 }
 
 Rules:
 - Return [] if no real events are found
-- impactScore 8-10 = major (earnings beats, acquisitions, CEO exits)
-- impactScore 5-7 = moderate (product launches, analyst calls, partnerships)
-- impactScore 1-4 = minor (routine filings, minor analyst notes)
+- impactScore 8-10 = major (earnings, acquisitions, CEO exits)
+- impactScore 5-7 = moderate (launches, analyst calls, partnerships)
+- impactScore 1-4 = minor (routine filings, minor notes)
 - Do NOT extract general market commentary as events
 - Do NOT return markdown, only the JSON array`;
 
   try {
     const res = await axios.post(CLAUDE_API, {
-      model: MODEL,
-      max_tokens: 600,
-      messages: [{ role: 'user', content: prompt }],
+      model:      MODEL,
+      max_tokens: 700,
+      messages:   [{ role: 'user', content: prompt }],
     }, {
       headers: {
         'x-api-key':         CLAUDE_KEY,
@@ -199,19 +213,34 @@ function extractEventsFromEdgar(symbol, edgar) {
                       : eventType === EVENT_TYPES.LEGAL_ACTION         ? 6
                       : 5;
 
+    // Duration by event type: earnings/filings decay faster; legal/M&A linger
+    const durationDays = eventType === EVENT_TYPES.MERGER_ACQUISITION ? 30
+                       : eventType === EVENT_TYPES.LEGAL_ACTION        ? 30
+                       : eventType === EVENT_TYPES.REGULATORY_ACTION   ? 14
+                       : eventType === EVENT_TYPES.CEO_CHANGE           ? 14
+                       : eventType === EVENT_TYPES.GUIDANCE_CHANGE      ? 7
+                       : eventType === EVENT_TYPES.EARNINGS             ? 3
+                       : 3;
+
     events.push({
       eventType,
-      eventTitle: filing.label || `${form} Filing`,
-      eventDate:  filing.date || null,
-      status:     'CONFIRMED',
-      expectedDirection: eventType === EVENT_TYPES.EARNINGS    ? 'NEUTRAL'  // can go either way
+      eventTitle:        filing.label || `${form} Filing`,
+      eventDate:         filing.date  || null,
+      status:            'CONFIRMED',
+      expectedDirection: eventType === EVENT_TYPES.EARNINGS    ? 'NEUTRAL'
                        : eventType === EVENT_TYPES.LEGAL_ACTION ? 'BEARISH'
                        : eventType === EVENT_TYPES.LAYOFFS       ? 'BEARISH'
                        : eventType === EVENT_TYPES.SHARE_BUYBACK ? 'BULLISH'
                        : 'NEUTRAL',
       impactScore,
-      summary: `${form} filing on ${filing.date || 'unknown date'}.`,
-      source:  'edgar',
+      impactMagnitude:   impactScore >= 8 ? 'high' : impactScore >= 5 ? 'medium' : 'low',
+      impactDuration:    durationDays >= 14 ? '1m' : durationDays >= 7 ? '1w' : '1d',
+      durationDays,
+      materialityScore:  impactScore * 10,
+      confirmed:         true,
+      summary:           `${form} filing on ${filing.date || 'unknown date'}.`,
+      source:            'edgar',
+      sourceType:        'sec_filing',
     });
   }
 
@@ -284,16 +313,21 @@ function computeCatalystModifier(events, predictionDirection) {
     const isConfirmed   = ev.status === 'CONFIRMED' || ev.status === 'SCHEDULED';
     const evDir         = (ev.expectedDirection || 'NEUTRAL').toLowerCase();
 
-    // Impact decay: closer = stronger
+    // Impact decay: closer = stronger; past events decay over their durationDays window
+    const dur = ev.durationDays || 3; // fallback 3 days for events without duration
     let timeFactor = 0.3; // no date or far future
-    if (hasDate) {
-      if (days !== null && days <= 7)  timeFactor = 1.0;
-      else if (days !== null && days <= 14) timeFactor = 0.7;
-      else if (days !== null && days <= 30) timeFactor = 0.5;
-      else if (days !== null && days <= 60) timeFactor = 0.3;
-      // past events (days < 0): completed events carry less weight
-      else if (days !== null && days < 0 && days >= -7) timeFactor = 0.4;
-      else if (days !== null && days < -7) timeFactor = 0.15;
+    if (hasDate && days !== null) {
+      if (days >= 0 && days <= 7)   timeFactor = 1.0;
+      else if (days <= 14)          timeFactor = 0.7;
+      else if (days <= 30)          timeFactor = 0.5;
+      else if (days <= 60)          timeFactor = 0.3;
+      // past events: linear decay over durationDays window
+      else if (days < 0 && -days <= dur) {
+        timeFactor = Math.max(0.05, 0.5 * (1 - (-days / dur)));
+      }
+      else if (days < 0)            timeFactor = 0; // outside event's impact window — expired
+    } else if (!hasDate) {
+      timeFactor = 0.25; // no date = low weight
     }
 
     // Rumored event = weaker impact; confirmed/scheduled = full impact
@@ -381,7 +415,9 @@ async function storeCatalystEvents(db, symbol, events) {
 //  7. MAIN — analyzeCatalysts(symbol, headlines, edgar)
 //    Returns { events[], modifier: { confidenceDelta, warnings[], activeCatalysts[] } }
 // ─────────────────────────────────────────────────────────────
-async function analyzeCatalysts(symbol, headlines, edgar, predictionDirection) {
+// sentimentEvents: pre-extracted structured events from the unified sentiment call.
+// When provided, the headline Claude call is skipped entirely (one fewer API call per symbol).
+async function analyzeCatalysts(symbol, headlines, edgar, predictionDirection, sentimentEvents) {
   const company = {
     AAPL: 'Apple', TSLA: 'Tesla', GOOGL: 'Google', MSFT: 'Microsoft', AMZN: 'Amazon',
   }[symbol] || symbol;
@@ -389,8 +425,8 @@ async function analyzeCatalysts(symbol, headlines, edgar, predictionDirection) {
   try {
     // Gather events from all sources in parallel
     const [newsEvents, fedEvents] = await Promise.all([
-      CLAUDE_KEY
-        ? extractEventsFromHeadlines(symbol, company, headlines || [])
+      (CLAUDE_KEY || (Array.isArray(sentimentEvents) && sentimentEvents.length > 0))
+        ? extractEventsFromHeadlines(symbol, company, headlines || [], sentimentEvents || [])
         : Promise.resolve([]),
       Promise.resolve(getFedCalendarEvents()),
     ]);

@@ -89,58 +89,104 @@ async function fetchHeadlines(symbol) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ANALYZE WITH CLAUDE
+//  ANALYZE WITH CLAUDE — unified sentiment + event extraction
+//  One call per symbol. Returns sentiment fields AND structured
+//  investment events so catalystEngine can skip its own Claude call.
 // ═══════════════════════════════════════════════════════════
 async function analyzeSentiment(symbol, headlines) {
-  const company = COMPANY_NAMES[symbol];
+  const company      = COMPANY_NAMES[symbol];
   const headlineList = headlines.map((h, i) => `${i + 1}. ${h}`).join('\n');
 
-  const prompt = `You are a financial analyst assistant for a beginner-friendly stock app called VESTEX.
+  const EVENT_TYPES_LIST = [
+    'EARNINGS','PRODUCT_LAUNCH','MERGER_ACQUISITION','REGULATORY_ACTION',
+    'CEO_CHANGE','LAYOFFS','GUIDANCE_CHANGE','ANALYST_UPGRADE',
+    'ANALYST_DOWNGRADE','LEGAL_ACTION','PARTNERSHIP','SHARE_BUYBACK',
+    'DIVIDEND_CHANGE','MACRO_EVENT','NONE',
+  ].join('|');
 
-Analyze these recent news headlines for ${company} (${symbol}) stock:
+  const prompt = `You are a financial analyst engine for VESTEX. Analyze these news headlines for ${company} (${symbol}).
 
+Headlines:
 ${headlineList}
 
-Respond with ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format:
 {
   "overall": "positive" | "negative" | "neutral",
-  "score": number between -100 (very bad) and 100 (very good),
-  "summary": "One sentence in plain English explaining the overall news sentiment. No jargon. Write as if explaining to someone who just started investing.",
-  "impact": "One sentence on how this news might affect the stock price. Keep it simple.",
+  "score": integer -100 to 100,
+  "summary": "One plain-English sentence on overall news tone. Max 20 words.",
+  "impact": "One sentence on likely stock price effect. Max 20 words.",
   "headlines": [
     {
-      "text": "headline text here",
+      "text": "exact headline text",
       "sentiment": "positive" | "negative" | "neutral",
-      "why": "10 words max explaining why in plain English"
+      "why": "10 words max — plain English reason",
+      "eventType": "${EVENT_TYPES_LIST}",
+      "impactMagnitude": "low" | "medium" | "high",
+      "impactDuration": "1d" | "1w" | "1m",
+      "materialityScore": integer 0-100,
+      "eventDate": "YYYY-MM-DD if a date is explicitly mentioned, else null",
+      "confirmed": true | false
     }
   ]
 }
 
 Rules:
-- Use ONLY plain English — no finance jargon
-- "positive" means good for the stock price
-- "negative" means bad for the stock price
-- "neutral" means no major impact expected
-- Keep summary and impact under 20 words each`;
+- eventType = NONE for general commentary, market noise, or opinion pieces
+- eventType = the specific investment event if one is clearly described
+- impactMagnitude: low = minor news, medium = notable, high = major event (earnings, M&A, CEO exit, regulatory)
+- impactDuration: 1d = short-lived reaction, 1w = multi-day impact, 1m = sustained effect (mergers, regulatory, leadership)
+- materialityScore: how much this could move the stock (0 = noise, 100 = landmark event)
+- confirmed = true only if the event is stated as fact; false for rumors, speculation, or pending
+- Use plain English only — no finance jargon in summary, impact, or why fields`;
 
   const res = await axios.post(CLAUDE_API, {
-    model: MODEL,
-    max_tokens: 800,
-    messages: [{ role: 'user', content: prompt }]
+    model:      MODEL,
+    max_tokens: 1400,
+    messages:   [{ role: 'user', content: prompt }],
   }, {
     headers: {
       'x-api-key':         CLAUDE_KEY,
       'anthropic-version': '2023-06-01',
       'content-type':      'application/json',
     },
-    timeout: 15000,
+    timeout: 18000,
   });
 
   const raw  = res.data.content[0].text.trim();
-  // Extract JSON even if Claude adds extra text
   const json = raw.match(/\{[\s\S]*\}/)?.[0];
   if (!json) throw new Error('No JSON in Claude response');
   return JSON.parse(json);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Convert enriched headline objects → catalyst-compatible events[]
+//  Called after Claude returns — extracts only headlines with a real eventType.
+// ─────────────────────────────────────────────────────────────
+function extractStructuredEvents(headlines) {
+  if (!Array.isArray(headlines)) return [];
+
+  return headlines
+    .filter(h => h.eventType && h.eventType !== 'NONE')
+    .map(h => {
+      const dur = h.impactDuration === '1m' ? 30 : h.impactDuration === '1w' ? 7 : 1;
+      const mat = typeof h.materialityScore === 'number' ? h.materialityScore : 50;
+      return {
+        eventType:        h.eventType,
+        eventTitle:       typeof h.text === 'string' ? h.text.substring(0, 70) : 'News Event',
+        eventDate:        h.eventDate || null,
+        status:           h.confirmed ? 'CONFIRMED' : 'RUMORED',
+        expectedDirection: h.sentiment === 'positive' ? 'BULLISH'
+                         : h.sentiment === 'negative' ? 'BEARISH' : 'NEUTRAL',
+        impactScore:      Math.max(1, Math.min(10, Math.round(mat / 10))),
+        impactMagnitude:  h.impactMagnitude || 'low',
+        impactDuration:   h.impactDuration  || '1d',
+        durationDays:     dur,
+        materialityScore: mat,
+        summary:          h.why || '',
+        source:           'news_unified',
+        sourceType:       'headline',
+      };
+    });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -157,16 +203,20 @@ async function runSentimentAnalysis() {
       const headlines = await fetchHeadlines(symbol);
       console.log(`[SENTIMENT] ${symbol}: ${headlines.length} headlines fetched`);
 
-      const analysis = await analyzeSentiment(symbol, headlines);
+      const analysis   = await analyzeSentiment(symbol, headlines);
+      const rawHeads   = analysis.headlines || headlines.map(h => ({ text: h, sentiment: 'neutral', why: '', eventType: 'NONE', impactMagnitude: 'low', impactDuration: '1d', materialityScore: 0, eventDate: null, confirmed: false }));
+      const events     = extractStructuredEvents(rawHeads);
+
       results[symbol] = {
         symbol,
         company:   COMPANY_NAMES[symbol],
         ...analysis,
-        headlines: analysis.headlines || headlines.map(h => ({ text: h, sentiment: 'neutral', why: '' })),
+        headlines: rawHeads,
+        events,           // structured investment events → fed to catalystEngine
         fetchedAt: new Date().toISOString(),
       };
 
-      console.log(`[SENTIMENT] ${symbol}: ${analysis.overall} (score: ${analysis.score})`);
+      console.log(`[SENTIMENT] ${symbol}: ${analysis.overall} (score: ${analysis.score}, events: ${events.length})`);
 
       // Delay between Claude calls to be safe
       await new Promise(r => setTimeout(r, 1000));
@@ -175,13 +225,14 @@ async function runSentimentAnalysis() {
       console.error(`[SENTIMENT] Error for ${symbol}:`, e.message);
       results[symbol] = {
         symbol,
-        company:  COMPANY_NAMES[symbol],
-        overall:  'neutral',
-        score:    0,
-        summary:  'Unable to analyze news at this time.',
-        impact:   'Check back later.',
+        company:   COMPANY_NAMES[symbol],
+        overall:   'neutral',
+        score:     0,
+        summary:   'Unable to analyze news at this time.',
+        impact:    'Check back later.',
         headlines: [],
-        error:    e.message,
+        events:    [],
+        error:     e.message,
         fetchedAt: new Date().toISOString(),
       };
     }
@@ -203,4 +254,4 @@ async function storeSentiment(admin, results) {
   console.log('[SENTIMENT] Stored to Firestore');
 }
 
-module.exports = { runSentimentAnalysis, storeSentiment };
+module.exports = { runSentimentAnalysis, storeSentiment, extractStructuredEvents };
