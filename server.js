@@ -357,6 +357,77 @@ app.get('/api/sentiment', async (req, res) => {
   res.json({ ok: false, error: 'Sentiment not yet loaded' });
 });
 
+// ── API: News headlines — always works, no Claude key needed ──
+// Returns raw RSS headlines with basic keyword sentiment as fallback.
+// If full liveSentiment is already cached, includes that too.
+app.get('/api/news/headlines', async (req, res) => {
+  const axios = require('axios');
+  const SYMS  = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
+  const NAMES = { AAPL:'Apple', TSLA:'Tesla', GOOGL:'Google', MSFT:'Microsoft', AMZN:'Amazon' };
+
+  function decodeEntities(str) {
+    return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+              .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'");
+  }
+  function parseTitles(xml, skip) {
+    const cdata = [...xml.matchAll(/<title><!\[CDATA\[(.*?)\]\]><\/title>/gs)].map(m=>m[1].trim());
+    const plain = [...xml.matchAll(/<title>([^<]{10,})<\/title>/gs)].map(m=>m[1].trim());
+    return (cdata.length ? cdata : plain)
+      .map(decodeEntities)
+      .filter(t => !skip.some(p => t.toLowerCase().includes(p)) && t.length > 15)
+      .slice(0, 6);
+  }
+  function keywordSentiment(title) {
+    const t = title.toLowerCase();
+    const pos = ['beat','record','surge','jump','rise','gain','profit','growth','strong','buy','upgrade','bullish','high','up','positive','exceed','launch','deal','partnership'];
+    const neg = ['miss','fall','drop','crash','loss','decline','weak','sell','downgrade','bearish','low','cut','layoff','lawsuit','recall','fine','fraud','concern','risk','warning'];
+    const ps  = pos.filter(w => t.includes(w)).length;
+    const ns  = neg.filter(w => t.includes(w)).length;
+    if (ps > ns) return 'positive';
+    if (ns > ps) return 'negative';
+    return 'neutral';
+  }
+
+  const results = {};
+  await Promise.allSettled(SYMS.map(async sym => {
+    // If full Claude analysis exists, use it
+    if (sentimentCache[sym]) { results[sym] = sentimentCache[sym]; return; }
+
+    const company = NAMES[sym];
+    const encoded = encodeURIComponent(`${company} stock`);
+    const sources = [
+      { url: `https://news.google.com/rss/search?q=${encoded}&hl=en-US&gl=US&ceid=US:en`, skip: ['google news','google llc'] },
+      { url: `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${sym}&region=US&lang=en-US`, skip: ['yahoo finance','yahoo!'] },
+    ];
+    const HEADERS = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml,*/*' };
+    let titles = [];
+    for (const src of sources) {
+      try {
+        const r = await axios.get(src.url, { timeout: 8000, headers: HEADERS });
+        titles  = parseTitles(r.data, src.skip);
+        if (titles.length >= 2) break;
+      } catch(e) {}
+    }
+    if (!titles.length) titles = [`No recent headlines for ${company}`];
+
+    const scored    = titles.map(t => ({ text: t, sentiment: keywordSentiment(t), why: '' }));
+    const posCount  = scored.filter(h => h.sentiment === 'positive').length;
+    const negCount  = scored.filter(h => h.sentiment === 'negative').length;
+    const overall   = posCount > negCount ? 'positive' : negCount > posCount ? 'negative' : 'neutral';
+    const score     = Math.round(((posCount - negCount) / titles.length) * 60);
+    results[sym] = {
+      symbol: sym, company, overall, score,
+      summary:   `${titles.length} recent headlines — ${posCount} positive, ${negCount} negative, ${titles.length-posCount-negCount} neutral.`,
+      impact:    'Keyword-based analysis — enable Claude AI for deeper insight.',
+      headlines: scored,
+      fetchedAt: new Date().toISOString(),
+      source:    'rss_keywords',
+    };
+  }));
+
+  res.json({ ok: true, data: results, aiEnabled: !!process.env.CLAUDE_API_KEY });
+});
+
 // ── API: Refresh sentiment now ──
 app.post('/api/sentiment/refresh', async (req, res) => {
   if (!process.env.CLAUDE_API_KEY) return res.json({ ok: false, error: 'CLAUDE_API_KEY not set' });

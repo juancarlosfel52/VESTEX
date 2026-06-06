@@ -3256,8 +3256,26 @@ function plbRender() {
   }).join('');
 }
 
-function renderNewsFull() {
+async function renderNewsFull() {
   const lastEl = document.getElementById('news-last-updated');
+  const fullEl = document.getElementById('news-full');
+
+  // Always try the headlines endpoint first — works with or without Claude key
+  if (!liveSentiment || !Object.keys(liveSentiment).length) {
+    if (fullEl) fullEl.innerHTML = '<div class="empty" style="padding:32px;text-align:center;letter-spacing:1px;color:var(--gray);">◆ Loading headlines…</div>';
+    try {
+      const r    = await fetch('/api/news/headlines');
+      const data = await r.json();
+      if (data.ok && Object.keys(data.data).length) {
+        liveSentiment = data.data;
+        if (lastEl) {
+          lastEl.textContent = data.aiEnabled
+            ? '◆ AI-analyzed headlines · Powered by Claude'
+            : '◆ Live RSS headlines · Add CLAUDE_API_KEY for AI analysis';
+        }
+      }
+    } catch(e) {}
+  }
 
   if (liveSentiment && Object.keys(liveSentiment).length) {
     // Update last-refreshed timestamp
@@ -3353,8 +3371,9 @@ async function newsRefresh() {
   const lastEl = document.getElementById('news-last-updated');
   if (btn) { btn.textContent = '↻ Refreshing…'; btn.disabled = true; }
   if (lastEl) lastEl.textContent = '◆ Refreshing…';
+  liveSentiment = null; // force re-fetch
   await fetchSentiment();
-  renderNewsFull();
+  await renderNewsFull();
   if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
 }
 
