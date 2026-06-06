@@ -72,21 +72,31 @@ function calcTechnicalScore(indicators) {
 // ── Brain Vault: 0–20 pts ─────────────────────────────────
 function calcBrainScore(brainResult) {
   if (!brainResult?.brainVault) return { score: 0, detail: {}, activePercent: 0, patterns: [] };
-  const bv = brainResult.brainVault;
+  const bv     = brainResult.brainVault;
+  const active = brainResult.active_patterns || [];
   let score = (bv.activePercent / 100) * 20;
 
-  // Direction modifier from score breakdown
-  const sb = bv.scoreBreakdown || {};
+  // Bug fix: field is 'weighted', not 'weightedScore'
+  const sb   = bv.scoreBreakdown || {};
   const bull = ['technical','psychology','research','marketHistory']
-    .reduce((s, k) => s + Math.max(0, sb[k]?.weightedScore || 0), 0);
+    .reduce((s, k) => s + Math.max(0, sb[k]?.weighted || 0), 0);
   const bear = ['economy']
-    .reduce((s, k) => s + Math.min(0, sb[k]?.weightedScore || 0), 0);
+    .reduce((s, k) => s + Math.min(0, sb[k]?.weighted || 0), 0);
   if (bull < 0.05 || bear < -0.05) score *= 0.75;
+
+  // Direction weighting: bullish-majority patterns preserve score; bearish-majority reduces it
+  const bullFired = active.filter(p => p.direction === 'bullish').length;
+  const bearFired = active.filter(p => p.direction === 'bearish').length;
+  const dirTotal  = bullFired + bearFired;
+  if (dirTotal > 0) {
+    const dirRatio = (bullFired - bearFired) / dirTotal; // -1 (all bear) to +1 (all bull)
+    score *= (0.75 + 0.25 * dirRatio); // 0.5× to 1.0×
+  }
 
   return {
     score:         Math.min(20, Math.max(0, +score.toFixed(1))),
     activePercent: bv.activePercent,
-    patterns:      (brainResult.active_patterns || []).slice(0, 5),
+    patterns:      active.slice(0, 10),  // increased from 5 for better agreement sampling
     detail:        sb,
   };
 }
@@ -418,12 +428,15 @@ function buildConfidenceBreakdown(tech, brain, signal, regime, macro, sent, fund
   const patternCount = brain.patterns.length;
   let patternAgreePts = 0;
   if (patternCount > 0) {
-    const bullish = brain.patterns.filter(p => (p.impact || p.score || 0) > 0).length;
-    patternAgreePts = Math.round((bullish / patternCount) * Math.min(20, patternCount * 4));
+    // Bug fix: use p.direction ('bullish'/'bearish'/'neutral') not p.impact (string) or p.score (undefined)
+    const bullishPats = brain.patterns.filter(p => p.direction === 'bullish').length;
+    const bearishPats = brain.patterns.filter(p => p.direction === 'bearish').length;
+    patternAgreePts = Math.round((bullishPats / patternCount) * Math.min(20, patternCount * 4));
   } else if (brain.activePercent > 0) {
     patternAgreePts = Math.min(10, Math.round(brain.activePercent / 100 * 12));
   }
-  const pctAgree = patternCount > 0 ? Math.round(brain.patterns.filter(p=>(p.impact||p.score||0)>0).length/patternCount*100) : 0;
+  const bullishPatsCounted = brain.patterns.filter(p => p.direction === 'bullish').length;
+  const pctAgree = patternCount > 0 ? Math.round(bullishPatsCounted / patternCount * 100) : 0;
   breakdown.push({ label: 'Pattern Agreement', pts: patternAgreePts, note: patternCount > 0 ? `${patternCount} active patterns — ${pctAgree}% bullish alignment` : 'No named patterns active' });
   total += patternAgreePts;
 
@@ -528,10 +541,13 @@ function buildDecisionExplanation(sym, masterScore, decision, tech, brain, sent,
   if (tech.detail?.volume?.pts >= 2) bullish.push('Volume spike — institutional participation confirms the move');
 
   // Brain vault patterns
+  // Bug fix: classify by p.direction ('bullish'/'bearish'/'neutral'), not p.impact (string) or p.score (undefined)
+  // Bug fix: win rate field is p.win_rate, not p.winRate
   brain.patterns.forEach(p => {
-    const wr = p.winRate ? ` (${(typeof p.winRate === 'number' ? p.winRate : 0).toFixed(0)}% win rate)` : '';
-    if ((p.impact || p.score || 0) >= 0) bullish.push(`${p.name}${wr} — ${p.reason || 'active historical pattern'}`);
-    else bearish.push(`${p.name} — bearish pattern firing`);
+    const wr = (typeof p.win_rate === 'number') ? ` (${p.win_rate.toFixed(0)}% win rate)` : '';
+    if (p.direction === 'bullish')      bullish.push(`${p.name}${wr} — ${p.reason || 'active historical pattern'}`);
+    else if (p.direction === 'bearish') bearish.push(`${p.name} — bearish pattern active${wr}`);
+    // neutral patterns: omit from both lists
   });
 
   // Regime
