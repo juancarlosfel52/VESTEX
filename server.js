@@ -1293,23 +1293,31 @@ app.get('/api/brain-integrity', async (req, res) => {
   // CAT 3 — Firestore / Memory Health (weight 15%)
   // ════════════════════════════════════════════════════════════
   let cat3 = 0;
-  let viCount = 0, patCount = 0, sentFSCount = 0, catPerfCount = 0;
+  let viCount = 0, patCount = 0, sentFSCount = 0, catPerfCount = 0, brainAgeDays = null;
 
   // pipelineReady: 25 pts
   if (pipelineReady) {
     cat3 += 25;
     try {
       const db = admin.firestore();
-      const [viSnap, patSnap, sentSnap, catSnap] = await Promise.all([
+      const [viSnap, patSnap, sentSnap, catSnap, firstPredSnap] = await Promise.all([
         db.collection(VI_COL).limit(1).get().catch(() => null),
         db.collection(VI_PAT_COL).limit(1).get().catch(() => null),
         db.collection('sentiment').limit(1).get().catch(() => null),
         db.collection('catalyst_performance').limit(1).get().catch(() => null),
+        db.collection(VI_COL).orderBy('timestamp', 'asc').limit(1).get().catch(() => null),
       ]);
       viCount      = viSnap?.size  || 0;
       patCount     = patSnap?.size || 0;
       sentFSCount  = sentSnap?.size || 0;
       catPerfCount = catSnap?.size  || 0;
+      if (firstPredSnap && !firstPredSnap.empty) {
+        const firstDate = firstPredSnap.docs[0].data().date;
+        if (firstDate) {
+          const ageMs = now - new Date(firstDate + 'T00:00:00').getTime();
+          brainAgeDays = Math.max(0, Math.floor(ageMs / 86400000));
+        }
+      }
     } catch(e) { warnings.push('Firestore query failed during integrity check'); }
 
     // vi_predictions: 25 pts
@@ -1525,6 +1533,7 @@ app.get('/api/brain-integrity', async (req, res) => {
       patternCount:      brainDiag?.loadedPatterns || null,
       evalRate:          brainDiag?.activePercent  || null,
       registryEntries:   regKeys.length,
+      brainAgeDays,
     },
     lastAuditAt: nowISO,
   });

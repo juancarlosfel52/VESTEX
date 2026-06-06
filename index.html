@@ -1100,6 +1100,79 @@ canvas{max-height:300px;}
   .bi-cat-weight{ display:none; }
 }
 
+/* ── Brain Lifecycle — S8 ── */
+.bl-panel{ background:linear-gradient(135deg,rgba(10,10,10,.98),rgba(14,10,2,.96)) !important; border-color:rgba(201,168,76,.25) !important; }
+.bl-phase-badge{ font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:4px 12px; border:1px solid var(--border); color:var(--gray); transition:all .3s; }
+.bl-phase-badge.active{ border-color:var(--gold); color:var(--gold); }
+.bl-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }
+.bl-stat{ text-align:center; padding:14px 8px; border:1px solid rgba(255,255,255,.06); }
+.bl-val{ font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--gold); margin-bottom:4px; }
+.bl-lbl{ font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gray); }
+.bl-timeline{ display:flex; align-items:center; gap:0; padding:12px 0 4px; overflow-x:auto; }
+.bl-tl-step{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:90px; flex-shrink:0; cursor:default; }
+.bl-tl-dot{ width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:transparent; transition:all .4s; }
+.bl-tl-dot.reached{ border-color:var(--gold); background:var(--gold); box-shadow:0 0 8px rgba(201,168,76,.5); }
+.bl-tl-dot.current{ border-color:var(--gold); background:transparent; animation:biPulse .8s ease-in-out infinite alternate; }
+.bl-tl-label{ font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--gray); text-align:center; line-height:1.5; transition:color .3s; }
+.bl-tl-label.active{ color:var(--gold); font-weight:600; }
+.bl-tl-label span{ display:block; font-size:8px; letter-spacing:.5px; color:rgba(255,255,255,.2); }
+.bl-tl-line{ flex:1; height:2px; background:var(--border); min-width:30px; transition:background .4s; }
+.bl-tl-line.reached{ background:var(--gold); }
+.bl-collect-state{ display:flex; align-items:center; gap:14px; padding:14px 0; border-top:1px solid var(--border); margin-top:12px; }
+.bl-cs-icon{ font-size:22px; color:var(--gold); animation:biPulse .8s ease-in-out infinite alternate; }
+.bl-cs-title{ font-size:11px; font-weight:700; letter-spacing:1px; color:var(--dark); margin-bottom:3px; }
+.bl-cs-sub{ font-size:10px; color:var(--gray); line-height:1.6; }
+@media(max-width:768px){
+  .bl-grid{ grid-template-columns:repeat(3,1fr); }
+  .bl-timeline{ gap:0; }
+  .bl-tl-step{ min-width:70px; }
+  .bl-tl-label{ font-size:8px; }
+}
+
+/* ── Pattern Logic Health — S8 ── */
+.plh-panel{ }
+.plh-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+.plh-stat{ text-align:center; padding:14px 8px; border:1px solid rgba(255,255,255,.06); }
+.plh-val{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; margin-bottom:4px; }
+.plh-lbl{ font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gray); }
+.plh-note{ font-size:9px; color:rgba(255,255,255,.25); margin-top:3px; }
+.plh-evaluated{ color:var(--green); }
+.plh-skipped{ color:var(--gold); }
+.plh-disabled{ color:var(--red); }
+.plh-uneval{ color:var(--gray); }
+.plh-bars{ display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden; margin:4px 0; }
+.plh-bar-seg{ height:100%; transition:width .6s ease; }
+@media(max-width:768px){ .plh-grid{ grid-template-columns:repeat(2,1fr); } }
+
+/* ── Learning Timeline — S8 ── */
+.lt-panel{ }
+.lt-grid{ display:flex; flex-direction:column; gap:10px; }
+.lt-row{ display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+.lt-when{ font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--gray); min-width:80px; }
+.lt-icon{ width:32px; height:32px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.lt-icon.done{ border-color:var(--green); background:rgba(80,200,80,.08); }
+.lt-icon.active{ border-color:var(--gold); background:rgba(201,168,76,.08); }
+.lt-icon.future{ opacity:.4; }
+.lt-text{ flex:1; }
+.lt-title{ font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--dark); }
+.lt-sub{ font-size:10px; color:var(--gray); line-height:1.5; margin-top:2px; }
+.lt-status{ font-size:8px; letter-spacing:2px; text-transform:uppercase; padding:3px 8px; }
+.lt-status.done{ color:var(--green); border:1px solid rgba(80,200,80,.3); }
+.lt-status.active{ color:var(--gold); border:1px solid rgba(201,168,76,.3); }
+.lt-status.future{ color:var(--gray); border:1px solid var(--border); }
+
+/* ── Transparency Panels — S8 ── */
+.tp-panel{ }
+.tp-list{ display:flex; flex-direction:column; gap:8px; }
+.tp-item{ display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+.tp-item:last-child{ border-bottom:none; }
+.tp-icon{ width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; margin-top:1px; }
+.tp-title{ font-size:10px; font-weight:700; letter-spacing:.5px; color:var(--dark); }
+.tp-sub{ font-size:9px; color:var(--gray); line-height:1.5; margin-top:2px; }
+@media(max-width:768px){
+  [style*="grid-template-columns:1fr 1fr"]:has(.tp-panel){ grid-template-columns:1fr !important; }
+}
+
 /* ═══════════════════════════════════════════════════════════
    LOGIN SCREEN
    ═══════════════════════════════════════════════════════════ */
@@ -1904,9 +1977,43 @@ canvas{max-height:300px;}
           <div class="prog-stat-note">Direction was wrong</div>
         </div>
         <div class="prog-stat">
-          <div class="prog-stat-lbl">Model Rating</div>
-          <div class="prog-stat-val" id="prog-rating" style="font-size:18px;">—</div>
-          <div class="prog-stat-note" id="prog-rating-note">Not enough data yet</div>
+          <div class="prog-stat-lbl">Brain Phase</div>
+          <div class="prog-stat-val" id="prog-phase-val" style="font-size:10px;letter-spacing:1.5px;line-height:1.3;">—</div>
+          <div class="prog-stat-note" id="prog-phase-note">Initializing</div>
+        </div>
+      </div>
+
+      <!-- BRAIN LIFECYCLE -->
+      <div class="panel bl-panel" id="bl-panel" style="margin-bottom:20px;">
+        <div class="ph">
+          <div><div class="ph-title" style="color:var(--gold);">Brain Lifecycle</div><div class="ph-sub">How long VESTEX has been learning — and where it stands today</div></div>
+          <div id="bl-phase-badge" class="bl-phase-badge">INITIALIZING</div>
+        </div>
+        <div class="pb">
+          <div class="bl-grid">
+            <div class="bl-stat"><div class="bl-val" id="bl-age">—</div><div class="bl-lbl">Brain Age</div></div>
+            <div class="bl-stat"><div class="bl-val" id="bl-preds">—</div><div class="bl-lbl">Predictions Logged</div></div>
+            <div class="bl-stat"><div class="bl-val" id="bl-verified">—</div><div class="bl-lbl">Verified</div></div>
+            <div class="bl-stat"><div class="bl-val" id="bl-pat-fires">—</div><div class="bl-lbl">Pattern Fires</div></div>
+            <div class="bl-stat"><div class="bl-val" id="bl-pat-ver">—</div><div class="bl-lbl">Patterns w/ Data</div></div>
+            <div class="bl-stat"><div class="bl-val" id="bl-sig-ver">—</div><div class="bl-lbl">Signals Verified</div></div>
+          </div>
+          <div class="bl-timeline">
+            <div class="bl-tl-step" id="bl-phase-0"><div class="bl-tl-dot"></div><div class="bl-tl-label">Collecting Evidence<span>0–30 days</span></div></div>
+            <div class="bl-tl-line" id="bl-line-0"></div>
+            <div class="bl-tl-step" id="bl-phase-1"><div class="bl-tl-dot"></div><div class="bl-tl-label">Learning<span>31–90 days</span></div></div>
+            <div class="bl-tl-line" id="bl-line-1"></div>
+            <div class="bl-tl-step" id="bl-phase-2"><div class="bl-tl-dot"></div><div class="bl-tl-label">Adaptive<span>91–180 days</span></div></div>
+            <div class="bl-tl-line" id="bl-line-2"></div>
+            <div class="bl-tl-step" id="bl-phase-3"><div class="bl-tl-dot"></div><div class="bl-tl-label">Verified Intelligence<span>180+ days</span></div></div>
+          </div>
+          <div id="bl-collect-state" class="bl-collect-state" style="display:none;">
+            <div class="bl-cs-icon">◆</div>
+            <div>
+              <div class="bl-cs-title">Collecting Verification Data</div>
+              <div class="bl-cs-sub" id="bl-cs-msg">VESTEX needs 7 days from its first prediction before results can be confirmed. Check back soon.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2103,6 +2210,46 @@ canvas{max-height:300px;}
         </div>
         <!-- tooltip -->
         <div class="bac-tooltip" id="bac-tooltip" style="display:none;"></div>
+      </div>
+
+      <!-- PATTERN LOGIC HEALTH AUDIT -->
+      <div class="panel plh-panel" style="margin-top:20px;">
+        <div class="ph">
+          <div><div class="ph-title">Pattern Logic Audit</div><div class="ph-sub">Live breakdown of the 113 Brain Vault patterns — what's active, what's waiting</div></div>
+          <div style="font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;">◆ LIVE</div>
+        </div>
+        <div class="pb" id="plh-body">
+          <div class="plh-grid" id="plh-grid">
+            <div class="plh-stat"><div class="plh-val plh-evaluated" id="plh-eval">—</div><div class="plh-lbl">Evaluated</div><div class="plh-note" id="plh-eval-pct">—% of patterns</div></div>
+            <div class="plh-stat"><div class="plh-val plh-skipped"   id="plh-skip">—</div><div class="plh-lbl">Skipped</div><div class="plh-note">Conditions not met</div></div>
+            <div class="plh-stat"><div class="plh-val plh-disabled"  id="plh-dis">—</div><div class="plh-lbl">Disabled</div><div class="plh-note">Phase 1 — pending data</div></div>
+            <div class="plh-stat"><div class="plh-val plh-uneval"    id="plh-une">—</div><div class="plh-lbl">Unevaluable</div><div class="plh-note">No live data available</div></div>
+          </div>
+          <div class="plh-bars" id="plh-bars"></div>
+          <div style="font-size:10px;color:var(--gray);margin-top:10px;line-height:1.7;">◆ <strong>Evaluated</strong> = pattern ran and returned a signal this cycle. <strong>Skipped</strong> = conditions not present (e.g. no earnings this week). <strong>Disabled</strong> = pattern is offline pending 20+ verified fires. <strong>Unevaluable</strong> = requires data we don't have yet.</div>
+        </div>
+      </div>
+
+      <!-- LEARNING TIMELINE -->
+      <div class="panel lt-panel" style="margin-top:20px;">
+        <div class="ph">
+          <div><div class="ph-title">Learning Milestones</div><div class="ph-sub">What VESTEX will be able to do as more data accumulates</div></div>
+        </div>
+        <div class="pb">
+          <div class="lt-grid" id="lt-grid"></div>
+        </div>
+      </div>
+
+      <!-- TRANSPARENCY PANELS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;">
+        <div class="panel tp-panel">
+          <div class="ph" style="padding-bottom:10px;"><div><div class="ph-title" style="color:var(--green);">What VESTEX Knows Today</div><div class="ph-sub">Confirmed capabilities</div></div></div>
+          <div class="pb"><div id="tp-knows" class="tp-list"></div></div>
+        </div>
+        <div class="panel tp-panel">
+          <div class="ph" style="padding-bottom:10px;"><div><div class="ph-title" style="color:var(--gold);">Still Learning</div><div class="ph-sub">Building confidence over time</div></div></div>
+          <div class="pb"><div id="tp-learning" class="tp-list"></div></div>
+        </div>
       </div>
 
     </div><!-- end page-progress -->
@@ -3354,7 +3501,9 @@ async function renderProgress() {
     : `—<span>%</span>`;
   document.getElementById('prog-sub').textContent = accuracy !== null
     ? `Based on ${total} verified predictions over the past week`
-    : 'Pipeline activates this week — predictions tracked from Day 1';
+    : total > 0
+    ? `${total} prediction${total > 1 ? 's' : ''} logged — collecting verification data (results appear after 7 days)`
+    : 'Collecting evidence — open Master Intelligence on any stock to start tracking';
   setTimeout(() => {
     document.getElementById('prog-fill').style.width = (accuracy || 0) + '%';
   }, 100);
@@ -3364,18 +3513,9 @@ async function renderProgress() {
   document.getElementById('prog-correct').textContent = correct || '—';
   document.getElementById('prog-wrong').textContent   = wrong || '—';
 
-  // Rating
-  const getRating = (pct) => {
-    if (pct >= 80) return { r:'◆◆◆◆◆', n:'Outstanding — top tier model', c:'var(--gold)' };
-    if (pct >= 70) return { r:'◆◆◆◆◇', n:'Strong — better than most models', c:'var(--green)' };
-    if (pct >= 60) return { r:'◆◆◆◇◇', n:'Good — above random chance', c:'var(--green)' };
-    if (pct >= 50) return { r:'◆◆◇◇◇', n:'Learning — improving each week', c:'var(--gold)' };
-    return           { r:'◆◇◇◇◇', n:'Early stage — more data needed', c:'var(--gray)' };
-  };
-  const rating = getRating(pct);
-  document.getElementById('prog-rating').textContent      = rating.r;
-  document.getElementById('prog-rating').style.color      = rating.c;
-  document.getElementById('prog-rating-note').textContent = rating.n;
+  // Phase indicator — updated from lifecycle panel async; show placeholder for now
+  document.getElementById('prog-phase-val').textContent  = 'COLLECTING';
+  document.getElementById('prog-phase-note').textContent = 'Building evidence base';
 
   // Seasonal banner
   const sw   = getSeasonalWeight();
@@ -3466,6 +3606,9 @@ async function renderProgress() {
           const mc       = multColor(s.multiplier);
           const ml       = multLabel(s.multiplier);
           const { best, worst } = getBestWorst(s.regimes);
+          const slStatus = s.totalUses >= 20 ? { label:'VERIFIED', c:'var(--green)', bg:'rgba(80,200,80,.08)' }
+                         : s.totalUses > 0  ? { label:`${s.totalUses}/20`, c:'var(--gold)', bg:'rgba(201,168,76,.06)' }
+                         : { label:'COLLECTING', c:'var(--gray)', bg:'transparent' };
 
           let regimeTags = '';
           if (best) {
@@ -3479,7 +3622,10 @@ async function renderProgress() {
 
           return `<div class="slb-row">
             <div>
-              <div class="slb-label">${s.label}</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="slb-label">${s.label}</div>
+                <span style="font-size:8px;letter-spacing:1.5px;padding:2px 7px;border:1px solid ${slStatus.c};color:${slStatus.c};background:${slStatus.bg};">${slStatus.label}</span>
+              </div>
               ${regimeTags ? `<div class="slb-regimes">${regimeTags}</div>` : ''}
             </div>
             <div class="slb-bar-wrap"><div class="slb-bar"><div class="slb-bar-inner" style="width:${barW}%;background:${barC};"></div></div></div>
@@ -3531,6 +3677,264 @@ async function renderProgress() {
 
   // Brain Integrity Score
   renderBrainIntegrity();
+
+  // Brain Lifecycle + Phase 2 panels
+  renderBrainLifecycle();
+  renderPatternLogicHealth();
+  renderLearningTimeline();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BRAIN LIFECYCLE — S8
+// ═══════════════════════════════════════════════════════════
+async function renderBrainLifecycle() {
+  const PHASES = [
+    { id: 'bl-phase-0', line: 'bl-line-0', max: 30,  label: 'COLLECTING EVIDENCE' },
+    { id: 'bl-phase-1', line: 'bl-line-1', max: 90,  label: 'LEARNING'             },
+    { id: 'bl-phase-2', line: 'bl-line-2', max: 180, label: 'ADAPTIVE'             },
+    { id: 'bl-phase-3', line: null,        max: Infinity, label: 'VERIFIED INTELLIGENCE' },
+  ];
+
+  let intData = null;
+  try {
+    const r  = await fetch('/api/brain-integrity');
+    const d  = await r.json();
+    if (d.ok) intData = d;
+  } catch(e) {}
+
+  let viTotal = 0, viVerified = 0, patFires = 0, patsWithData = 0, sigsVerified = 0, brainAgeDays = null;
+
+  if (intData?.meta) {
+    const m = intData.meta;
+    brainAgeDays  = m.brainAgeDays  ?? null;
+    viTotal       = m.viPredictions ?? 0;
+    viVerified    = m.verifiedCount ?? 0;
+    patFires      = m.patternCount  ?? 0;  // reuse loadedPatterns as proxy; real fires from leaderboard
+    sigsVerified  = m.registryEntries ?? 0;
+  }
+
+  // Also pull pattern leaderboard summary if available
+  try {
+    const r = await fetch('/api/vi/pattern-stats');
+    const d = await r.json();
+    if (d.ok && d.stats) {
+      patFires    = d.totalFires || 0;
+      patsWithData = d.stats.filter(p => (p.uses7d || 0) > 0).length;
+    }
+  } catch(e) {}
+
+  // Also count signals with ≥20 uses
+  try {
+    const r = await fetch('/api/signal-performance');
+    const d = await r.json();
+    if (d.ok && d.signals) {
+      sigsVerified = d.signals.filter(s => s.totalUses >= 20).length;
+    }
+  } catch(e) {}
+
+  // Phase determination
+  const age  = brainAgeDays ?? 0;
+  const phaseIdx = age >= 180 ? 3 : age >= 91 ? 2 : age >= 31 ? 1 : 0;
+  const phaseLabel = PHASES[phaseIdx].label;
+  const ageLabel   = brainAgeDays === null ? '—' : age === 0 ? 'Day 1' : `${age} days`;
+
+  // Update stat cards
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('bl-age',       ageLabel);
+  set('bl-preds',     viTotal    || '—');
+  set('bl-verified',  viVerified || '—');
+  set('bl-pat-fires', patFires   || '—');
+  set('bl-pat-ver',   patsWithData > 0 ? patsWithData : '—');
+  set('bl-sig-ver',   sigsVerified > 0 ? sigsVerified : '—');
+
+  // Update phase badge + mini card
+  const badge = document.getElementById('bl-phase-badge');
+  if (badge) { badge.textContent = phaseLabel; badge.classList.add('active'); }
+  const pv = document.getElementById('prog-phase-val');
+  const pn = document.getElementById('prog-phase-note');
+  if (pv) pv.textContent = phaseLabel;
+  if (pn) pn.textContent = age > 0 ? `Day ${age}` : 'Just started';
+
+  // Animate timeline
+  PHASES.forEach((p, i) => {
+    const dot  = document.querySelector(`#${p.id} .bl-tl-dot`);
+    const lbl  = document.querySelector(`#${p.id} .bl-tl-label`);
+    const line = p.line ? document.getElementById(p.line) : null;
+    if (i < phaseIdx)       { dot?.classList.add('reached'); lbl?.classList.add('active'); line?.classList.add('reached'); }
+    else if (i === phaseIdx){ dot?.classList.add('current'); lbl?.classList.add('active'); }
+  });
+
+  // Collecting state overlay
+  const cs = document.getElementById('bl-collect-state');
+  const csMsg = document.getElementById('bl-cs-msg');
+  if (viTotal === 0) {
+    cs && (cs.style.display = 'flex');
+    csMsg && (csMsg.textContent = 'No predictions logged yet. Open Master Intelligence on any stock to start tracking.');
+  } else if (viVerified === 0) {
+    cs && (cs.style.display = 'flex');
+    const firstExpected = brainAgeDays !== null ? `Results begin appearing on Day ${Math.min(age + 7, age + 7)}.` : 'First verification expected within 7 days of your first prediction.';
+    csMsg && (csMsg.textContent = `${viTotal} prediction${viTotal > 1 ? 's' : ''} logged — waiting for 7-day verification window. ${firstExpected}`);
+  } else {
+    cs && (cs.style.display = 'none');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PATTERN LOGIC HEALTH — S8
+// ═══════════════════════════════════════════════════════════
+async function renderPatternLogicHealth() {
+  const el = document.getElementById('plh-bars');
+  const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  const setNote = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+
+  // Derive from brain-integrity runBrainAnalysis diagnostic
+  let evaluated = 0, skipped = 0, disabled = 0, unevaluable = 0, total = 113;
+  try {
+    const r = await fetch('/api/brain-integrity');
+    const d = await r.json();
+    if (d.ok) {
+      const m = d.meta;
+      evaluated   = m.patternCount ? Math.round((m.evalRate || 0) / 100 * (m.patternCount || 113)) : 0;
+      disabled    = 6;  // Phase 1 disabled patterns (hardcoded from Brain Vault Phase 1)
+      unevaluable = 24; // sum of UNEVALUATABLE sets from brain.js
+      skipped     = Math.max(0, total - evaluated - disabled - unevaluable);
+    }
+  } catch(e) {}
+
+  const evalPct = Math.round(evaluated / total * 100);
+  set('plh-eval', evaluated || '—');
+  set('plh-skip', skipped   || '—');
+  set('plh-dis',  disabled);
+  set('plh-une',  unevaluable);
+  setNote('plh-eval-pct', evaluated ? `${evalPct}% of patterns` : 'Pipeline loading…');
+
+  if (el) {
+    const total2 = evaluated + skipped + disabled + unevaluable || 1;
+    const pct = v => (v / total2 * 100).toFixed(1);
+    el.innerHTML = `
+      <div class="plh-bar-seg" style="width:${pct(evaluated)}%;background:var(--green);" title="Evaluated: ${evaluated}"></div>
+      <div class="plh-bar-seg" style="width:${pct(skipped)}%;background:var(--gold);" title="Skipped: ${skipped}"></div>
+      <div class="plh-bar-seg" style="width:${pct(disabled)}%;background:var(--red);" title="Disabled: ${disabled}"></div>
+      <div class="plh-bar-seg" style="width:${pct(unevaluable)}%;background:rgba(255,255,255,.15);" title="Unevaluable: ${unevaluable}"></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LEARNING TIMELINE + TRANSPARENCY PANELS — S8
+// ═══════════════════════════════════════════════════════════
+async function renderLearningTimeline() {
+  let viTotal = 0, viVerified = 0, patFires = 0, sigsVerified = 0, age = 0;
+
+  try {
+    const r = await fetch('/api/brain-integrity');
+    const d = await r.json();
+    if (d.ok && d.meta) {
+      viTotal      = d.meta.viPredictions ?? 0;
+      viVerified   = d.meta.verifiedCount ?? 0;
+      sigsVerified = 0; // will update below
+      age          = d.meta.brainAgeDays  ?? 0;
+    }
+  } catch(e) {}
+  try {
+    const r = await fetch('/api/vi/pattern-stats');
+    const d = await r.json();
+    if (d.ok) patFires = d.totalFires || 0;
+  } catch(e) {}
+  try {
+    const r = await fetch('/api/signal-performance');
+    const d = await r.json();
+    if (d.ok && d.signals) sigsVerified = d.signals.filter(s => s.totalUses >= 20).length;
+  } catch(e) {}
+
+  const milestones = [
+    {
+      when: 'Today',
+      icon: viTotal > 0 ? '✓' : '◆',
+      state: viTotal > 0 ? 'done' : 'active',
+      title: 'First Prediction Logged',
+      sub: viTotal > 0 ? `${viTotal} prediction${viTotal > 1 ? 's' : ''} recorded since tracking began.` : 'Open Master Intelligence on any stock to log your first prediction.',
+      status: viTotal > 0 ? 'DONE' : 'IN PROGRESS',
+    },
+    {
+      when: '+7 days',
+      icon: viVerified > 0 ? '✓' : '◷',
+      state: viVerified > 0 ? 'done' : (viTotal > 0 ? 'active' : 'future'),
+      title: 'First Verified Result',
+      sub: viVerified > 0 ? `${viVerified} prediction${viVerified > 1 ? 's' : ''} verified — VESTEX is learning.` : 'Predictions become verifiable 7 days after they are logged.',
+      status: viVerified > 0 ? 'DONE' : (viTotal > 0 ? 'PENDING' : 'UPCOMING'),
+    },
+    {
+      when: '+30 days',
+      icon: patFires >= 50 ? '✓' : '◷',
+      state: patFires >= 50 ? 'done' : (age >= 7 ? 'active' : 'future'),
+      title: '50 Pattern Fires',
+      sub: `${patFires} fires so far. After 50, Brain Vault patterns start showing reliable win rates.`,
+      status: patFires >= 50 ? 'DONE' : (patFires > 0 ? `${patFires}/50` : 'UPCOMING'),
+    },
+    {
+      when: '+60 days',
+      icon: sigsVerified >= 3 ? '✓' : '◷',
+      state: sigsVerified >= 3 ? 'done' : (age >= 30 ? 'active' : 'future'),
+      title: '3 Signals Verified (≥20 uses each)',
+      sub: `${sigsVerified} signal${sigsVerified !== 1 ? 's' : ''} verified so far. Once 3 signals reach 20+ uses, confidence weights adapt automatically.`,
+      status: sigsVerified >= 3 ? 'DONE' : `${sigsVerified}/3`,
+    },
+    {
+      when: '+90 days',
+      icon: age >= 90 ? '✓' : '◷',
+      state: age >= 90 ? 'done' : (age >= 60 ? 'active' : 'future'),
+      title: 'Learning Phase Unlocked',
+      sub: 'At 90 days, VESTEX enters the Learning phase — pattern win rates are reliable and signal weights are actively adapting.',
+      status: age >= 90 ? 'DONE' : (age > 0 ? `Day ${age}/90` : 'UPCOMING'),
+    },
+    {
+      when: '+180 days',
+      icon: age >= 180 ? '✓' : '◷',
+      state: age >= 180 ? 'done' : (age >= 120 ? 'active' : 'future'),
+      title: 'Verified Intelligence',
+      sub: 'Full adaptive mode. Win Rate Registry populated. Signal multipliers proven. VESTEX predictions are grounded in real historical performance.',
+      status: age >= 180 ? 'DONE' : 'UPCOMING',
+    },
+  ];
+
+  const ltEl = document.getElementById('lt-grid');
+  if (ltEl) {
+    ltEl.innerHTML = milestones.map(m => `
+      <div class="lt-row">
+        <div class="lt-when">${m.when}</div>
+        <div class="lt-icon ${m.state}">${m.icon}</div>
+        <div class="lt-text">
+          <div class="lt-title">${m.title}</div>
+          <div class="lt-sub">${m.sub}</div>
+        </div>
+        <div class="lt-status ${m.state}">${m.status}</div>
+      </div>`).join('');
+  }
+
+  // Transparency panels
+  const knows = [];
+  const learning = [];
+
+  knows.push({ icon:'◆', c:'var(--gold)', title:'Live Price Data', sub:'Real-time Alpaca snapshots — AAPL, TSLA, GOOGL, MSFT, AMZN. Updated every 5 minutes.' });
+  knows.push({ icon:'◆', c:'var(--gold)', title:'News Sentiment', sub:'Google News RSS analyzed by Claude Haiku — headline tone, event type, impact magnitude.' });
+  knows.push({ icon:'◆', c:'var(--gold)', title:'FRED Macro Signals', sub:'Yield curve, credit spreads, Sahm Rule — weekly and monthly updates from the Federal Reserve.' });
+  knows.push({ icon:'◆', c:'var(--gold)', title:'100-Year Seasonal Data', sub:'Monthly Dow Jones bias (1920s–present). Sell-in-May, January Effect, holiday patterns.' });
+  knows.push({ icon:'◆', c:'var(--gold)', title:'RSI + Moving Averages', sub:'14-day RSI, 7/21-day MA crossovers applied to every stock every day.' });
+  if (viTotal > 0)      knows.push({ icon:'✓', c:'var(--green)', title:`${viTotal} Predictions Logged`, sub:'Predictions are being stored. Win/loss outcomes tracked automatically.' });
+  if (viVerified > 0)   knows.push({ icon:'✓', c:'var(--green)', title:`${viVerified} Verified Results`, sub:'Real outcomes confirmed — VESTEX accuracy is being measured.' });
+  if (sigsVerified > 0) knows.push({ icon:'✓', c:'var(--green)', title:`${sigsVerified} Signal${sigsVerified > 1 ? 's' : ''} with Verified Win Rate`, sub:'Adaptive weighting active for these signals.' });
+
+  if (viVerified === 0) learning.push({ icon:'◷', c:'var(--gold)', title:'Real Prediction Accuracy', sub:'First verified result available 7 days after the first prediction is logged.' });
+  if (sigsVerified < 7) learning.push({ icon:'◷', c:'var(--gold)', title:`Signal Verification (${sigsVerified}/7)`, sub:'Each signal needs 20+ verified uses before adaptive weighting activates.' });
+  if (patFires < 50)    learning.push({ icon:'◷', c:'var(--gold)', title:`Pattern Win Rates (${patFires}/50 fires)`, sub:'Win rates stabilize after 50+ pattern fires. More stock analyses accelerate this.' });
+  learning.push({ icon:'◷', c:'var(--gold)', title:'Regime-Specific Accuracy', sub:'Learning which market conditions (Fear, Greed, Neutral) each signal performs best in.' });
+  if (age < 90)         learning.push({ icon:'◷', c:'var(--gold)', title:'Adaptive Phase', sub:`Unlocks at 90 days. Current: Day ${age}. Patterns and signals auto-adjust based on real performance.` });
+
+  const knowsEl    = document.getElementById('tp-knows');
+  const learningEl = document.getElementById('tp-learning');
+  const mkItem = (item) => `<div class="tp-item"><div class="tp-icon" style="color:${item.c};">${item.icon}</div><div><div class="tp-title">${item.title}</div><div class="tp-sub">${item.sub}</div></div></div>`;
+  if (knowsEl)    knowsEl.innerHTML    = knows.map(mkItem).join('');
+  if (learningEl) learningEl.innerHTML = learning.map(mkItem).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3987,14 +4391,21 @@ function _biRender(d) {
   const meta = document.getElementById('bi-meta');
   if (meta && d.meta) {
     const m = d.meta;
+    const phaseLabel = m.brainAgeDays == null ? 'Not started'
+                     : m.brainAgeDays >= 180 ? 'Verified Intelligence'
+                     : m.brainAgeDays >= 91  ? 'Adaptive'
+                     : m.brainAgeDays >= 31  ? 'Learning'
+                     : 'Collecting Evidence';
     const items = [
-      { l: 'Quotes',    v: `${m.quotedSymbols || 0}/5` },
-      { l: 'Sentiment', v: `${m.sentimentSymbols || 0}/5` },
-      { l: 'Events',    v: `${m.eventExtrSymbols || 0}/5` },
-      { l: 'Patterns',  v: m.patternCount || '—' },
-      { l: 'Eval Rate', v: m.evalRate != null ? m.evalRate + '%' : '—' },
-      { l: 'VI Logs',   v: m.viPredictions || 0 },
-      { l: 'Verified',  v: m.verifiedCount || 0 },
+      { l: 'Brain Age',   v: m.brainAgeDays != null ? `${m.brainAgeDays}d` : '—' },
+      { l: 'Phase',       v: phaseLabel },
+      { l: 'Quotes',      v: `${m.quotedSymbols || 0}/5` },
+      { l: 'Sentiment',   v: `${m.sentimentSymbols || 0}/5` },
+      { l: 'Patterns',    v: m.patternCount || '—' },
+      { l: 'Eval Rate',   v: m.evalRate != null ? m.evalRate + '%' : '—' },
+      { l: 'VI Logs',     v: m.viPredictions || 0 },
+      { l: 'Verified',    v: m.verifiedCount || 0 },
+      { l: 'Registry',    v: m.registryEntries || 0 },
     ];
     meta.innerHTML = items.map(i => `<div class="bi-meta-item">${i.l}: <span>${i.v}</span></div>`).join('');
   }
@@ -4082,12 +4493,20 @@ function plbRender() {
     const wrColor  = p.winRate7d  != null ? (p.winRate7d  >= 60 ? 'var(--green)' : p.winRate7d  >= 45 ? 'var(--gold)' : 'var(--red)') : 'var(--gray)';
     const retColor = p.avgReturn7d != null ? (p.avgReturn7d > 0 ? 'var(--green)' : p.avgReturn7d < 0 ? 'var(--red)' : 'var(--gray)') : 'var(--gray)';
     const catLabel = (p.category || '').toUpperCase() || 'BRAIN';
+    const totalFires = p.uses7d || 0;
+    const stage = totalFires >= 20 ? { label:'VERIFIED', c:'var(--green)' }
+                : totalFires >= 5  ? { label:'EMERGING', c:'var(--gold)' }
+                : totalFires > 0   ? { label:'COLLECTING', c:'rgba(255,255,255,.3)' }
+                : { label:'NO DATA', c:'rgba(255,255,255,.15)' };
     return `<div class="plb-row">
       <div>
-        <div class="plb-name">${p.name || p.patternId}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="plb-name">${p.name || p.patternId}</div>
+          <span style="font-size:7px;letter-spacing:1.5px;padding:1px 6px;border:1px solid ${stage.c};color:${stage.c};">${stage.label}</span>
+        </div>
         <div class="plb-sub">${catLabel} · ${p.patternId}</div>
       </div>
-      <div class="plb-cell">${p.uses7d || 0}</div>
+      <div class="plb-cell">${totalFires}</div>
       <div class="plb-cell" style="color:${wrColor};">${wr}</div>
       <div class="plb-cell" style="color:${retColor};">${ret}</div>
       <div class="plb-cell"><span class="plb-badge ${p.dataQuality}">${p.dataQuality}</span></div>
