@@ -978,6 +978,85 @@ canvas{max-height:300px;}
   .pc-coach-card{ padding:10px; }
 }
 
+/* ── Brain Activity Calendar — S7 2026-06-06 ── */
+:root {
+  --bac-empty:  rgba(255,255,255,.06);
+  --bac-red:    #7c1c1c;
+  --bac-orange: #8a4a1a;
+  --bac-yellow: #7a6a10;
+  --bac-green:  #1a5c2a;
+  --bac-gold:   #c9a84c;
+  --bac-tile:   10px;
+  --bac-gap:    3px;
+}
+.bac-panel{ overflow:visible !important; }
+.bac-modes{ display:flex; gap:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:3px; }
+.bac-mode-btn{ background:none; border:none; color:var(--gray); font-family:'Barlow Condensed',sans-serif; font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:5px 14px; cursor:pointer; border-radius:6px; transition:all .25s; }
+.bac-mode-btn.active{ background:var(--gold); color:#000; font-weight:700; }
+.bac-stats{ display:flex; gap:24px; flex-wrap:wrap; margin-bottom:18px; }
+.bac-stat{ display:flex; flex-direction:column; gap:3px; }
+.bac-stat-val{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:var(--gold); transition:color .4s; }
+.bac-stat-lbl{ font-size:8px; letter-spacing:2px; color:var(--gray); text-transform:uppercase; }
+.bac-scroll-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:6px; }
+.bac-scroll-wrap::-webkit-scrollbar{ height:4px; }
+.bac-scroll-wrap::-webkit-scrollbar-track{ background:transparent; }
+.bac-scroll-wrap::-webkit-scrollbar-thumb{ background:rgba(201,168,76,.3); border-radius:2px; }
+.bac-grid-wrap{ min-width:600px; }
+.bac-months{ display:flex; gap:0; margin-bottom:4px; padding-left:26px; height:16px; position:relative; }
+.bac-month-lbl{ font-size:8px; letter-spacing:1.5px; color:var(--gray); text-transform:uppercase; position:absolute; opacity:0; animation:bacFadeIn .4s forwards; }
+.bac-day-labels{ display:flex; flex-direction:column; gap:var(--bac-gap); padding-top:2px; margin-right:6px; float:left; }
+.bac-day-lbl{ font-size:7px; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; height:var(--bac-tile); line-height:var(--bac-tile); width:20px; }
+.bac-weeks{ display:flex; gap:var(--bac-gap); }
+.bac-week{ display:flex; flex-direction:column; gap:var(--bac-gap); }
+.bac-tile{
+  width:var(--bac-tile); height:var(--bac-tile); border-radius:2px;
+  background:var(--bac-empty); cursor:pointer; position:relative;
+  transition:transform .15s, box-shadow .15s, background .3s;
+  opacity:0; animation:bacTileFadeIn .35s forwards;
+  flex-shrink:0;
+}
+.bac-tile:hover{ transform:scale(1.4) translateY(-1px); z-index:10; }
+.bac-tile.bac-c-red    { background:var(--bac-red);    box-shadow:0 0 6px rgba(180,30,30,.4); }
+.bac-tile.bac-c-orange { background:var(--bac-orange); box-shadow:0 0 6px rgba(200,100,30,.4); }
+.bac-tile.bac-c-yellow { background:var(--bac-yellow); box-shadow:0 0 6px rgba(200,180,30,.4); }
+.bac-tile.bac-c-green  { background:var(--bac-green);  box-shadow:0 0 8px rgba(30,160,70,.5); }
+.bac-tile.bac-c-gold   { background:var(--bac-gold);   box-shadow:0 0 10px rgba(201,168,76,.7); animation:bacTileFadeIn .35s forwards, bacGoldShimmer 2s 1s infinite; }
+.bac-tile.bac-c-pulse  { animation:bacTileFadeIn .35s forwards, bacPulse 1.8s 0.5s 3; }
+.bac-tile.bac-future   { opacity:.2 !important; cursor:default; pointer-events:none; }
+@keyframes bacTileFadeIn{ from{opacity:0;transform:scale(.5)} to{opacity:1;transform:scale(1)} }
+@keyframes bacFadeIn{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+@keyframes bacGoldShimmer{ 0%,100%{box-shadow:0 0 10px rgba(201,168,76,.7)} 50%{box-shadow:0 0 18px rgba(201,168,76,1),0 0 30px rgba(201,168,76,.4)} }
+@keyframes bacPulse{ 0%,100%{box-shadow:none} 50%{box-shadow:0 0 14px rgba(201,168,76,.9)} }
+@keyframes bacShimmer{ 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+.bac-shimmer{ display:flex; flex-direction:column; gap:var(--bac-gap); }
+.bac-shimmer-row{ height:var(--bac-tile); border-radius:2px; background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.03) 75%); background-size:400px 100%; animation:bacShimmer 1.2s infinite; }
+.bac-legend{ display:flex; align-items:center; gap:5px; margin-top:14px; }
+.bac-leg-tile{ width:10px; height:10px; border-radius:2px; }
+.bac-leg-label{ font-size:8px; color:var(--gray); letter-spacing:1px; }
+.bac-empty{ font-size:11px; color:var(--gray); text-align:center; padding:28px 0; letter-spacing:1px; }
+.bac-detail{ position:relative; margin:0 -22px -22px; padding:20px 22px; background:rgba(201,168,76,.06); border-top:1px solid rgba(201,168,76,.2); animation:bacDetailSlide .25s ease; }
+@keyframes bacDetailSlide{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.bac-detail-close{ position:absolute; top:14px; right:18px; background:none; border:none; color:var(--gray); font-size:14px; cursor:pointer; }
+.bac-detail-date{ font-family:'Manrope',sans-serif; font-size:13px; font-weight:700; color:var(--gold); letter-spacing:1px; margin-bottom:12px; }
+.bac-detail-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-bottom:14px; }
+.bac-detail-stat{ display:flex; flex-direction:column; gap:3px; }
+.bac-detail-val{ font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; color:var(--dark); }
+.bac-detail-lbl{ font-size:7px; letter-spacing:2px; color:var(--gray); text-transform:uppercase; }
+.bac-detail-note{ font-size:10px; color:var(--gray); line-height:1.6; border-top:1px solid var(--border); padding-top:10px; }
+.bac-tooltip{ position:fixed; z-index:9999; background:rgba(10,10,10,.97); border:1px solid rgba(201,168,76,.3); border-radius:8px; padding:10px 14px; font-size:10px; color:var(--dark); pointer-events:none; max-width:210px; box-shadow:0 8px 24px rgba(0,0,0,.6); }
+.bac-tt-date{ font-size:8px; letter-spacing:2px; color:var(--gold); text-transform:uppercase; margin-bottom:6px; }
+.bac-tt-row{ display:flex; justify-content:space-between; gap:12px; color:var(--gray); margin-bottom:2px; }
+.bac-tt-row span:last-child{ color:var(--dark); font-family:'JetBrains Mono',monospace; }
+.bac-tt-status{ margin-top:6px; font-size:8px; letter-spacing:2px; text-transform:uppercase; font-weight:700; }
+@media(prefers-reduced-motion:reduce){ .bac-tile,.bac-month-lbl{ animation:none !important; opacity:1 !important; } }
+@media(max-width:768px){
+  :root{ --bac-tile:9px; --bac-gap:2px; }
+  .bac-modes{ flex-wrap:wrap; }
+  .bac-stats{ gap:14px; }
+  .bac-stat-val{ font-size:18px; }
+  .bac-detail-grid{ grid-template-columns:repeat(2,1fr); }
+}
+
 /* ═══════════════════════════════════════════════════════════
    LOGIN SCREEN
    ═══════════════════════════════════════════════════════════ */
@@ -1868,6 +1947,57 @@ canvas{max-height:300px;}
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- BRAIN ACTIVITY CALENDAR -->
+      <div class="panel bac-panel" id="bac-panel" style="margin-top:20px;background:linear-gradient(135deg,rgba(10,10,10,.97),rgba(26,14,0,.95));border-color:rgba(201,168,76,.25);">
+        <div class="ph">
+          <div>
+            <div class="ph-title" style="color:var(--gold);">Brain Activity Calendar</div>
+            <div class="ph-sub">Daily heatmap of Brain Vault activity, confidence, and verified accuracy</div>
+          </div>
+          <div class="bac-modes" id="bac-modes">
+            <button class="bac-mode-btn active" data-mode="activity"  onclick="bacSetMode('activity')">Activity</button>
+            <button class="bac-mode-btn"         data-mode="accuracy"  onclick="bacSetMode('accuracy')">Accuracy</button>
+            <button class="bac-mode-btn"         data-mode="health"    onclick="bacSetMode('health')">Health</button>
+          </div>
+        </div>
+        <div class="pb">
+          <!-- summary stats -->
+          <div class="bac-stats" id="bac-stats"></div>
+          <!-- calendar grid -->
+          <div class="bac-scroll-wrap">
+            <div class="bac-grid-wrap" id="bac-grid-wrap">
+              <div class="bac-shimmer" id="bac-shimmer">
+                <div class="bac-shimmer-row"></div><div class="bac-shimmer-row"></div>
+                <div class="bac-shimmer-row"></div><div class="bac-shimmer-row"></div>
+                <div class="bac-shimmer-row"></div><div class="bac-shimmer-row"></div>
+                <div class="bac-shimmer-row"></div>
+              </div>
+              <div id="bac-calendar"></div>
+            </div>
+          </div>
+          <!-- legend -->
+          <div class="bac-legend">
+            <span class="bac-leg-label">Less</span>
+            <div class="bac-leg-tile" style="background:var(--bac-empty);"></div>
+            <div class="bac-leg-tile" style="background:var(--bac-red);"></div>
+            <div class="bac-leg-tile" style="background:var(--bac-orange);"></div>
+            <div class="bac-leg-tile" style="background:var(--bac-yellow);"></div>
+            <div class="bac-leg-tile" style="background:var(--bac-green);"></div>
+            <div class="bac-leg-tile" style="background:var(--bac-gold);"></div>
+            <span class="bac-leg-label">More</span>
+          </div>
+          <!-- empty state -->
+          <div class="bac-empty" id="bac-empty" style="display:none;">Brain Calendar will populate as predictions are verified.</div>
+        </div>
+        <!-- detail card -->
+        <div class="bac-detail" id="bac-detail" style="display:none;">
+          <button class="bac-detail-close" onclick="bacCloseDetail()">✕</button>
+          <div id="bac-detail-body"></div>
+        </div>
+        <!-- tooltip -->
+        <div class="bac-tooltip" id="bac-tooltip" style="display:none;"></div>
       </div>
 
     </div><!-- end page-progress -->
@@ -3267,6 +3397,9 @@ async function renderProgress() {
 
   // Pattern Leaderboard
   renderPatternLeaderboard();
+
+  // Brain Calendar
+  renderBrainCalendar();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3295,6 +3428,360 @@ async function renderPatternLeaderboard() {
     const el2 = document.getElementById('pattern-leaderboard');
     if (el2) el2.innerHTML = '<div class="empty" style="padding:20px 22px;">Pattern data loading...</div>';
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BRAIN ACTIVITY CALENDAR — S7 2026-06-06
+// ═══════════════════════════════════════════════════════════
+let _bacData   = {};          // date → day object
+let _bacMode   = 'activity';  // 'activity' | 'accuracy' | 'health'
+let _bacActive = null;        // currently selected date
+
+async function renderBrainCalendar() {
+  const shimmer = document.getElementById('bac-shimmer');
+  const calEl   = document.getElementById('bac-calendar');
+  const emptyEl = document.getElementById('bac-empty');
+  if (!calEl) return;
+
+  shimmer && (shimmer.style.display = 'flex');
+  calEl.innerHTML = '';
+
+  try {
+    const res  = await fetch('/api/brain-calendar?days=91');
+    const data = await res.json();
+
+    shimmer && (shimmer.style.display = 'none');
+
+    if (!data.ok || !data.calendar || !Object.keys(data.calendar).length) {
+      emptyEl && (emptyEl.style.display = 'block');
+      _bacRenderStats({});
+      return;
+    }
+
+    emptyEl && (emptyEl.style.display = 'none');
+    _bacData = data.calendar;
+    _bacBuildGrid();
+    _bacRenderStats(data.calendar);
+  } catch(e) {
+    shimmer && (shimmer.style.display = 'none');
+    emptyEl && (emptyEl.style.display = 'block');
+  }
+}
+
+function bacSetMode(mode) {
+  _bacMode = mode;
+  document.querySelectorAll('.bac-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  _bacBuildGrid();
+  _bacRenderStats(_bacData);
+}
+
+function _bacBuildGrid() {
+  const calEl = document.getElementById('bac-calendar');
+  if (!calEl) return;
+
+  const today    = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Start from 90 days ago, aligned to Sunday
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 90);
+  startDate.setDate(startDate.getDate() - startDate.getDay()); // align to Sunday
+
+  const DAYS  = ['S','M','T','W','T','F','S'];
+  const MONTH = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  // Build week columns
+  const weeks  = [];
+  const months = []; // { label, col }
+  let   cur    = new Date(startDate);
+  let   col    = 0;
+
+  while (cur <= today || (cur.getDay() > 0 && cur <= today)) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = cur.toISOString().split('T')[0];
+      const dayData = _bacData[dateStr] || null;
+      const isFuture = cur > today;
+      week.push({ date: cur.toISOString().split('T')[0], data: dayData, isFuture });
+      // Track month label
+      if (cur.getDate() <= 7 && d === cur.getDay()) {
+        months.push({ label: MONTH[cur.getMonth()], col });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+    col++;
+    if (cur > today && cur.getDay() === 0) break;
+  }
+
+  // Render month labels
+  const tileW  = 10 + 3; // tile + gap (px approx)
+  const monthsHtml = months.map(m =>
+    `<span class="bac-month-lbl" style="left:${26 + m.col * tileW}px;animation-delay:${m.col * 0.02}s">${m.label}</span>`
+  ).join('');
+
+  // Render day labels
+  const dayLabelsHtml = DAYS.map((d,i) => `<div class="bac-day-lbl">${i % 2 === 1 ? d : ''}</div>`).join('');
+
+  // Render week columns
+  const weeksHtml = weeks.map((week, wIdx) =>
+    `<div class="bac-week">${week.map((cell, dIdx) => {
+      const delay   = (wIdx * 7 + dIdx) * 0.008;
+      const cls     = cell.isFuture ? 'bac-future' : _bacTileClass(cell.data, cell.date === todayStr);
+      const dataStr = cell.data ? `data-date="${cell.date}"` : `data-date="${cell.date}"`;
+      return `<div class="bac-tile ${cls}" ${dataStr} style="animation-delay:${delay}s"
+        onmouseenter="bacShowTooltip(event,'${cell.date}')"
+        onmouseleave="bacHideTooltip()"
+        onclick="${cell.isFuture ? '' : `bacClickTile('${cell.date}')`}"></div>`;
+    }).join('')}</div>`
+  ).join('');
+
+  calEl.innerHTML = `
+    <div class="bac-months" style="position:relative;height:16px;margin-bottom:4px;">${monthsHtml}</div>
+    <div style="display:flex;">
+      <div class="bac-day-labels">${dayLabelsHtml}</div>
+      <div class="bac-weeks">${weeksHtml}</div>
+    </div>`;
+}
+
+function _bacTileClass(data, isToday) {
+  if (!data || data.predictionsGenerated === 0) return '';
+
+  if (_bacMode === 'activity') {
+    const fires = data.patternsFired || 0;
+    if (fires === 0) return '';
+    if (fires < 5)   return isToday ? 'bac-c-pulse' : 'bac-c-yellow';
+    if (fires < 15)  return 'bac-c-green';
+    return 'bac-c-gold';
+  }
+
+  if (_bacMode === 'accuracy') {
+    if (data.verifiedAccuracy === null) return isToday ? 'bac-c-pulse' : 'bac-c-yellow'; // pending
+    const a = data.verifiedAccuracy;
+    if (a < 40)  return 'bac-c-red';
+    if (a < 55)  return 'bac-c-orange';
+    if (a < 65)  return 'bac-c-yellow';
+    if (a < 80)  return 'bac-c-green';
+    return 'bac-c-gold';
+  }
+
+  if (_bacMode === 'health') {
+    if (data.brainHealth === null) return isToday ? 'bac-c-pulse' : 'bac-c-yellow';
+    const h = data.brainHealth;
+    if (h < 20)  return 'bac-c-red';
+    if (h < 35)  return 'bac-c-orange';
+    if (h < 50)  return 'bac-c-yellow';
+    if (h < 70)  return 'bac-c-green';
+    return 'bac-c-gold';
+  }
+
+  return '';
+}
+
+function _bacRenderStats(calendar) {
+  const el = document.getElementById('bac-stats');
+  if (!el) return;
+
+  const days   = Object.values(calendar);
+  const active = days.filter(d => d.predictionsGenerated > 0);
+  const verif  = days.filter(d => d.verifiedPredictions > 0);
+  const totalPats = days.reduce((a, d) => a + (d.patternsFired || 0), 0);
+  const accVals   = verif.map(d => d.verifiedAccuracy).filter(v => v != null);
+  const avgAcc    = accVals.length ? (accVals.reduce((a,b)=>a+b,0)/accVals.length).toFixed(1) : null;
+
+  const stats = [
+    { val: active.length,        lbl: 'Active Days'   },
+    { val: totalPats,            lbl: 'Patterns Fired' },
+    { val: verif.length,         lbl: 'Days Verified'  },
+    { val: avgAcc != null ? avgAcc + '%' : '—', lbl: 'Avg Accuracy' },
+  ];
+
+  el.innerHTML = stats.map(s => `
+    <div class="bac-stat">
+      <div class="bac-stat-val" data-target="${s.val}">${active.length === 0 ? (typeof s.val === 'string' ? s.val : '0') : s.val}</div>
+      <div class="bac-stat-lbl">${s.lbl}</div>
+    </div>`).join('');
+
+  // Count-up animation
+  el.querySelectorAll('.bac-stat-val[data-target]').forEach(el => {
+    const raw = el.dataset.target;
+    if (!raw || isNaN(parseFloat(raw))) return;
+    const end = parseFloat(raw);
+    const isFloat = raw.includes('.');
+    let start = 0, t0 = null;
+    const dur = 600;
+    const step = ts => {
+      if (!t0) t0 = ts;
+      const pct = Math.min((ts - t0) / dur, 1);
+      const cur = start + (end - start) * pct;
+      el.textContent = isFloat ? cur.toFixed(1) + '%' : Math.round(cur);
+      if (pct < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+function bacShowTooltip(e, dateStr) {
+  const tt   = document.getElementById('bac-tooltip');
+  const data = _bacData[dateStr];
+  if (!tt) return;
+
+  const label = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+  let statusLabel = 'No Data';
+  let statusColor = 'var(--gray)';
+  if (data) {
+    if (data.verifiedPredictions > 0 && data.verifiedAccuracy !== null) {
+      const a = data.verifiedAccuracy;
+      if (a >= 80)      { statusLabel = 'Excellent';  statusColor = 'var(--gold)'; }
+      else if (a >= 65) { statusLabel = 'Strong';     statusColor = 'var(--green)'; }
+      else if (a >= 50) { statusLabel = 'Mixed';      statusColor = '#e07b39'; }
+      else              { statusLabel = 'Weak';        statusColor = 'var(--red)'; }
+    } else if (data.predictionsGenerated > 0) {
+      statusLabel = 'Pending Verification'; statusColor = 'var(--gold)';
+    }
+  }
+
+  tt.innerHTML = `
+    <div class="bac-tt-date">${label}</div>
+    ${data ? `
+    <div class="bac-tt-row"><span>Patterns fired</span><span>${data.patternsFired ?? '—'}</span></div>
+    <div class="bac-tt-row"><span>Avg confidence</span><span>${data.avgConfidence != null ? data.avgConfidence + '%' : '—'}</span></div>
+    <div class="bac-tt-row"><span>Verified accuracy</span><span>${data.verifiedAccuracy != null ? data.verifiedAccuracy + '%' : 'Pending'}</span></div>
+    <div class="bac-tt-row"><span>Brain health</span><span>${data.brainHealth != null ? data.brainHealth.toFixed(1) : '—'}</span></div>
+    ${data.topPattern ? `<div class="bac-tt-row"><span>Top pattern</span><span style="max-width:100px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${data.topPattern}</span></div>` : ''}
+    <div class="bac-tt-status" style="color:${statusColor};">${statusLabel}</div>
+    ` : '<div style="color:var(--gray);font-size:9px;">No brain activity</div>'}`;
+
+  tt.style.display = 'block';
+  _bacPositionTooltip(e, tt);
+}
+
+function _bacPositionTooltip(e, tt) {
+  const margin = 12;
+  let x = e.clientX + margin;
+  let y = e.clientY + margin;
+  if (x + 220 > window.innerWidth)  x = e.clientX - 220 - margin;
+  if (y + tt.offsetHeight + 20 > window.innerHeight) y = e.clientY - tt.offsetHeight - margin;
+  tt.style.left = x + 'px';
+  tt.style.top  = y + 'px';
+}
+
+function bacHideTooltip() {
+  const tt = document.getElementById('bac-tooltip');
+  if (tt) tt.style.display = 'none';
+}
+
+function bacClickTile(dateStr) {
+  const detail = document.getElementById('bac-detail');
+  const body   = document.getElementById('bac-detail-body');
+  if (!detail || !body) return;
+
+  if (_bacActive === dateStr) { bacCloseDetail(); return; }
+  _bacActive = dateStr;
+
+  const data  = _bacData[dateStr];
+  const label = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+
+  if (!data || data.predictionsGenerated === 0) {
+    body.innerHTML = `
+      <div class="bac-detail-date">${label}</div>
+      <div class="bac-detail-note">No brain activity recorded on this day.</div>`;
+  } else {
+    const correct   = data.verifiedPredictions > 0 && data.verifiedAccuracy != null
+      ? Math.round(data.verifiedPredictions * data.verifiedAccuracy / 100)
+      : null;
+    const incorrect = correct != null ? data.verifiedPredictions - correct : null;
+    const pending   = data.predictionsGenerated - data.verifiedPredictions;
+
+    // Narrative note
+    let note = '';
+    if (data.verifiedAccuracy === null && data.predictionsGenerated > 0) {
+      note = 'The brain was active on this day, but verification windows haven\'t closed yet. Check back in 7–30 days.';
+    } else if (data.verifiedAccuracy !== null && data.verifiedAccuracy >= 75 && data.avgConfidence > 70) {
+      note = 'High confidence matched strong verified outcomes — a strong day for the VESTEX brain.';
+    } else if (data.verifiedAccuracy !== null && data.verifiedAccuracy >= 55) {
+      note = 'Moderate accuracy on a day with solid activity. The brain performed above baseline.';
+    } else if (data.verifiedAccuracy !== null && data.verifiedAccuracy < 45) {
+      note = 'The brain was active but accuracy fell below expectations. The model learns from days like this.';
+    } else {
+      note = 'Brain activity recorded. Verification data building as time windows close.';
+    }
+
+    const wrMix = data.winRateSourceMix || {};
+    const wrTotal = (wrMix.VERIFIED||0) + (wrMix.HAND_CODED||0) + (wrMix.DEFAULT||0);
+    const wrMixHtml = wrTotal > 0 ? `
+      <div class="bac-detail-stat">
+        <div class="bac-detail-val" style="font-size:11px;color:var(--gray);">
+          <span style="color:var(--green2);">✓${wrMix.VERIFIED||0}</span>
+          <span style="color:var(--gold);margin:0 4px;">H${wrMix.HAND_CODED||0}</span>
+          <span style="opacity:.6;">D${wrMix.DEFAULT||0}</span>
+        </div>
+        <div class="bac-detail-lbl">Win Rate Mix</div>
+      </div>` : '';
+
+    body.innerHTML = `
+      <div class="bac-detail-date">${label}</div>
+      <div class="bac-detail-grid">
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val">${data.predictionsGenerated}</div>
+          <div class="bac-detail-lbl">Predictions</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val" style="color:var(--green);">${correct != null ? correct : '—'}</div>
+          <div class="bac-detail-lbl">Correct</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val" style="color:var(--red);">${incorrect != null ? incorrect : '—'}</div>
+          <div class="bac-detail-lbl">Incorrect</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val" style="color:var(--gold);">${pending}</div>
+          <div class="bac-detail-lbl">Pending</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val">${data.avgConfidence != null ? data.avgConfidence + '%' : '—'}</div>
+          <div class="bac-detail-lbl">Avg Confidence</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val">${data.avgMasterScore != null ? data.avgMasterScore : '—'}</div>
+          <div class="bac-detail-lbl">Avg Master Score</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val">${data.patternsFired}</div>
+          <div class="bac-detail-lbl">Patterns Fired</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val">${data.catalystCount || 0}</div>
+          <div class="bac-detail-lbl">Catalysts</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val">${data.avgSentimentScore != null ? data.avgSentimentScore : '—'}</div>
+          <div class="bac-detail-lbl">Avg Sentiment</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val" style="color:var(--green2);font-size:12px;">${data.bestSymbol || '—'}</div>
+          <div class="bac-detail-lbl">Best Symbol</div>
+        </div>
+        <div class="bac-detail-stat">
+          <div class="bac-detail-val" style="color:var(--red);font-size:12px;">${data.worstSymbol || '—'}</div>
+          <div class="bac-detail-lbl">Worst Symbol</div>
+        </div>
+        ${wrMixHtml}
+      </div>
+      ${data.topPattern ? `<div style="font-size:10px;color:var(--gray);margin-bottom:10px;">Top pattern: <span style="color:var(--dark);font-weight:600;">${data.topPattern}</span></div>` : ''}
+      <div class="bac-detail-note">${note}</div>`;
+  }
+
+  detail.style.display = 'block';
+}
+
+function bacCloseDetail() {
+  const detail = document.getElementById('bac-detail');
+  if (detail) detail.style.display = 'none';
+  _bacActive = null;
 }
 
 function plbSort(field) {

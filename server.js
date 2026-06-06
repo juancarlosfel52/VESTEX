@@ -1100,6 +1100,120 @@ app.get('/api/win-rates', (req, res) => {
   res.json({ ok: true, registry: getRegistrySnapshot() });
 });
 
+// ── Brain Calendar — daily aggregated heatmap data ──
+app.get('/api/brain-calendar', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const db   = admin.firestore();
+    const days = parseInt(req.query.days) || 90;
+
+    // Date range
+    const now     = Date.now();
+    const cutoff  = new Date(now - days * 24 * 3600 * 1000).toISOString().split('T')[0];
+
+    // Fetch both collections in parallel
+    const [predSnap, patSnap] = await Promise.all([
+      db.collection(VI_COL).where('date', '>=', cutoff).get(),
+      db.collection(VI_PAT_COL).where('date', '>=', cutoff).get(),
+    ]);
+
+    // Group predictions by date
+    const byDate = {};
+
+    predSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (!d.date) return;
+      if (!byDate[d.date]) byDate[d.date] = { predictions: [], patterns: [] };
+      byDate[d.date].predictions.push(d);
+    });
+
+    patSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (!d.date) return;
+      if (!byDate[d.date]) byDate[d.date] = { predictions: [], patterns: [] };
+      byDate[d.date].patterns.push(d);
+    });
+
+    // Aggregate per day
+    const calendar = {};
+
+    Object.entries(byDate).forEach(([date, { predictions, patterns }]) => {
+      const preds = predictions;
+      const pats  = patterns;
+
+      // Verification counts
+      const verified = preds.filter(p => p.verification7d || p.verification30d);
+      const correct  = verified.filter(p => (p.verification7d || p.verification30d).correct === true);
+      const verifiedAccuracy = verified.length > 0 ? +(correct.length / verified.length * 100).toFixed(1) : null;
+
+      // Avg master score + confidence
+      const scores = preds.map(p => p.masterScore).filter(s => s != null);
+      const confs  = preds.map(p => p.confidence).filter(c => c != null);
+      const avgMasterScore  = scores.length ? +(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : null;
+      const avgConfidence   = confs.length  ? +(confs.reduce((a,b)=>a+b,0)/confs.length).toFixed(1)  : null;
+
+      // Pattern counts
+      const bullish = pats.filter(p => p.direction === 'bullish').length;
+      const bearish = pats.filter(p => p.direction === 'bearish').length;
+
+      // Catalyst count
+      const catalystCount = preds.reduce((a,p) => a + (p.catalystEvents?.length || 0), 0);
+
+      // Avg sentiment
+      const sents = preds.map(p => p.sentimentScore).filter(s => s != null);
+      const avgSentimentScore = sents.length ? +(sents.reduce((a,b)=>a+b,0)/sents.length).toFixed(1) : null;
+
+      // Top pattern (most frequent)
+      const patFreq = {};
+      pats.forEach(p => { if (p.patternName) patFreq[p.patternName] = (patFreq[p.patternName]||0)+1; });
+      const topPattern = Object.entries(patFreq).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+
+      // Win rate source mix
+      const wrSources = { VERIFIED:0, HAND_CODED:0, DEFAULT:0 };
+      preds.forEach(p => {
+        (p.topPatterns||[]).forEach(tp => {
+          const src = tp.winRateSource || 'DEFAULT';
+          if (wrSources[src] !== undefined) wrSources[src]++;
+        });
+      });
+
+      // Brain health = confidence × verifiedAccuracy / 100 (only if verified data exists)
+      const brainHealth = (avgConfidence != null && verifiedAccuracy != null)
+        ? +(avgConfidence * verifiedAccuracy / 100).toFixed(1)
+        : null;
+
+      // Best/worst symbol by return
+      const symReturns = preds
+        .filter(p => p.symbol && (p.verification7d||p.verification30d)?.returnPct != null)
+        .map(p => ({ sym: p.symbol, ret: (p.verification7d||p.verification30d).returnPct }));
+      symReturns.sort((a,b) => b.ret - a.ret);
+      const bestSymbol  = symReturns[0]?.sym || null;
+      const worstSymbol = symReturns[symReturns.length-1]?.sym || null;
+
+      calendar[date] = {
+        date,
+        predictionsGenerated:  preds.length,
+        avgMasterScore,
+        avgConfidence,
+        patternsFired:         pats.length,
+        bullishPatterns:       bullish,
+        bearishPatterns:       bearish,
+        verifiedPredictions:   verified.length,
+        verifiedAccuracy,
+        catalystCount,
+        avgSentimentScore,
+        topPattern,
+        winRateSourceMix:      wrSources,
+        brainHealth,
+        bestSymbol,
+        worstSymbol,
+      };
+    });
+
+    res.json({ ok: true, calendar, days });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // Get full VI report
 app.get('/api/vi/report', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
