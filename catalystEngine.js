@@ -330,9 +330,11 @@ function computeCatalystModifier(events, predictionDirection) {
     }
 
     // Major event within 7 days: reduce prediction confidence unless strongly supported
+    // IMPORTANT: must update contribution here so active[].contribution matches applied delta
     if (isConfirmed && ev.impactScore >= 8 && hasDate && days !== null && days <= 7) {
       const magnitude = ev.impactScore >= 9 ? 0.6 : 0.4;
       const suppress  = -rawImpact * magnitude;
+      contribution    = suppress;   // ← sync contribution so stored value matches applied delta
       delta          += suppress;
       warns.push(`⏳ Major event in ${days}d (${ev.eventTitle}) — prediction confidence reduced pending outcome.`);
     } else {
@@ -342,7 +344,7 @@ function computeCatalystModifier(events, predictionDirection) {
     active.push({
       ...ev,
       daysUntil:    days,
-      contribution: Math.round(contribution * 10) / 10,
+      contribution: Math.round(contribution * 10) / 10,   // now always matches applied delta
     });
   }
 

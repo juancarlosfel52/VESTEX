@@ -830,6 +830,13 @@ app.post('/api/vi/log', async (req, res) => {
       systemVotes:       d.systemVotes        ?? null,
       topPatterns:       d.topPatterns        ?? [],
       marketRegime:      d.marketRegime       ?? null,
+      // ── Sentiment at prediction time ──
+      sentimentScore:    d.sentimentScore     ?? null,
+      sentimentOverall:  d.sentimentOverall   ?? null,
+      // ── Catalyst state at prediction time ──
+      catalystDelta:     d.catalystDelta      ?? null,
+      catalystEvents:    d.catalystEvents     ?? [],
+      // ── Outcome slots (filled by runVIVerification) ──
       verification7d:    null,
       verification30d:   null,
     });
@@ -936,8 +943,85 @@ async function runVIVerification() {
     }
   } catch(e2) { console.warn('[VI-PAT] Verify error:', e2.message); }
 
-  console.log(`[VI] Resolution complete — predictions: ${verifiedCount}, pattern fires: ${patVerified}`);
-  return { verified: verifiedCount, patternFiresVerified: patVerified };
+  // ── Phase 3: Update Catalyst Performance from newly-verified predictions ──
+  let catalystUpdated = 0;
+  try {
+    // Re-query docs that were just verified (have catalystEvents + a fresh verification)
+    const catSnap = await db.collection(VI_COL)
+      .where('catalystDelta', '!=', null).limit(300).get();
+    const catDocs = catSnap.docs
+      .map(d => d.data())
+      .filter(e => Array.isArray(e.catalystEvents) && e.catalystEvents.length > 0);
+
+    for (const pred of catDocs) {
+      const v7  = pred.verification7d;
+      const v30 = pred.verification30d;
+      // Only process if at least one verification window is resolved
+      if (!v7 && !v30) continue;
+
+      for (const ev of pred.catalystEvents) {
+        if (!ev.eventType) continue;
+        const perfRef = db.collection('catalyst_performance').doc(ev.eventType);
+        const perfDoc = await perfRef.get();
+        const perf    = perfDoc.exists ? perfDoc.data() : {
+          eventType:              ev.eventType,
+          uses7d:                 0,
+          wins7d:                 0,
+          losses7d:               0,
+          winRate7d:              null,
+          avgReturn7d:            null,
+          avgConfidenceDelta7d:   null,
+          _sumReturn7d:           0,
+          _sumDelta7d:            0,
+          uses30d:                0,
+          wins30d:                0,
+          losses30d:              0,
+          winRate30d:             null,
+          avgReturn30d:           null,
+          avgConfidenceDelta30d:  null,
+          _sumReturn30d:          0,
+          _sumDelta30d:           0,
+          updatedAt:              null,
+        };
+
+        // Build dedup key — one contribution per prediction doc per event type
+        const dedupKey7  = `_seen7_${pred.id}_${ev.eventType}`;
+        const dedupKey30 = `_seen30_${pred.id}_${ev.eventType}`;
+        if (perf[dedupKey7] && perf[dedupKey30]) continue; // already counted
+
+        const catalystDelta = pred.catalystDelta ?? 0;
+
+        if (v7 && !perf[dedupKey7]) {
+          perf.uses7d++;
+          if (v7.correct) perf.wins7d++; else perf.losses7d++;
+          perf._sumReturn7d += v7.returnPct ?? 0;
+          perf._sumDelta7d  += catalystDelta;
+          perf.winRate7d            = perf.uses7d > 0 ? +(perf.wins7d / perf.uses7d * 100).toFixed(1) : null;
+          perf.avgReturn7d          = +(perf._sumReturn7d / perf.uses7d).toFixed(2);
+          perf.avgConfidenceDelta7d = +(perf._sumDelta7d  / perf.uses7d).toFixed(2);
+          perf[dedupKey7] = true;
+          catalystUpdated++;
+        }
+        if (v30 && !perf[dedupKey30]) {
+          perf.uses30d++;
+          if (v30.correct) perf.wins30d++; else perf.losses30d++;
+          perf._sumReturn30d += v30.returnPct ?? 0;
+          perf._sumDelta30d  += catalystDelta;
+          perf.winRate30d            = perf.uses30d > 0 ? +(perf.wins30d / perf.uses30d * 100).toFixed(1) : null;
+          perf.avgReturn30d          = +(perf._sumReturn30d / perf.uses30d).toFixed(2);
+          perf.avgConfidenceDelta30d = +(perf._sumDelta30d  / perf.uses30d).toFixed(2);
+          perf[dedupKey30] = true;
+          catalystUpdated++;
+        }
+
+        perf.updatedAt = new Date().toISOString();
+        await perfRef.set(perf);
+      }
+    }
+  } catch(e3) { console.warn('[VI-CAT] Catalyst performance update error:', e3.message); }
+
+  console.log(`[VI] Resolution complete — predictions: ${verifiedCount}, pattern fires: ${patVerified}, catalyst perf updates: ${catalystUpdated}`);
+  return { verified: verifiedCount, patternFiresVerified: patVerified, catalystUpdated };
 }
 
 // Run verification: fill in 7d/30d results for pending predictions
@@ -976,6 +1060,29 @@ app.get('/api/vi/pattern-stats', async (req, res) => {
       dataQuality:  s.uses7d >= 20 ? 'validated' : s.uses7d >= 5 ? 'emerging' : 'insufficient',
     })).sort((a, b) => (b.uses7d) - (a.uses7d));
     res.json({ ok: true, stats: result, totalFires: docs.length });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Phase 3: Catalyst performance stats — win rates per event type from verified predictions
+// Returns catalyst_performance collection, sorted by 7d win rate descending.
+// Data quality: uses7d >= 20 = validated, >= 5 = emerging, < 5 = insufficient.
+app.get('/api/vi/catalyst-stats', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const db   = admin.firestore();
+    const snap = await db.collection('catalyst_performance').limit(50).get();
+    const docs = snap.docs.map(d => {
+      const raw = d.data();
+      // Strip internal dedup keys (_seen7_*, _seen30_*) from response
+      const clean = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if (!k.startsWith('_')) clean[k] = v;
+      }
+      clean.dataQuality = raw.uses7d >= 20 ? 'validated' : raw.uses7d >= 5 ? 'emerging' : 'insufficient';
+      return clean;
+    });
+    docs.sort((a, b) => (b.uses7d || 0) - (a.uses7d || 0));
+    res.json({ ok: true, stats: docs, totalEventTypes: docs.length });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 

@@ -2598,6 +2598,22 @@ function updateDashKPIs() {
 // ── VI: Firestore-backed via server endpoints ──
 async function viLogPrediction(d) {
   try {
+    // Trim catalyst events to essential fields only — avoid bloating Firestore doc
+    const catalystEvents = (d.activeCatalysts || [])
+      .filter(e => e.eventType)
+      .map(e => ({
+        eventType:         e.eventType,
+        status:            e.status            || null,
+        expectedDirection: e.expectedDirection || null,
+        impactScore:       e.impactScore       ?? null,
+        daysUntil:         e.daysUntil         ?? null,
+        source:            e.source            || null,
+        contribution:      e.contribution      ?? null,  // applied contribution (post-fix)
+      }));
+
+    // Sentiment — score from MI breakdown, overall from in-memory liveSentiment
+    const sentEntry = liveSentiment ? (liveSentiment[d.symbol] || null) : null;
+
     await fetch('/api/vi/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2616,6 +2632,12 @@ async function viLogPrediction(d) {
           win_rate:  p.win_rate   ?? null,
         })),
         marketRegime:      d.scoreBreakdown?.regime?.detail?.regime || null,
+        // ── Sentiment state at prediction time ──
+        sentimentScore:    d.scoreBreakdown?.sentiment?.score   ?? null,
+        sentimentOverall:  sentEntry?.overall                   || null,
+        // ── Catalyst state at prediction time ──
+        catalystDelta:     d.catalystDelta  ?? null,
+        catalystEvents,
       }),
     });
   } catch(e) { console.warn('[VI] Log failed:', e.message); }
