@@ -485,7 +485,14 @@ function matchCompany(edgar, sentiment) {
   const skipped = {};
   let evaluated = 0;
 
-  const UNEVALUATABLE = new Set(['EARN_BEAT_LARGE', 'EARN_BEAT_SMALL', 'EARN_MISS', 'GUIDANCE_RAISE', 'GUIDANCE_CUT', 'HIGH_SHORT_INTEREST']);
+  const UNEVALUATABLE = new Set([
+    'EARN_BEAT_LARGE', 'EARN_BEAT_SMALL', 'EARN_MISS', 'GUIDANCE_RAISE', 'GUIDANCE_CUT', 'HIGH_SHORT_INTEREST',
+    // Phase 1 cleanup 2026-06-06: INSIDER_BUY disabled — EDGAR Form 4 returns both
+    // buy AND sell filings with no direction field. Firing bullish on any insider
+    // activity (including insider sells) is a directional error. Disabled until
+    // EDGAR direction data is available or a sell-filtering heuristic is validated.
+    'INSIDER_BUY',
+  ]);
 
   for (const p of COMPANY) {
     const id = p.pattern_id;
@@ -575,7 +582,13 @@ function matchNews(sentiment, macro) {
   let evaluated = 0;
 
   const sl = sentiment.summary.toLowerCase();
-  const UNEVALUATABLE = new Set(['earnings_beat_large', 'earnings_miss_large', 'guidance_raised', 'guidance_cut']);
+  const UNEVALUATABLE = new Set([
+    'earnings_beat_large', 'earnings_miss_large', 'guidance_raised', 'guidance_cut',
+    // Phase 1 cleanup 2026-06-06: fda_approval / fda_rejection disabled — tracked
+    // symbols (AAPL/TSLA/GOOGL/MSFT/AMZN) are not pharma/biotech. FDA news appears
+    // only as background market commentary, never as actionable signal for these tickers.
+    'fda_approval', 'fda_rejection',
+  ]);
 
   for (const p of NEWS) {
     const id = p.pattern_id;
@@ -684,6 +697,17 @@ function matchResearch(indicators, macro, regime) {
   const UNEVALUATABLE = new Set([
     'small_cap_premium', 'value_premium', 'pead_earnings_drift',
     'profitability_factor_rmw', 'investment_factor_cma', 'cape_valuation_signal',
+    // Phase 1 cleanup 2026-06-06: time_series_momentum disabled — functionally
+    // identical to PATTERN_001 (Golden Cross, win_rate=68). Fires simultaneously
+    // in virtually all cases. Double-counting same condition.
+    'time_series_momentum',
+    // Phase 1 cleanup 2026-06-06: january_effect disabled — direct duplicate of
+    // PATTERN_028 (January Effect, win_rate=62). Lower confidence, no win_rate.
+    'january_effect',
+    // Phase 1 cleanup 2026-06-06: volatility_mean_reversion disabled — fourth
+    // system checking VIX>35. VIX_SPIKE, PATTERN_037, and CAPITULATION already
+    // cover this condition. Quadruple-counting creates score inflation.
+    'volatility_mean_reversion',
   ]);
 
   for (const p of RESEARCH) {
