@@ -639,6 +639,11 @@ body.dark-mode .vr-toggle{background:#111;}
 
 /* ── MINI KPIS ── */
 .kpi-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
+.kpi-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.bp-edit-btn{background:none;border:none;color:var(--gold);font-size:9px;letter-spacing:1.5px;cursor:pointer;padding:0 0 0 6px;opacity:.75;font-family:'Inter',sans-serif;font-weight:600;text-transform:uppercase;}
+.bp-edit-btn:hover{opacity:1;color:var(--gold-light);}
+.bp-input{display:none;width:100%;margin-top:8px;padding:6px 10px;border:1px solid var(--gold);background:var(--off);font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--dark);outline:none;box-sizing:border-box;}
+body.dark-mode .bp-input{background:#111;color:#fff;}
 
 /* ── FOOTER ── */
 .footer{padding:20px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
@@ -832,8 +837,9 @@ canvas{max-height:300px;}
   /* Two col → single col */
   .two-col{ grid-template-columns:1fr; gap:14px; }
 
-  /* 3 KPI cols → stack */
-  .kpi-3{ grid-template-columns:1fr; gap:10px; }
+  /* 3/4 KPI cols → 2 cols on mobile */
+  .kpi-3{ grid-template-columns:1fr 1fr; gap:10px; }
+  .kpi-4{ grid-template-columns:1fr 1fr; gap:10px; }
 
   /* Portfolio table — horizontal scroll */
   .pt-head,.pt-row{
@@ -1394,7 +1400,7 @@ canvas{max-height:300px;}
       </div>
 
       <div class="kpi-grid">
-        <div class="kpi"><div class="kpi-lbl">Total Value of Your Stocks</div><div class="kpi-val" id="kpi-total">$0.00</div><div class="kpi-note" style="color:var(--gray);">Across your portfolio</div></div>
+        <div class="kpi"><div class="kpi-lbl">Account Total</div><div class="kpi-val" id="kpi-total">$0.00</div><div class="kpi-note" style="color:var(--gray);">Stocks + Buy Power</div></div>
         <div class="kpi"><div class="kpi-lbl">Money Made Today</div><div class="kpi-val" id="kpi-today">+$0.00</div><div class="kpi-note" style="color:var(--gray);">Since market opened</div></div>
         <div class="kpi"><div class="kpi-lbl">Best Stock Today</div><div class="kpi-val" id="kpi-best" style="font-size:22px;">—</div><div class="kpi-note" id="kpi-best-note" style="color:var(--gray);">Loading…</div></div>
         <div class="kpi"><div class="kpi-lbl">Stocks You Own</div><div class="kpi-val" id="kpi-count">0</div><div class="kpi-note" style="color:var(--gray);">In your portfolio</div></div>
@@ -1535,10 +1541,20 @@ canvas{max-height:300px;}
     <div class="page" id="page-portfolio">
       <div class="sec-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;"><div><div class="sec-title">My <span>Portfolio</span></div><div class="sec-sub">◆ All the stocks you own in one place</div></div><button class="sh-btn" onclick="showSmartHelp('portfolio_kpis')" aria-label="Help: Portfolio" style="width:22px;height:22px;font-size:11px;">?</button></div>
       <div id="pi-container" style="display:none;margin-bottom:24px;"></div>
-      <div class="kpi-3">
-        <div class="kpi"><div class="kpi-lbl">Total Money Invested</div><div class="kpi-val" id="p-invested">$0.00</div></div>
-        <div class="kpi"><div class="kpi-lbl">Current Value</div><div class="kpi-val" id="p-current">$0.00</div></div>
-        <div class="kpi"><div class="kpi-lbl">Total Profit / Loss</div><div class="kpi-val" id="p-pnl">$0.00</div><div class="kpi-note" id="p-pnl-pct"></div></div>
+      <div class="kpi-4">
+        <div class="kpi"><div class="kpi-lbl">Total Invested</div><div class="kpi-val" id="p-invested">$0.00</div></div>
+        <div class="kpi"><div class="kpi-lbl">Stocks Value</div><div class="kpi-val" id="p-current">$0.00</div><div class="kpi-note" id="p-pnl-pct"></div></div>
+        <div class="kpi">
+          <div class="kpi-lbl">Buy Power<button class="bp-edit-btn" id="bp-edit-btn" onclick="toggleBpEdit()">✎ Edit</button></div>
+          <div class="kpi-val" id="p-buypower">$0.00</div>
+          <input class="bp-input" id="bp-input" type="number" placeholder="Cash available..." min="0" step="0.01" onkeydown="if(event.key==='Enter')saveBuyPower()">
+          <div class="kpi-note" style="color:var(--gray);">Cash available to invest</div>
+        </div>
+        <div class="kpi" style="border-left:3px solid var(--gold);">
+          <div class="kpi-lbl">Account Total</div>
+          <div class="kpi-val" id="p-account-total">$0.00</div>
+          <div class="kpi-note" id="p-pnl">—</div>
+        </div>
       </div>
       <div class="panel" style="margin-bottom:8px;">
         <div class="pt-head">
@@ -1565,7 +1581,11 @@ canvas{max-height:300px;}
           <button class="btn-add" onclick="addStock()">◆ Add Stock</button>
         </div>
       </div>
-      <div style="font-size:10px;letter-spacing:.5px;color:var(--gray);">◆ Enter the total dollar amount you invested and the price per share you paid. VESTEX calculates your share count automatically.</div>
+      <div style="font-size:10px;letter-spacing:.5px;color:var(--gray);margin-bottom:8px;">◆ Enter the total dollar amount you invested and the price per share you paid. VESTEX calculates your share count automatically.</div>
+      <div style="font-size:10px;letter-spacing:.5px;padding:10px 14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);color:var(--gold);display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;">⚠</span>
+        <span>When you add or remove stocks, remember to <strong>update your Buy Power</strong> — it counts toward your <strong>Account Total</strong>. Click <em>✎ Edit</em> on the Buy Power card above.</span>
+      </div>
     </div>
 
     <!-- ═══ NEWS PAGE ═══ -->
@@ -1973,6 +1993,32 @@ let chartPer   = '1W';
 let dashChart  = null;
 let cpChart    = null;
 let portfolio = JSON.parse(localStorage.getItem('vestex_portfolio') || '[]');
+let buyPower  = parseFloat(localStorage.getItem('vestex_buypower') || '0') || 0;
+
+function toggleBpEdit() {
+  const inp = document.getElementById('bp-input');
+  const btn = document.getElementById('bp-edit-btn');
+  if (inp.style.display === 'block') {
+    saveBuyPower();
+  } else {
+    inp.style.display = 'block';
+    inp.value = buyPower > 0 ? buyPower.toFixed(2) : '';
+    inp.focus();
+    btn.textContent = '✓ Save';
+  }
+}
+
+function saveBuyPower() {
+  const val = parseFloat(document.getElementById('bp-input').value);
+  buyPower = (isNaN(val) || val < 0) ? 0 : val;
+  localStorage.setItem('vestex_buypower', buyPower.toString());
+  const inp = document.getElementById('bp-input');
+  const btn = document.getElementById('bp-edit-btn');
+  if (inp) inp.style.display = 'none';
+  if (btn) btn.textContent = '✎ Edit';
+  renderPortfolio();
+  updateDashKPIs();
+}
 
 const PERIODS = { '1W':7, '1M':30, '3M':90, '1Y':365 };
 
@@ -2359,17 +2405,19 @@ function updateDashKPIs() {
     if (chg !== null && chg > bestChg) { bestChg = chg; bestSym = p.sym; }
   });
 
-  // Total value + total P&L note
-  document.getElementById('kpi-total').textContent = '$'+total.toFixed(2);
+  // Total value (stocks + buy power) + P&L note
+  const dashTotal = total + buyPower;
+  document.getElementById('kpi-total').textContent = '$'+dashTotal.toFixed(2);
   const totalNote = document.querySelector('#kpi-total').closest('.kpi').querySelector('.kpi-note');
   if (totalNote) {
-    if (portfolio.length === 0 || totalInvested === 0) {
+    if (portfolio.length === 0 && buyPower === 0) {
       totalNote.textContent = 'Add stocks to your portfolio';
       totalNote.style.color = 'var(--gray)';
     } else {
       const totalPnl = total - totalInvested;
-      const totalPct = totalPnl / totalInvested * 100;
-      totalNote.textContent = (totalPnl >= 0 ? '▲ +$' : '▼ −$') + Math.abs(totalPnl).toFixed(2) + ' total (' + (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%)';
+      const totalPct = totalInvested > 0 ? totalPnl / totalInvested * 100 : 0;
+      const bpNote   = buyPower > 0 ? ' + $'+buyPower.toFixed(0)+' cash' : '';
+      totalNote.textContent = (totalPnl >= 0 ? '▲ +$' : '▼ −$') + Math.abs(totalPnl).toFixed(2) + ' (' + (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%)' + bpNote;
       totalNote.style.color = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
     }
   }
@@ -3733,12 +3781,18 @@ function renderPortfolio() {
   const pnl = cur - inv;
   const pct = inv > 0 ? (pnl/inv*100).toFixed(1) : 0;
 
-  document.getElementById('p-invested').textContent = '$'+inv.toFixed(2);
-  document.getElementById('p-current').textContent  = '$'+cur.toFixed(2);
-  document.getElementById('p-pnl').textContent      = (pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);
-  document.getElementById('p-pnl').style.color      = pnl>=0?'var(--green)':'var(--red)';
-  document.getElementById('p-pnl-pct').textContent  = (pnl>=0?'▲ +':'▼ ')+pct+'% overall return';
-  document.getElementById('p-pnl-pct').className    = 'kpi-note '+(pnl>=0?'up':'dn');
+  const accountTotal = cur + buyPower;
+  const acctPnl      = cur - inv;
+  const acctPct      = inv > 0 ? (acctPnl/inv*100).toFixed(1) : 0;
+
+  document.getElementById('p-invested').textContent      = '$'+inv.toFixed(2);
+  document.getElementById('p-current').textContent       = '$'+cur.toFixed(2);
+  document.getElementById('p-buypower').textContent      = '$'+buyPower.toFixed(2);
+  document.getElementById('p-account-total').textContent = '$'+accountTotal.toFixed(2);
+  document.getElementById('p-pnl').textContent           = (acctPnl>=0?'▲ +$':'▼ −$')+Math.abs(acctPnl).toFixed(2)+' ('+acctPct+'%)';
+  document.getElementById('p-pnl').style.color           = acctPnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('p-pnl-pct').textContent       = (pnl>=0?'▲ +':'▼ ')+pct+'% return on stocks';
+  document.getElementById('p-pnl-pct').className         = 'kpi-note '+(pnl>=0?'up':'dn');
 
   if (!portfolio.length) {
     document.getElementById('port-rows').innerHTML = '<div class="empty">No stocks yet — add one below</div>';
