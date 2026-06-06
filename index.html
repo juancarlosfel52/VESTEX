@@ -640,6 +640,7 @@ body.dark-mode .vr-toggle{background:#111;}
 /* ── MINI KPIS ── */
 .kpi-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
 .kpi-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.kpi-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
 .bp-edit-btn{background:none;border:none;color:var(--gold);font-size:9px;letter-spacing:1.5px;cursor:pointer;padding:0 0 0 6px;opacity:.75;font-family:'Inter',sans-serif;font-weight:600;text-transform:uppercase;}
 .bp-edit-btn:hover{opacity:1;color:var(--gold-light);}
 .bp-input{display:none;width:100%;margin-top:8px;padding:6px 10px;border:1px solid var(--gold);background:var(--off);font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--dark);outline:none;box-sizing:border-box;}
@@ -855,6 +856,7 @@ canvas{max-height:300px;}
   /* 3/4 KPI cols → 2 cols on mobile */
   .kpi-3{ grid-template-columns:1fr 1fr; gap:10px; }
   .kpi-4{ grid-template-columns:1fr 1fr; gap:10px; }
+  .kpi-5{ grid-template-columns:1fr 1fr; gap:10px; }
 
   /* Portfolio table — horizontal scroll */
   .pt-head,.pt-row{
@@ -1556,6 +1558,23 @@ canvas{max-height:300px;}
         <div class="kpi"><div class="kpi-lbl">Best Stock Today</div><div class="kpi-val" id="kpi-best" style="font-size:22px;">—</div><div class="kpi-note" id="kpi-best-note" style="color:var(--gray);">Loading…</div></div>
         <div class="kpi"><div class="kpi-lbl">Stocks You Own</div><div class="kpi-val" id="kpi-count">0</div><div class="kpi-note" style="color:var(--gray);">In your portfolio</div></div>
       </div>
+      <div class="kpi-3" style="margin-bottom:18px;">
+        <div class="kpi" style="border-left:3px solid rgba(201,168,76,.6);">
+          <div class="kpi-lbl" style="color:var(--gold);">Buy Power</div>
+          <div class="kpi-val" id="dash-buypower" style="color:var(--gold);">$0.00</div>
+          <div class="kpi-note" style="color:var(--gray);">Cash available to invest</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Deployment</div>
+          <div class="kpi-val" id="dash-deployment">—%</div>
+          <div class="kpi-note" id="dash-deployment-note" style="color:var(--gray);">Capital in stocks</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Opportunity Meter</div>
+          <div class="kpi-val" id="dash-opp-status" style="font-size:14px;letter-spacing:0;">—</div>
+          <div class="kpi-note" id="dash-opp-note" style="color:var(--gray);">Based on cash position</div>
+        </div>
+      </div>
 
       <div class="ov-bar" id="ov-bar"></div>
 
@@ -1692,20 +1711,21 @@ canvas{max-height:300px;}
     <div class="page" id="page-portfolio">
       <div class="sec-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;"><div><div class="sec-title">My <span>Portfolio</span></div><div class="sec-sub">◆ All the stocks you own in one place</div></div><button class="sh-btn" onclick="showSmartHelp('portfolio_kpis')" aria-label="Help: Portfolio" style="width:22px;height:22px;font-size:11px;">?</button></div>
       <div id="pi-container" style="display:none;margin-bottom:24px;"></div>
-      <div class="kpi-4">
-        <div class="kpi"><div class="kpi-lbl">Total Invested</div><div class="kpi-val" id="p-invested">$0.00</div></div>
-        <div class="kpi"><div class="kpi-lbl">Stocks Value</div><div class="kpi-val" id="p-current">$0.00</div><div class="kpi-note" id="p-pnl-pct"></div></div>
-        <div class="kpi">
-          <div class="kpi-lbl">Buy Power<button class="bp-edit-btn" id="bp-edit-btn" onclick="toggleBpEdit()">✎ Edit</button></div>
-          <div class="kpi-val" id="p-buypower">$0.00</div>
-          <input class="bp-input" id="bp-input" type="number" placeholder="Cash available..." min="0" step="0.01" onkeydown="if(event.key==='Enter')saveBuyPower()">
-          <div class="kpi-note" style="color:var(--gray);">Cash available to invest</div>
-        </div>
+      <div class="kpi-5">
         <div class="kpi" style="border-left:3px solid var(--gold);">
           <div class="kpi-lbl">Account Total</div>
           <div class="kpi-val" id="p-account-total">$0.00</div>
           <div class="kpi-note" id="p-pnl">—</div>
         </div>
+        <div class="kpi"><div class="kpi-lbl">Stocks Value</div><div class="kpi-val" id="p-current">$0.00</div><div class="kpi-note" id="p-pnl-pct"></div></div>
+        <div class="kpi" style="border-left:3px solid rgba(201,168,76,.6);">
+          <div class="kpi-lbl" style="color:var(--gold);">Buy Power<button class="bp-edit-btn" id="bp-edit-btn" onclick="toggleBpEdit()">✎ Edit</button></div>
+          <div class="kpi-val" id="p-buypower" style="color:var(--gold);">$0.00</div>
+          <input class="bp-input" id="bp-input" type="number" placeholder="Cash available..." min="0" step="0.01" onkeydown="if(event.key==='Enter')saveBuyPower()">
+          <div class="kpi-note" id="p-cash-pct" style="color:var(--gold);opacity:.8;">—% cash available</div>
+        </div>
+        <div class="kpi"><div class="kpi-lbl">Total Invested</div><div class="kpi-val" id="p-invested">$0.00</div><div class="kpi-note" id="p-invested-pct" style="color:var(--gray);">—% deployed</div></div>
+        <div class="kpi"><div class="kpi-lbl">Portfolio Return</div><div class="kpi-val" id="p-return-val">—</div><div class="kpi-note" id="p-return-note" style="color:var(--gray);">Unrealized P&amp;L</div></div>
       </div>
       <div class="panel" style="margin-bottom:8px;">
         <div class="pt-head">
@@ -2756,6 +2776,29 @@ function updateDashKPIs() {
 
   // Count
   document.getElementById('kpi-count').textContent = portfolio.length;
+
+  // Buy Power deployment row
+  const dashBp  = document.getElementById('dash-buypower');
+  const dashDep = document.getElementById('dash-deployment');
+  const dashDepNote = document.getElementById('dash-deployment-note');
+  const dashOpp = document.getElementById('dash-opp-status');
+  const dashOppNote = document.getElementById('dash-opp-note');
+  if (dashBp) {
+    dashBp.textContent = '$'+buyPower.toFixed(2);
+    const depPct = dashTotal > 0 ? Math.round(total / dashTotal * 100) : 0;
+    if (dashDep) dashDep.textContent = depPct+'%';
+    if (dashDepNote) dashDepNote.textContent = depPct+'% capital in stocks';
+    // Opportunity meter
+    const cashPctDash = 100 - depPct;
+    let oppLabel = '—', oppNote2 = '—', oppColor = 'var(--gray)';
+    if (dashTotal === 0)       { oppLabel = 'No Data';           oppNote2 = 'Add portfolio'; }
+    else if (cashPctDash >= 50){ oppLabel = 'High Opportunity';  oppNote2 = 'Large cash reserve'; oppColor = 'var(--green)'; }
+    else if (cashPctDash >= 25){ oppLabel = 'Ready to Deploy';   oppNote2 = 'Good cash position'; oppColor = 'var(--gold)'; }
+    else if (cashPctDash >= 10){ oppLabel = 'Mostly Invested';   oppNote2 = 'Limited cash left'; oppColor = '#e07b39'; }
+    else                       { oppLabel = 'Fully Deployed';    oppNote2 = 'Consider rebalancing'; oppColor = 'var(--red)'; }
+    if (dashOpp) { dashOpp.textContent = oppLabel; dashOpp.style.color = oppColor; }
+    if (dashOppNote) dashOppNote.textContent = oppNote2;
+  }
 
   // Best stock today
   const bestEl   = document.getElementById('kpi-best');
@@ -4827,18 +4870,30 @@ function renderPortfolio() {
   const pnl = cur - inv;
   const pct = inv > 0 ? (pnl/inv*100).toFixed(1) : 0;
 
-  const accountTotal = cur + buyPower;
-  const acctPnl      = cur - inv;
-  const acctPct      = inv > 0 ? (acctPnl/inv*100).toFixed(1) : 0;
+  const accountTotal  = cur + buyPower;
+  const acctPnl       = cur - inv;
+  const acctPct       = inv > 0 ? (acctPnl/inv*100).toFixed(1) : 0;
+  const cashPct       = accountTotal > 0 ? (buyPower / accountTotal * 100).toFixed(1) : 0;
+  const investedPct   = accountTotal > 0 ? (cur / accountTotal * 100).toFixed(1) : 0;
 
-  document.getElementById('p-invested').textContent      = '$'+inv.toFixed(2);
+  document.getElementById('p-account-total').textContent = '$'+accountTotal.toFixed(2);
   document.getElementById('p-current').textContent       = '$'+cur.toFixed(2);
   document.getElementById('p-buypower').textContent      = '$'+buyPower.toFixed(2);
-  document.getElementById('p-account-total').textContent = '$'+accountTotal.toFixed(2);
+  document.getElementById('p-cash-pct').textContent      = cashPct+'% cash available';
+  document.getElementById('p-invested').textContent      = '$'+inv.toFixed(2);
+  document.getElementById('p-invested-pct').textContent  = investedPct+'% deployed';
   document.getElementById('p-pnl').textContent           = (acctPnl>=0?'▲ +$':'▼ −$')+Math.abs(acctPnl).toFixed(2)+' ('+acctPct+'%)';
   document.getElementById('p-pnl').style.color           = acctPnl>=0?'var(--green)':'var(--red)';
   document.getElementById('p-pnl-pct').textContent       = (pnl>=0?'▲ +':'▼ ')+pct+'% return on stocks';
   document.getElementById('p-pnl-pct').className         = 'kpi-note '+(pnl>=0?'up':'dn');
+  // Portfolio Return card
+  const retEl = document.getElementById('p-return-val');
+  const retNote = document.getElementById('p-return-note');
+  if (retEl) {
+    retEl.textContent  = (acctPnl>=0?'+$':'-$')+Math.abs(acctPnl).toFixed(2);
+    retEl.style.color  = acctPnl>=0?'var(--green)':'var(--red)';
+  }
+  if (retNote) retNote.textContent = acctPct+'% total return';
 
   if (!portfolio.length) {
     document.getElementById('port-rows').innerHTML = '<div class="empty">No stocks yet — add one below</div>';
