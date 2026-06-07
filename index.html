@@ -1451,6 +1451,35 @@ canvas{max-height:300px;}
 .insider-date{font-size:10px;color:var(--gray);}
 @media(max-width:768px){.edgar-grid{grid-template-columns:1fr;}.edgar-facts{grid-template-columns:1fr 1fr;}}
 
+/* ── Heat Strip ── */
+.hs-wrap{ padding:10px 16px 14px; border-top:1px solid rgba(255,255,255,.05); }
+.hs-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+.hs-label{ font-size:8px; letter-spacing:2px; color:var(--gray); text-transform:uppercase; }
+.hs-legend{ display:flex; gap:12px; }
+.hs-legend-item{ display:flex; align-items:center; gap:4px; font-size:8px; letter-spacing:.5px; color:var(--gray); }
+.hs-legend-dot{ width:8px; height:8px; border-radius:1px; flex-shrink:0; }
+.hs-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+.hs-scroll::-webkit-scrollbar{ height:3px; }
+.hs-scroll::-webkit-scrollbar-track{ background:transparent; }
+.hs-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:2px; }
+.hs-strip{ display:flex; gap:2px; min-width:max-content; }
+.hs-tile{ width:14px; height:36px; border-radius:2px; cursor:pointer; transition:transform .12s, outline .12s; flex-shrink:0; }
+.hs-tile:hover{ transform:scaleY(1.18); z-index:2; }
+.hs-tile.sel{ outline:1.5px solid var(--gold); outline-offset:1px; }
+.hs-tile.up{ background:rgba(26,110,69,.8); }
+.hs-tile.dn{ background:rgba(204,0,0,.7); }
+.hs-tile.flat{ background:rgba(255,255,255,.15); }
+.hs-tile.gray{ background:rgba(255,255,255,.06); }
+.hs-detail{ margin-top:10px; padding:8px 12px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); display:none; gap:0 20px; align-items:start; }
+.hs-detail.vis{ display:grid; grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
+.hs-d-col{ padding:2px 0; }
+.hs-d-lbl{ font-size:8px; letter-spacing:1px; color:var(--gray); text-transform:uppercase; margin-bottom:2px; }
+.hs-d-val{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dark); }
+.hs-d-val.up{ color:var(--green); }
+.hs-d-val.dn{ color:var(--red); }
+.hs-empty{ font-size:9px; letter-spacing:1px; color:var(--gray); text-align:center; padding:12px 0; }
+@media(max-width:768px){ .hs-tile{ width:9px; height:26px; } .hs-legend{ gap:8px; } }
+
 /* ── Graph Swap Views ── */
 .gsv-toggle{ display:flex; gap:4px; }
 .gsv-btn{ background:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.4); font-family:'Barlow Condensed',sans-serif; font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:4px 10px; cursor:pointer; transition:all .2s; white-space:nowrap; }
@@ -1752,6 +1781,18 @@ canvas{max-height:300px;}
           </div>
           <canvas id="dashChart"></canvas>
         </div>
+        <div class="hs-wrap" id="dash-hs">
+          <div class="hs-header">
+            <span class="hs-label">◆ Daily Heat Strip</span>
+            <div class="hs-legend">
+              <div class="hs-legend-item"><div class="hs-legend-dot" style="background:rgba(26,110,69,.8)"></div>Up day</div>
+              <div class="hs-legend-item"><div class="hs-legend-dot" style="background:rgba(204,0,0,.7)"></div>Down day</div>
+              <div class="hs-legend-item"><div class="hs-legend-dot" style="background:rgba(255,255,255,.06)"></div>No data</div>
+            </div>
+          </div>
+          <div class="hs-scroll"><div class="hs-strip" id="dash-hs-strip"></div></div>
+          <div class="hs-detail" id="dash-hs-detail"></div>
+        </div>
         <div class="gsv-heatmap" id="dash-heatmap">
           <div class="gsv-grid" id="dash-heatmap-grid"></div>
         </div>
@@ -1808,6 +1849,18 @@ canvas{max-height:300px;}
           </div>
         </div>
         <div class="pb"><canvas id="chartPageCanvas"></canvas></div>
+        <div class="hs-wrap" id="cp-hs">
+          <div class="hs-header">
+            <span class="hs-label">◆ Daily Heat Strip</span>
+            <div class="hs-legend">
+              <div class="hs-legend-item"><div class="hs-legend-dot" style="background:rgba(26,110,69,.8)"></div>Up day</div>
+              <div class="hs-legend-item"><div class="hs-legend-dot" style="background:rgba(204,0,0,.7)"></div>Down day</div>
+              <div class="hs-legend-item"><div class="hs-legend-dot" style="background:rgba(255,255,255,.06)"></div>No data</div>
+            </div>
+          </div>
+          <div class="hs-scroll"><div class="hs-strip" id="cp-hs-strip"></div></div>
+          <div class="hs-detail" id="cp-hs-detail"></div>
+        </div>
       </div>
       <div class="two-col" style="margin-bottom:0;">
         <div class="panel" style="margin-bottom:0;">
@@ -2661,7 +2714,67 @@ const PERIODS = { '1W':7, '1M':30, '3M':90, '1Y':365 };
 function lineColor(chg) { return chg >= 0 ? '#1A6E45' : '#CC0000'; }
 function fillColor(chg) { return chg >= 0 ? 'rgba(26,110,69,0.07)' : 'rgba(204,0,0,0.07)'; }
 
-async function buildChart(ctx, sym, per, old) {
+// ═══════════════════════════════════════════════════════════
+//  HEAT STRIP — renders below any chart, reuses same bars
+// ═══════════════════════════════════════════════════════════
+function renderHeatStrip(stripId, detailId, bars) {
+  const strip  = document.getElementById(stripId);
+  const detail = document.getElementById(detailId);
+  if (!strip) return;
+  if (!bars || !bars.prices || bars.prices.length < 2) {
+    strip.innerHTML = '<div class="hs-empty">Heat map will appear when price history loads.</div>';
+    if (detail) { detail.className = 'hs-detail'; detail.innerHTML = ''; }
+    return;
+  }
+  const { prices, labels, highs, lows } = bars;
+  // Store bars on element for click access (no extra fetch)
+  strip._hsBars = bars;
+  strip.innerHTML = prices.map((close, i) => {
+    let cls = 'gray';
+    if (i > 0) {
+      const prev = prices[i - 1];
+      if      (close > prev) cls = 'up';
+      else if (close < prev) cls = 'dn';
+      else                   cls = 'flat';
+    }
+    const pct = i > 0 ? (((close - prices[i-1]) / prices[i-1]) * 100).toFixed(2) : null;
+    const tip = labels[i] + ' — $' + close.toFixed(2) + (pct !== null ? ' (' + (pct >= 0 ? '+' : '') + pct + '%)' : '');
+    return `<div class="hs-tile ${cls}" title="${tip}" data-i="${i}" onclick="_hsTileClick('${stripId}','${detailId}',${i})"></div>`;
+  }).join('');
+  if (detail) { detail.className = 'hs-detail'; detail.innerHTML = ''; }
+}
+
+function _hsTileClick(stripId, detailId, idx) {
+  const strip  = document.getElementById(stripId);
+  const detail = document.getElementById(detailId);
+  if (!strip || !detail || !strip._hsBars) return;
+  const { prices, labels, highs, lows } = strip._hsBars;
+  const close = prices[idx];
+  const prev  = idx > 0 ? prices[idx - 1] : null;
+  const chg   = prev !== null ? ((close - prev) / prev * 100) : null;
+  const hi    = highs && highs[idx] !== prices[idx] ? highs[idx] : null;
+  const lo    = lows  && lows[idx]  !== prices[idx] ? lows[idx]  : null;
+  // Toggle: click same tile again → close detail
+  const tiles = strip.querySelectorAll('.hs-tile');
+  const already = tiles[idx] && tiles[idx].classList.contains('sel');
+  tiles.forEach(t => t.classList.remove('sel'));
+  if (already) { detail.className = 'hs-detail'; detail.innerHTML = ''; return; }
+  if (tiles[idx]) tiles[idx].classList.add('sel');
+  const chgCls = chg === null ? '' : chg >= 0 ? 'up' : 'dn';
+  const chgStr = chg === null ? 'First bar' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+  const prevStr = prev !== null ? '$' + prev.toFixed(2) : 'N/A';
+  detail.innerHTML = `
+    <div class="hs-d-col"><div class="hs-d-lbl">Date</div><div class="hs-d-val">${labels[idx]}</div></div>
+    <div class="hs-d-col"><div class="hs-d-lbl">Close</div><div class="hs-d-val">$${close.toFixed(2)}</div></div>
+    <div class="hs-d-col"><div class="hs-d-lbl">Prev Close</div><div class="hs-d-val">${prevStr}</div></div>
+    <div class="hs-d-col"><div class="hs-d-lbl">Day Change</div><div class="hs-d-val ${chgCls}">${chgStr}</div></div>
+    ${hi !== null ? `<div class="hs-d-col"><div class="hs-d-lbl">Day High</div><div class="hs-d-val">$${hi.toFixed(2)}</div></div>` : ''}
+    ${lo !== null ? `<div class="hs-d-col"><div class="hs-d-lbl">Day Low</div><div class="hs-d-val">$${lo.toFixed(2)}</div></div>` : ''}
+  `;
+  detail.className = 'hs-detail vis';
+}
+
+async function buildChart(ctx, sym, per, old, hs = null) {
   if (old) old.destroy();
   const st  = STOCKS[sym];
   let prices, labels, highs, lows;
@@ -2671,6 +2784,7 @@ async function buildChart(ctx, sym, per, old) {
     highs  = d.highs  || prices;
     lows   = d.lows   || prices;
   } catch(e) {
+    if (hs) renderHeatStrip(hs.s, hs.d, null);
     return new Chart(ctx, {
       type: 'line',
       data: { labels: [], datasets: [{ data: [] }] },
@@ -2696,7 +2810,7 @@ async function buildChart(ctx, sym, per, old) {
   grad.addColorStop(0.6, isUp ? 'rgba(26,110,69,0.06)' : 'rgba(204,0,0,0.06)');
   grad.addColorStop(1, 'rgba(0,0,0,0)');
 
-  return new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
@@ -2753,6 +2867,8 @@ async function buildChart(ctx, sym, per, old) {
       }
     }
   });
+  if (hs) renderHeatStrip(hs.s, hs.d, { prices, labels, highs, lows });
+  return chart;
 }
 
 function fmt$(n){ return '$'+Math.abs(n).toFixed(2); }
@@ -3037,7 +3153,7 @@ async function selectDashStock(sym, el) {
   }
   document.getElementById('d-chg').className = 'ci-chg '+(chg>=0?'up':'dn');
   const ctx = document.getElementById('dashChart').getContext('2d');
-  dashChart = await buildChart(ctx, sym, dashPer, dashChart);
+  dashChart = await buildChart(ctx, sym, dashPer, dashChart, { s:'dash-hs-strip', d:'dash-hs-detail' });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3048,7 +3164,7 @@ async function dashPeriod(p, el) {
   document.querySelectorAll('#dash-ptabs .ptab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   const ctx = document.getElementById('dashChart').getContext('2d');
-  dashChart = await buildChart(ctx, dashSym, dashPer, dashChart);
+  dashChart = await buildChart(ctx, dashSym, dashPer, dashChart, { s:'dash-hs-strip', d:'dash-hs-detail' });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3543,7 +3659,7 @@ async function renderChartPage() {
   document.getElementById('cp-sym').textContent = chartSym+' — '+STOCKS[chartSym].name;
   updateChartStats();
   const ctx = document.getElementById('chartPageCanvas').getContext('2d');
-  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart);
+  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart, { s:'cp-hs-strip', d:'cp-hs-detail' });
 }
 
 async function selectChartSym(sym, el) {
@@ -3553,7 +3669,7 @@ async function selectChartSym(sym, el) {
   document.getElementById('cp-sym').textContent = sym+' — '+STOCKS[sym].name;
   updateChartStats();
   const ctx = document.getElementById('chartPageCanvas').getContext('2d');
-  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart);
+  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart, { s:'cp-hs-strip', d:'cp-hs-detail' });
 }
 
 async function chartPeriod(p, el) {
@@ -3561,7 +3677,7 @@ async function chartPeriod(p, el) {
   document.querySelectorAll('#chart-ptabs .ptab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   const ctx = document.getElementById('chartPageCanvas').getContext('2d');
-  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart);
+  cpChart = await buildChart(ctx, chartSym, chartPer, cpChart, { s:'cp-hs-strip', d:'cp-hs-detail' });
 }
 
 function updateChartStats() {
@@ -6596,7 +6712,7 @@ async function init() {
 
   // Dashboard chart
   const ctx = document.getElementById('dashChart').getContext('2d');
-  dashChart = await buildChart(ctx, dashSym, dashPer, null);
+  dashChart = await buildChart(ctx, dashSym, dashPer, null, { s:'dash-hs-strip', d:'dash-hs-detail' });
 
   // Restore saved graph modes
   if (dashGraphMode !== 'price') {
