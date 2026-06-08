@@ -64,6 +64,7 @@ if (process.env.FIREBASE_PRIVATE_KEY && process.env.ALPACA_KEY) {
   console.warn('[SERVER] No Firebase/Alpaca env vars — pipeline disabled. App still runs.');
 }
 
+app.set('trust proxy', 1); // Railway sits behind a proxy — required for rate limiter to read real IP
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
