@@ -34,15 +34,23 @@ function decodeEntities(str) {
 }
 
 // Parse titles from RSS XML — handles both CDATA and plain text
-function parseTitlesFromRSS(text, skipPatterns) {
-  const cdata  = [...text.matchAll(/<title><!\[CDATA\[(.*?)\]\]><\/title>/gs)].map(m => m[1].trim());
-  const plain  = [...text.matchAll(/<title>([^<]{10,})<\/title>/gs)].map(m => m[1].trim());
-  const raw    = cdata.length ? cdata : plain;
-  return raw
-    .map(decodeEntities)
-    .filter(t => !skipPatterns.some(p => t.toLowerCase().includes(p)))
-    .filter(t => t.length > 15)
-    .slice(0, 6);
+function parseItemsFromRSS(text, skipPatterns) {
+  const items = [...text.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => m[1]);
+  const out = [];
+  for (const item of items) {
+    const cdataT = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/s);
+    const plainT = item.match(/<title>([^<]{10,})<\/title>/s);
+    const rawTitle = cdataT ? cdataT[1].trim() : plainT ? plainT[1].trim() : '';
+    const title = decodeEntities(rawTitle);
+    if (!title || title.length < 15) continue;
+    if (skipPatterns.some(p => title.toLowerCase().includes(p))) continue;
+    const linkM = item.match(/<link>(https?:\/\/[^<]+)<\/link>/) ||
+                  item.match(/<guid[^>]*>(https?:\/\/[^<]+)<\/guid>/);
+    const url = linkM ? linkM[1].trim() : null;
+    out.push({ title, url });
+    if (out.length >= 6) break;
+  }
+  return out;
 }
 
 async function fetchHeadlines(symbol) {
@@ -74,10 +82,10 @@ async function fetchHeadlines(symbol) {
   for (const src of sources) {
     try {
       const res    = await axios.get(src.url, { timeout: 9000, headers: HEADERS });
-      const titles = parseTitlesFromRSS(res.data, src.skip);
-      if (titles.length >= 3) {
-        console.log(`[SENTIMENT] ${symbol}: ${titles.length} headlines from ${new URL(src.url).hostname}`);
-        return titles;
+      const items = parseItemsFromRSS(res.data, src.skip);
+      if (items.length >= 3) {
+        console.log(`[SENTIMENT] ${symbol}: ${items.length} headlines from ${new URL(src.url).hostname}`);
+        return items;
       }
     } catch (e) {
       console.warn(`[SENTIMENT] ${symbol}: source ${new URL(src.url).hostname} failed —`, e.message);
@@ -85,7 +93,7 @@ async function fetchHeadlines(symbol) {
   }
 
   console.warn(`[SENTIMENT] ${symbol}: all RSS sources failed — using placeholder`);
-  return [`No recent headlines available for ${company}`];
+  return [{ title: `No recent headlines available for ${company}`, url: null }];
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -200,11 +208,14 @@ async function runSentimentAnalysis() {
 
   for (const symbol of SYMBOLS) {
     try {
-      const headlines = await fetchHeadlines(symbol);
-      console.log(`[SENTIMENT] ${symbol}: ${headlines.length} headlines fetched`);
+      const items = await fetchHeadlines(symbol);
+      console.log(`[SENTIMENT] ${symbol}: ${items.length} headlines fetched`);
+      const headlines = items.map(i => i.title || i); // plain strings for Claude prompt
 
       const analysis   = await analyzeSentiment(symbol, headlines);
-      const rawHeads   = analysis.headlines || headlines.map(h => ({ text: h, sentiment: 'neutral', why: '', eventType: 'NONE', impactMagnitude: 'low', impactDuration: '1d', materialityScore: 0, eventDate: null, confirmed: false }));
+      // Merge URLs back into Claude's headline objects by index
+      const rawHeads   = (analysis.headlines || headlines.map(h => ({ text: h, sentiment: 'neutral', why: '', eventType: 'NONE', impactMagnitude: 'low', impactDuration: '1d', materialityScore: 0, eventDate: null, confirmed: false })))
+        .map((h, i) => ({ ...h, url: items[i]?.url || null }));
       const events     = extractStructuredEvents(rawHeads);
 
       results[symbol] = {
