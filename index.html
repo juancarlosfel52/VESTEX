@@ -1161,6 +1161,181 @@ canvas{max-height:300px;}
 .lt-status.active{ color:var(--gold); border:1px solid rgba(201,168,76,.3); }
 .lt-status.future{ color:var(--gray); border:1px solid var(--border); }
 
+/* ── Paper Trading Intro Popup ── */
+#pt-intro-overlay{
+  position:fixed;inset:0;z-index:99998;display:none;
+  align-items:flex-end;justify-content:center;
+  padding-bottom:0;
+  backdrop-filter:blur(0px);
+  -webkit-backdrop-filter:blur(0px);
+  background:rgba(0,0,0,0);
+  transition:background .4s ease, backdrop-filter .4s ease;
+}
+#pt-intro-overlay.open{
+  display:flex;
+  background:rgba(0,0,0,.75);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+#pt-intro-overlay.animating{
+  background:rgba(0,0,0,.75);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.pt-intro-card{
+  background:linear-gradient(160deg,#0e0e0e 0%,#141008 60%,#0a0a0a 100%);
+  border:1px solid rgba(201,168,76,.25);
+  border-bottom:none;
+  border-radius:20px 20px 0 0;
+  width:100%;max-width:680px;
+  max-height:92vh;overflow-y:auto;
+  box-shadow:0 -20px 80px rgba(201,168,76,.12),0 -4px 40px rgba(0,0,0,.8);
+  transform:translateY(100%);
+  transition:transform .5s cubic-bezier(.22,.61,.36,1);
+  position:relative;
+}
+#pt-intro-overlay.animating .pt-intro-card,
+#pt-intro-overlay.open .pt-intro-card{
+  transform:translateY(0);
+}
+/* gold shimmer line at top */
+.pt-intro-card::before{
+  content:'';position:absolute;top:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,.8),transparent);
+  border-radius:1px;
+}
+.pt-intro-handle{
+  width:40px;height:4px;border-radius:2px;
+  background:rgba(201,168,76,.3);margin:14px auto 0;
+}
+.pt-intro-top{
+  padding:24px 32px 20px;text-align:center;
+}
+.pt-intro-icon{
+  font-size:40px;margin-bottom:12px;
+  filter:drop-shadow(0 0 16px rgba(201,168,76,.5));
+  animation:ptIconPulse 2.5s ease-in-out infinite;
+}
+@keyframes ptIconPulse{
+  0%,100%{filter:drop-shadow(0 0 16px rgba(201,168,76,.4));}
+  50%{filter:drop-shadow(0 0 28px rgba(201,168,76,.8));}
+}
+.pt-intro-eyebrow{
+  font-size:9px;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(201,168,76,.6);margin-bottom:8px;
+}
+.pt-intro-title{
+  font-family:'Manrope',sans-serif;font-size:26px;font-weight:800;
+  color:#fff;line-height:1.15;letter-spacing:-0.01em;
+  text-shadow:0 0 30px rgba(201,168,76,.35);
+}
+.pt-intro-title em{
+  color:var(--gold);font-style:normal;
+  text-shadow:0 0 20px rgba(201,168,76,.6);
+}
+.pt-intro-sub{
+  font-size:12px;color:rgba(255,255,255,.45);margin-top:8px;line-height:1.6;
+}
+.pt-intro-body{ padding:0 32px 32px; }
+.pt-intro-stat-row{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;
+}
+.pt-intro-stat{
+  background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.15);
+  border-radius:10px;padding:14px 10px;text-align:center;
+}
+.pt-intro-stat-val{
+  font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;
+  color:var(--gold);line-height:1;
+  text-shadow:0 0 12px rgba(201,168,76,.4);
+}
+.pt-intro-stat-lbl{
+  font-size:9px;letter-spacing:1px;color:rgba(255,255,255,.4);
+  text-transform:uppercase;margin-top:4px;
+}
+.pt-intro-section{ margin-bottom:20px; }
+.pt-intro-section-hdr{
+  display:flex;align-items:center;gap:10px;margin-bottom:10px;
+}
+.pt-intro-section-icon{
+  width:28px;height:28px;border-radius:6px;
+  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;flex-shrink:0;
+}
+.pt-intro-section-title{
+  font-size:11px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--gold);
+  text-shadow:0 0 10px rgba(201,168,76,.3);
+}
+.pt-intro-section p{
+  font-size:12px;color:rgba(255,255,255,.6);line-height:1.8;
+}
+.pt-intro-section p strong{
+  color:rgba(255,255,255,.9);font-weight:600;
+}
+.pt-intro-steps{
+  display:flex;flex-direction:column;gap:8px;
+}
+.pt-intro-step{
+  display:flex;align-items:flex-start;gap:12px;
+  background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;
+  border:1px solid rgba(255,255,255,.05);
+}
+.pt-intro-step-num{
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--gold);flex-shrink:0;margin-top:1px;
+}
+.pt-intro-step-text{
+  font-size:11px;color:rgba(255,255,255,.65);line-height:1.6;
+}
+.pt-intro-step-text strong{ color:rgba(255,255,255,.9); }
+.pt-intro-learn-box{
+  background:linear-gradient(135deg,rgba(201,168,76,.08),rgba(201,168,76,.03));
+  border:1px solid rgba(201,168,76,.2);border-radius:10px;
+  padding:16px 18px;margin-bottom:24px;position:relative;overflow:hidden;
+}
+.pt-intro-learn-box::after{
+  content:'';position:absolute;top:-30px;right:-30px;width:80px;height:80px;
+  background:radial-gradient(circle,rgba(201,168,76,.15),transparent 70%);
+  pointer-events:none;
+}
+.pt-intro-learn-title{
+  font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:8px;
+  text-shadow:0 0 10px rgba(201,168,76,.4);
+}
+.pt-intro-learn-box p{
+  font-size:11px;color:rgba(255,255,255,.6);line-height:1.8;margin:0;
+}
+.pt-intro-learn-box p strong{ color:rgba(255,255,255,.85); }
+.pt-intro-disclaimer{
+  font-size:10px;color:rgba(255,255,255,.25);text-align:center;
+  margin-bottom:16px;line-height:1.6;
+}
+.pt-intro-btn{
+  width:100%;padding:16px;border:none;border-radius:10px;
+  background:linear-gradient(135deg,#c9a84c,#a8722a);
+  color:#000;font-size:12px;font-weight:800;letter-spacing:2.5px;
+  text-transform:uppercase;cursor:pointer;
+  box-shadow:0 4px 24px rgba(201,168,76,.3);
+  transition:all .2s;font-family:'Inter',sans-serif;
+}
+.pt-intro-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 32px rgba(201,168,76,.45);
+}
+.pt-intro-btn:active{ transform:translateY(0); }
+@media(max-width:480px){
+  .pt-intro-top{ padding:20px 20px 16px; }
+  .pt-intro-body{ padding:0 20px 28px; }
+  .pt-intro-title{ font-size:22px; }
+  .pt-intro-stat-row{ grid-template-columns:repeat(3,1fr); gap:6px; }
+  .pt-intro-stat-val{ font-size:18px; }
+}
+
 /* ── Backtest Panel ── */
 .bt-kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
 .bt-kpi{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:4px; padding:12px 14px; text-align:center; }
@@ -2697,6 +2872,98 @@ canvas{max-height:300px;}
 
     </div><!-- end page-progress -->
 
+    <!-- ═══ PAPER TRADING INTRO POPUP ═══ -->
+    <div id="pt-intro-overlay">
+      <div class="pt-intro-card">
+        <div class="pt-intro-handle"></div>
+
+        <div class="pt-intro-top">
+          <div class="pt-intro-icon">📈</div>
+          <div class="pt-intro-eyebrow">◆ Feature Unlock ◆</div>
+          <div class="pt-intro-title">Welcome to <em>Paper Trading</em></div>
+          <div class="pt-intro-sub">Practice the market with real data — zero real money, infinite learning potential.</div>
+        </div>
+
+        <div class="pt-intro-body">
+
+          <!-- Stats row -->
+          <div class="pt-intro-stat-row">
+            <div class="pt-intro-stat">
+              <div class="pt-intro-stat-val">$1M</div>
+              <div class="pt-intro-stat-lbl">Starting Capital</div>
+            </div>
+            <div class="pt-intro-stat">
+              <div class="pt-intro-stat-val">Real</div>
+              <div class="pt-intro-stat-lbl">Live Prices</div>
+            </div>
+            <div class="pt-intro-stat">
+              <div class="pt-intro-stat-val">$0</div>
+              <div class="pt-intro-stat-lbl">Real Risk</div>
+            </div>
+          </div>
+
+          <!-- What it is -->
+          <div class="pt-intro-section">
+            <div class="pt-intro-section-hdr">
+              <div class="pt-intro-section-icon">💡</div>
+              <div class="pt-intro-section-title">What Is Paper Trading?</div>
+            </div>
+            <p>
+              Paper trading is how <strong>professional traders train before going live.</strong> You receive $1,000,000 in simulated funds and trade against real market prices — the same live data VESTEX uses for every prediction and signal.
+              <br><br>
+              Every buy, sell, gain, and loss is tracked exactly as it would be in a real brokerage account. The only difference: <strong>none of it uses real money.</strong>
+            </p>
+          </div>
+
+          <!-- How to use -->
+          <div class="pt-intro-section">
+            <div class="pt-intro-section-hdr">
+              <div class="pt-intro-section-icon">⚡</div>
+              <div class="pt-intro-section-title">How To Use It</div>
+            </div>
+            <div class="pt-intro-steps">
+              <div class="pt-intro-step">
+                <div class="pt-intro-step-num">1</div>
+                <div class="pt-intro-step-text"><strong>Study the signals.</strong> Check Master Intelligence, predictions, and Brain Vault patterns before making a move.</div>
+              </div>
+              <div class="pt-intro-step">
+                <div class="pt-intro-step-num">2</div>
+                <div class="pt-intro-step-text"><strong>Place a trade.</strong> Enter a symbol and share count — your simulated account executes at the live market price.</div>
+              </div>
+              <div class="pt-intro-step">
+                <div class="pt-intro-step-num">3</div>
+                <div class="pt-intro-step-text"><strong>Track your P&L.</strong> Watch your positions move in real time. Learn what works and what doesn't — at no cost.</div>
+              </div>
+              <div class="pt-intro-step">
+                <div class="pt-intro-step-num">4</div>
+                <div class="pt-intro-step-text"><strong>Review your history.</strong> Every trade is logged. Study your decisions the same way professionals review trade journals.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Self-learning drive -->
+          <div class="pt-intro-learn-box">
+            <div class="pt-intro-learn-title">◆ The Self-Learning Loop</div>
+            <p>
+              Every trade you make here creates a feedback loop. When you buy based on a VESTEX signal and the trade wins — <strong>you learn to trust that signal.</strong> When it loses — <strong>you learn when not to follow it.</strong>
+              <br><br>
+              This is exactly how professional traders develop intuition. Over weeks of paper trading, patterns in your own decisions emerge: which signals you over-trust, which stocks you over-trade, when you exit too early. <strong>No textbook teaches this — only repetition with real data does.</strong>
+              <br><br>
+              The goal is simple: <strong>when you're ready to trade with real money, you already know how you behave under pressure.</strong>
+            </p>
+          </div>
+
+          <div class="pt-intro-disclaimer">
+            ◆ Paper trading results do not guarantee real-world performance. Markets involve real risk.<br>
+            This feature is for educational and practice purposes only.
+          </div>
+
+          <button class="pt-intro-btn" onclick="ptIntroClose()">◆ Start Paper Trading — Let's Go</button>
+
+        </div>
+      </div>
+    </div>
+
     <!-- ═══ PAPER TRADING PAGE ═══ -->
     <div class="page" id="page-trading">
       <div class="sec-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -2890,8 +3157,9 @@ auth.onAuthStateChanged(user => {
     // Show legal warning first (once ever), then beta popup (once ever)
     const legalKey = 'vestex_legal_accepted_' + user.uid;
     const betaKey  = 'vestex_beta_accepted_'  + user.uid;
-    window._legalKey = legalKey;
-    window._betaKey  = betaKey;
+    window._legalKey    = legalKey;
+    window._betaKey     = betaKey;
+    window._currentUid  = user.uid;
     if (!localStorage.getItem(legalKey)) {
       document.getElementById('legal-overlay').style.display = 'flex';
     } else if (!localStorage.getItem(betaKey)) {
@@ -3250,7 +3518,7 @@ function nav(el, id) {
   if (id==='news')        renderNewsFull();
   if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
   if (id==='master')      renderMasterPage();
-  if (id==='trading')     { ptRefresh(); ptLoadHistory(); }
+  if (id==='trading')     { ptRefresh(); ptLoadHistory(); ptIntroCheck(); }
 }
 
 function mobNav(el, id) {
@@ -3265,7 +3533,7 @@ function mobNav(el, id) {
   if (id==='master')      renderMasterPage();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
-  if (id==='trading')     { ptRefresh(); ptLoadHistory(); }
+  if (id==='trading')     { ptRefresh(); ptLoadHistory(); ptIntroCheck(); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -6305,6 +6573,41 @@ async function ptGetToken() {
 
 async function ptAuthHeaders() {
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + await ptGetToken() };
+}
+
+// ── Paper Trading Intro Popup ──
+function ptIntroOpen() {
+  const overlay = document.getElementById('pt-intro-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  // Force reflow so transition fires
+  overlay.offsetHeight;
+  overlay.classList.add('animating');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('open');
+    });
+  });
+}
+function ptIntroClose() {
+  const overlay = document.getElementById('pt-intro-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  setTimeout(() => {
+    overlay.classList.remove('animating');
+    overlay.style.display = 'none';
+    // Mark as seen for this user
+    if (window._currentUid) {
+      localStorage.setItem('vestex_pt_intro_' + window._currentUid, '1');
+    }
+  }, 520);
+}
+function ptIntroCheck() {
+  const uid = window._currentUid;
+  if (!uid) return;
+  if (!localStorage.getItem('vestex_pt_intro_' + uid)) {
+    setTimeout(ptIntroOpen, 300); // slight delay so page renders first
+  }
 }
 
 async function ptRefresh() {
