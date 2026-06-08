@@ -6614,6 +6614,13 @@ async function ptRefresh() {
   const el = document.getElementById('pt-positions');
   if (el) el.innerHTML = '<div class="empty" style="padding:20px 22px;">Loading...</div>';
   try {
+    // Wait for Firebase auth to be ready before requesting
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      // Auth not ready yet — retry once after a short delay
+      setTimeout(ptRefresh, 1500);
+      return;
+    }
     const headers = await ptAuthHeaders();
     const res  = await fetch('/api/paper/account', { headers });
     const data = await res.json();
