@@ -4792,7 +4792,27 @@ function btRender(r) {
     </div>`;
   }).join('') || '<div style="font-size:10px;color:var(--gray);padding:8px 0;">No patterns with ≥5 fires yet.</div>';
 
+  // Regime breakdown rows
+  const regimeOrder = ['neutral','cautious','fear','greed','euphoria','panic'];
+  const regimeRows  = regimeOrder.map(rg => {
+    const rv = (r.regimeBreakdown || {})[rg];
+    if (!rv || rv.total === 0) return '';
+    const c = rv.accuracy >= 60 ? 'var(--green)' : rv.accuracy >= 50 ? 'var(--gold)' : 'var(--red)';
+    return `<div class="bt-pattern-row">
+      <div><div class="bt-pat-id" style="text-transform:capitalize;">${rg}</div></div>
+      <div class="bt-pat-fires">${rv.total}</div>
+      <div class="bt-pat-fires">${rv.correct}/${rv.total}</div>
+      <div class="bt-pat-acc" style="color:${c};">${rv.accuracy}%</div>
+    </div>`;
+  }).join('');
+
+  const histBadge = r.historyMode
+    ? `<span style="font-size:8px;letter-spacing:1px;background:rgba(26,110,69,.15);border:1px solid rgba(26,110,69,.3);color:var(--green);padding:2px 8px;border-radius:2px;">✓ Exact Historical Mode — ${r.vixDaysLoaded || 0} VIX days · ${r.fngDaysLoaded || 0} F&G days</span>`
+    : `<span style="font-size:8px;color:var(--gray);">Approximated mode</span>`;
+
   content.innerHTML = `
+    <div style="margin-bottom:12px;">${histBadge}</div>
+
     <div class="bt-kpis">
       <div class="bt-kpi">
         <div class="bt-kpi-val" style="color:${accColor};">${r.accuracy}%</div>
@@ -4819,6 +4839,13 @@ function btRender(r) {
     <div class="bt-section-title">Monthly Accuracy — green = ≥55%, red = &lt;45%</div>
     <div class="bt-monthly">${monthBars || '<span style="font-size:10px;color:var(--gray);">No monthly data</span>'}</div>
 
+    ${regimeRows ? `
+    <div class="bt-section-title">Accuracy by Market Regime</div>
+    <div class="bt-pattern-row" style="font-size:8px;letter-spacing:1px;color:var(--gray);text-transform:uppercase;padding-bottom:4px;">
+      <div>Regime</div><div style="text-align:right;">Days</div><div style="text-align:right;">Correct</div><div style="text-align:right;">Win %</div>
+    </div>
+    ${regimeRows}` : ''}
+
     <div class="bt-section-title">Top Patterns by Fire Count</div>
     <div class="bt-pattern-row" style="font-size:8px;letter-spacing:1px;color:var(--gray);text-transform:uppercase;padding-bottom:4px;">
       <div>Pattern</div><div style="text-align:right;">Fires</div><div style="text-align:right;">Correct</div><div style="text-align:right;">Win %</div>
@@ -4826,7 +4853,7 @@ function btRender(r) {
     ${patRows}
 
     <div style="font-size:9px;color:var(--gray);margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05);line-height:1.6;">
-      ◆ Backtest uses technical indicators only (RSI, MACD, SMA, ATR, Vol). Seasonal weights use current month as approximation.<br>
+      ◆ Exact historical VIX + Fear &amp; Greed used per day. Seasonal month matches each historical date.<br>
       ◆ 7-day lookahead. Outcome threshold: ±0.5% move to classify UP/DOWN. ${r.flatCount} FLAT predictions excluded from accuracy.
     </div>
   `;

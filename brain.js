@@ -936,13 +936,13 @@ function calcBrainScore(patterns) {
 //  extraContext: { symbol, macroSnapshot, sentiment, edgar }
 // ═══════════════════════════════════════════════════════════
 async function runBrainAnalysis(indicators, extraContext = {}) {
-  const { macroSnapshot, sentiment, edgar } = extraContext;
+  const { macroSnapshot, sentiment, edgar, regimeOverride, monthOverride } = extraContext;
 
-  // 1. Market regime
-  const regime = await fetchMarketRegime();
+  // 1. Market regime — use historical override if provided (backtest), else live fetch
+  const regime = regimeOverride || await fetchMarketRegime();
 
-  // 2. Seasonal signal
-  const month   = new Date().getMonth() + 1;
+  // 2. Seasonal signal — use historical month if provided (backtest), else current month
+  const month   = monthOverride || (new Date().getMonth() + 1);
   const seasonal = SEASONAL.find(s => s.month === month) || null;
 
   // 3. Run all category matchers
