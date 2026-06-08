@@ -1840,7 +1840,7 @@ canvas{max-height:300px;}
         <div class="beta-section-title">Coming in the Next Few Weeks</div>
         <ul class="beta-list">
           <li class="soon">Paper trading — buy and sell with $100K fake money, no real risk</li>
-          <li class="soon">AI-powered news sentiment — Claude reads headlines and explains what they mean for your stocks</li>
+          <li class="soon">AI-powered news sentiment — our AI reads headlines and explains what they mean for your stocks</li>
           <li class="soon">Prediction accuracy tracker — see how often our model is right week over week</li>
           <li class="soon">Community leaderboard — compete with other users on who makes the best predictions</li>
           <li class="soon">Smarter price predictions — our model improves every week as it collects more data</li>
@@ -3625,7 +3625,7 @@ function renderDashNews() {
     }).join('');
     return;
   }
-  document.getElementById('d-news').innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;text-align:center;">News sentiment activates once Claude API key is added to Railway.</div>`;
+  document.getElementById('d-news').innerHTML = `<div style="font-size:11px;color:var(--gray);padding:16px 0;text-align:center;">News sentiment activates once the AI API key is configured.</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4620,7 +4620,7 @@ async function renderLearningTimeline(preloaded) {
   const learning = [];
 
   knows.push({ icon:'◆', c:'var(--gold)', title:'Live Price Data', sub:'Real-time Alpaca snapshots — AAPL, TSLA, GOOGL, MSFT, AMZN. Updated every 5 minutes.' });
-  knows.push({ icon:'◆', c:'var(--gold)', title:'News Sentiment', sub:'Google News RSS analyzed by Claude Haiku — headline tone, event type, impact magnitude.' });
+  knows.push({ icon:'◆', c:'var(--gold)', title:'News Sentiment', sub:'Google News RSS analyzed by VESTEX AI — headline tone, event type, impact magnitude.' });
   knows.push({ icon:'◆', c:'var(--gold)', title:'FRED Macro Signals', sub:'Yield curve, credit spreads, Sahm Rule — weekly and monthly updates from the Federal Reserve.' });
   knows.push({ icon:'◆', c:'var(--gold)', title:'100-Year Seasonal Data', sub:'Monthly Dow Jones bias (1920s–present). Sell-in-May, January Effect, holiday patterns.' });
   knows.push({ icon:'◆', c:'var(--gold)', title:'RSI + Moving Averages', sub:'14-day RSI, 7/21-day MA crossovers applied to every stock every day.' });
@@ -5248,7 +5248,7 @@ async function renderNewsFull() {
         liveSentiment = data.data;
         if (lastEl) {
           lastEl.textContent = data.aiEnabled
-            ? '◆ AI-analyzed headlines · Powered by Claude'
+            ? '◆ AI-analyzed headlines · Powered by VESTEX AI'
             : '◆ Live RSS headlines · Add CLAUDE_API_KEY for AI analysis';
         }
       }
@@ -5261,7 +5261,7 @@ async function renderNewsFull() {
     if (timestamps.length && lastEl) {
       const latest = new Date(timestamps.sort().reverse()[0]);
       const mins   = Math.round((Date.now() - latest.getTime()) / 60000);
-      lastEl.textContent = `◆ Last analyzed: ${mins < 2 ? 'just now' : mins + ' min ago'} · Powered by Claude AI`;
+      lastEl.textContent = `◆ Last analyzed: ${mins < 2 ? 'just now' : mins + ' min ago'} · Powered by VESTEX AI`;
     }
 
     document.getElementById('news-full').innerHTML = Object.values(liveSentiment).map(s => {
@@ -5322,7 +5322,7 @@ async function renderNewsFull() {
           <!-- Individual headlines -->
           <div style="margin-bottom:4px;">${headlines}</div>
           <div style="font-size:9px;letter-spacing:1px;color:#bbb;margin-top:8px;padding-top:6px;border-top:1px solid var(--border);">
-            ◆ Claude AI Analysis · ${s.fetchedAt ? new Date(s.fetchedAt).toLocaleString() : 'Today'}
+            ◆ VESTEX AI Analysis · ${s.fetchedAt ? new Date(s.fetchedAt).toLocaleString() : 'Today'}
           </div>
         </div>
       </div>`;
