@@ -1593,7 +1593,7 @@ app.get('/api/brain-integrity', rlAudit, async (req, res) => {
       verifiedCount,
       patternCount:      brainDiag?.loadedPatterns || null,
       evalRate:          brainDiag?.activePercent  || null,
-      registryEntries:   regKeys.length,
+      registryEntries:   (registry.entries || []).length,
       brainAgeDays,
     },
     lastAuditAt: nowISO,
