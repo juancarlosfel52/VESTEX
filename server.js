@@ -1,7 +1,8 @@
-const express = require('express');
-const path    = require('path');
-const cron    = require('node-cron');
-const admin   = require('firebase-admin');
+const express   = require('express');
+const path      = require('path');
+const cron      = require('node-cron');
+const admin     = require('firebase-admin');
+const rateLimit = require('express-rate-limit');
 const { runSentimentAnalysis, storeSentiment }          = require('./sentiment');
 const { fetchEdgarData, fetchAllEdgarData }             = require('./edgar');
 const { buildMasterIntelligence, calcMarketHealth, healthLabel } = require('./masterIntelligence');
@@ -10,6 +11,29 @@ const { refreshRegistry, getRegistrySnapshot }          = require('./winRateRegi
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// ── Rate limiters — protect data endpoints from scrapers/bots ──
+// All limits are generous enough that no real user will ever hit them.
+// Cron jobs and internal function calls are unaffected (they never go through HTTP).
+
+const _rl = (max, windowMin = 1) => rateLimit({
+  windowMs:        windowMin * 60 * 1000,
+  max,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message:         { ok: false, error: 'Too many requests — slow down.' },
+});
+
+// Quotes + charts: refreshed on symbol change / period change (real usage ~2–5/min)
+const rlQuotes  = _rl(20);   // /api/live-quotes
+const rlChart   = _rl(20);   // /api/chart/:symbol, /api/history/:symbol
+// Intelligence endpoints: user clicks through symbols (real usage ~3–5/min)
+const rlMI      = _rl(15);   // /api/master-intelligence/:symbol
+const rlLP      = _rl(15);   // /api/live-prediction/:symbol
+// Diagnostic/audit: only opened from Model Progress tab
+const rlAudit   = _rl(5);    // /api/brain-integrity, /api/brain-diagnostics
+// VI write: one write per symbol per day from the browser
+const rlVI      = _rl(10);   // /api/vi/log
 
 // ── Firebase Admin init — only if env vars present ──
 let pipelineReady = false;
@@ -73,7 +97,7 @@ app.get('/api/quotes', async (req, res) => {
 let _lqCache = {}, _lqCachedAt = 0;
 const LQ_SYMBOLS = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN', 'SPY'];
 
-app.get('/api/live-quotes', async (req, res) => {
+app.get('/api/live-quotes', rlQuotes, async (req, res) => {
   const key    = process.env.ALPACA_KEY;
   const secret = process.env.ALPACA_SECRET;
 
@@ -159,7 +183,7 @@ app.get('/api/live-quotes', async (req, res) => {
 });
 
 // ── API: Get price history for a symbol ──
-app.get('/api/history/:symbol', async (req, res) => {
+app.get('/api/history/:symbol', rlChart, async (req, res) => {
   if (!pipelineReady) return notReady(res);
   try {
     const sym  = req.params.symbol.toUpperCase();
@@ -173,7 +197,7 @@ app.get('/api/history/:symbol', async (req, res) => {
 
 // ── API: Chart data — Firestore first, Alpaca fallback ──
 // Returns up to 90 daily OHLCV bars for the frontend chart.
-app.get('/api/chart/:symbol', async (req, res) => {
+app.get('/api/chart/:symbol', rlChart, async (req, res) => {
   const sym = req.params.symbol.toUpperCase();
 
   // Try Firestore first (populated by nightly pipeline run)
@@ -526,7 +550,7 @@ app.get('/api/signal-performance', async (req, res) => {
 });
 
 // ── API: Brain Vault Diagnostics ──
-app.get('/api/brain-diagnostics', async (req, res) => {
+app.get('/api/brain-diagnostics', rlAudit, async (req, res) => {
   try {
     const { runBrainAnalysis } = require('./brain');
     // Run with empty indicators + no extraContext to get static diagnostics
@@ -654,7 +678,7 @@ async function _getVix() {
 }
 
 // ── API: Master Intelligence — single symbol ──
-app.get('/api/master-intelligence/:symbol', async (req, res) => {
+app.get('/api/master-intelligence/:symbol', rlMI, async (req, res) => {
   const sym  = req.params.symbol.toUpperCase();
   const key  = process.env.ALPACA_KEY;
   const sec  = process.env.ALPACA_SECRET;
@@ -831,7 +855,7 @@ async function viLogPatternFires(db, sym, patterns, price, spyPrice) {
 }
 
 // Log a prediction snapshot
-app.post('/api/vi/log', async (req, res) => {
+app.post('/api/vi/log', rlVI, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const d = req.body;
@@ -1246,7 +1270,7 @@ app.get('/api/brain-calendar', async (req, res) => {
 
 // Get full VI report
 // ── Brain Integrity Score — self-audit of system health ──
-app.get('/api/brain-integrity', async (req, res) => {
+app.get('/api/brain-integrity', rlAudit, async (req, res) => {
   const now       = Date.now();
   const nowISO    = new Date(now).toISOString();
   const SYMS      = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
@@ -1610,7 +1634,7 @@ app.get('/api/market-health', async (req, res) => {
 const _lpCache = {}, _lpFetchedAt = {};
 const LP_TTL   = 300000;
 
-app.get('/api/live-prediction/:symbol', async (req, res) => {
+app.get('/api/live-prediction/:symbol', rlLP, async (req, res) => {
   const sym = req.params.symbol.toUpperCase();
   const key = process.env.ALPACA_KEY;
   const sec = process.env.ALPACA_SECRET;
