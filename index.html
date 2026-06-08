@@ -1161,6 +1161,35 @@ canvas{max-height:300px;}
 .lt-status.active{ color:var(--gold); border:1px solid rgba(201,168,76,.3); }
 .lt-status.future{ color:var(--gray); border:1px solid var(--border); }
 
+/* ── Backtest Panel ── */
+.bt-kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
+.bt-kpi{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:4px; padding:12px 14px; text-align:center; }
+.bt-kpi-val{ font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:700; color:var(--dark); line-height:1; }
+.bt-kpi-lbl{ font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gray); margin-top:4px; }
+.bt-kpi-sub{ font-size:9px; color:var(--gray); margin-top:2px; }
+.bt-section-title{ font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--gray); margin:16px 0 10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,.06); }
+.bt-pattern-row{ display:grid; grid-template-columns:1fr 50px 60px 60px; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.04); font-size:10px; }
+.bt-pattern-row:last-child{ border-bottom:none; }
+.bt-pat-id{ font-family:'Barlow Condensed',sans-serif; font-size:11px; letter-spacing:.5px; color:var(--dark); }
+.bt-pat-cat{ font-size:8px; color:var(--gray); margin-top:1px; }
+.bt-pat-fires{ text-align:right; color:var(--gray); }
+.bt-pat-acc{ text-align:right; font-weight:700; }
+.bt-monthly{ display:flex; gap:3px; align-items:flex-end; height:60px; margin:8px 0 14px; overflow-x:auto; }
+.bt-month-col{ display:flex; flex-direction:column; align-items:center; gap:2px; flex-shrink:0; min-width:28px; }
+.bt-month-bar{ width:22px; background:rgba(255,255,255,.12); border-radius:2px 2px 0 0; position:relative; transition:height .3s; }
+.bt-month-bar.good{ background:rgba(26,110,69,.7); }
+.bt-month-bar.bad{ background:rgba(204,0,0,.5); }
+.bt-month-lbl{ font-size:7px; color:var(--gray); letter-spacing:.5px; }
+.bt-run-btn{ background:none; border:1px solid rgba(201,168,76,.3); color:var(--gold); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 18px; cursor:pointer; font-family:'Inter',sans-serif; transition:all .2s; border-radius:3px; }
+.bt-run-btn:hover{ background:rgba(201,168,76,.1); }
+.bt-run-btn:disabled{ opacity:.3; cursor:not-allowed; }
+.bt-sym-tabs{ display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.bt-sym-tab{ background:none; border:1px solid rgba(255,255,255,.1); color:var(--gray); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; padding:5px 12px; cursor:pointer; font-family:'Inter',sans-serif; border-radius:3px; transition:all .2s; }
+.bt-sym-tab.active{ border-color:var(--gold); color:var(--gold); background:rgba(201,168,76,.08); }
+.bt-empty{ text-align:center; padding:32px 0; font-size:11px; color:var(--gray); }
+.bt-running{ text-align:center; padding:24px 0; font-size:11px; color:var(--gray); }
+@media(max-width:480px){ .bt-kpis{ grid-template-columns:repeat(2,1fr); } }
+
 /* ── Transparency Panels — S8 ── */
 .tp-panel{ }
 .tp-list{ display:flex; flex-direction:column; gap:8px; }
@@ -2642,6 +2671,27 @@ canvas{max-height:300px;}
         <div class="panel tp-panel">
           <div class="ph" style="padding-bottom:10px;"><div><div class="ph-title" style="color:var(--gold);">Still Learning</div><div class="ph-sub">Building confidence over time</div></div></div>
           <div class="pb"><div id="tp-learning" class="tp-list"></div></div>
+        </div>
+      </div>
+
+      <!-- ── BACKTEST PANEL ── -->
+      <div class="panel" id="bt-panel" style="margin-top:20px;">
+        <div class="ph" style="padding-bottom:12px;">
+          <div>
+            <div class="ph-title" style="color:var(--gold);">Historical Backtest</div>
+            <div class="ph-sub">Brain Vault replayed through 2 years of price history — how often would it have been right?</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="bt-run-btn" id="bt-run-btn" onclick="btRunSelected()">▶ Run Backtest</button>
+          </div>
+        </div>
+        <div class="pb">
+          <!-- symbol tabs -->
+          <div class="bt-sym-tabs" id="bt-sym-tabs"></div>
+          <!-- content area -->
+          <div id="bt-content">
+            <div class="bt-empty">Select a symbol and click Run Backtest to replay 2 years of history.<br><span style="font-size:9px;opacity:.5;">Takes 30–60 seconds. Results are cached — future loads are instant.</span></div>
+          </div>
         </div>
       </div>
 
@@ -4352,6 +4402,9 @@ async function renderProgress() {
   renderBrainLifecycle(_cachedIntData);
   renderPatternLogicHealth(_cachedIntData);
   renderLearningTimeline(_cachedIntData);
+
+  // Backtest panel — init symbol tabs + load any cached result
+  btInit();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4639,6 +4692,144 @@ async function renderLearningTimeline(preloaded) {
   const mkItem = (item) => `<div class="tp-item"><div class="tp-icon" style="color:${item.c};">${item.icon}</div><div><div class="tp-title">${item.title}</div><div class="tp-sub">${item.sub}</div></div></div>`;
   if (knowsEl)    knowsEl.innerHTML    = knows.map(mkItem).join('');
   if (learningEl) learningEl.innerHTML = learning.map(mkItem).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BACKTEST
+// ═══════════════════════════════════════════════════════════
+const BT_SYMS = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
+let _btSym    = 'AAPL';
+let _btCache  = {};   // sym → result
+
+function btInit() {
+  const tabsEl = document.getElementById('bt-sym-tabs');
+  if (!tabsEl) return;
+  tabsEl.innerHTML = BT_SYMS.map(s =>
+    `<button class="bt-sym-tab${s === _btSym ? ' active' : ''}" onclick="btSelectSym('${s}',this)">${s}</button>`
+  ).join('');
+  btLoadCached(_btSym);
+}
+
+function btSelectSym(sym, btn) {
+  _btSym = sym;
+  document.querySelectorAll('.bt-sym-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (_btCache[sym]) { btRender(_btCache[sym]); return; }
+  btLoadCached(sym);
+}
+
+async function btLoadCached(sym) {
+  const content = document.getElementById('bt-content');
+  if (!content) return;
+  try {
+    const res  = await fetch(`/api/backtest/results/${sym}`);
+    const data = await res.json();
+    if (data.ok && data.result) {
+      _btCache[sym] = data.result;
+      btRender(data.result);
+    } else {
+      content.innerHTML = `<div class="bt-empty">No backtest data for ${sym} yet.<br><span style="font-size:9px;opacity:.5;">Click ▶ Run Backtest to generate it (30–60 seconds).</span></div>`;
+    }
+  } catch(e) {
+    content.innerHTML = `<div class="bt-empty">Could not load backtest data.</div>`;
+  }
+}
+
+async function btRunSelected() {
+  const btn     = document.getElementById('bt-run-btn');
+  const content = document.getElementById('bt-content');
+  if (!btn || !content) return;
+  btn.disabled  = true;
+  btn.textContent = '⏳ Running...';
+  content.innerHTML = `<div class="bt-running">Replaying 2 years of ${_btSym} price history through Brain Vault...<br><span style="font-size:9px;opacity:.5;">This takes 30–60 seconds. Please wait.</span></div>`;
+  try {
+    const res  = await fetch(`/api/backtest/run/${_btSym}`);
+    const data = await res.json();
+    if (data.ok && data.result) {
+      _btCache[_btSym] = data.result;
+      btRender(data.result);
+    } else {
+      content.innerHTML = `<div class="bt-empty">Backtest failed: ${data.error || 'Unknown error'}</div>`;
+    }
+  } catch(e) {
+    content.innerHTML = `<div class="bt-empty">Network error running backtest.</div>`;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '▶ Run Backtest';
+  }
+}
+
+function btRender(r) {
+  const content = document.getElementById('bt-content');
+  if (!content) return;
+
+  const accColor  = r.accuracy  >= 60 ? 'var(--green)' : r.accuracy  >= 50 ? 'var(--gold)' : 'var(--red)';
+  const bullColor = r.bullAccuracy >= 60 ? 'var(--green)' : r.bullAccuracy >= 50 ? 'var(--gold)' : 'var(--red)';
+  const bearColor = r.bearAccuracy >= 60 ? 'var(--green)' : r.bearAccuracy >= 50 ? 'var(--gold)' : 'var(--red)';
+  const runDate   = r.runAt ? new Date(r.runAt).toLocaleDateString() : '—';
+
+  // Monthly bar chart
+  const months  = r.monthly || [];
+  const maxTotal = Math.max(...months.map(m => m.total), 1);
+  const monthBars = months.map(m => {
+    const h   = Math.max(4, Math.round(m.total / maxTotal * 52));
+    const cls = m.accuracy >= 55 ? 'good' : m.accuracy < 45 ? 'bad' : '';
+    const lbl = m.month.slice(5); // 'MM'
+    return `<div class="bt-month-col">
+      <div class="bt-month-bar ${cls}" style="height:${h}px;" title="${m.month}: ${m.accuracy}% (${m.total} predictions)"></div>
+      <div class="bt-month-lbl">${lbl}</div>
+    </div>`;
+  }).join('');
+
+  // Top patterns table
+  const patRows = (r.topPatterns || []).slice(0, 10).map(p => {
+    const c = p.accuracy >= 60 ? 'var(--green)' : p.accuracy >= 50 ? 'var(--gold)' : 'var(--red)';
+    return `<div class="bt-pattern-row">
+      <div><div class="bt-pat-id">${p.patternId}</div><div class="bt-pat-cat">${p.category}</div></div>
+      <div class="bt-pat-fires">${p.fires}</div>
+      <div class="bt-pat-fires">${p.correct}/${p.fires}</div>
+      <div class="bt-pat-acc" style="color:${c};">${p.accuracy}%</div>
+    </div>`;
+  }).join('') || '<div style="font-size:10px;color:var(--gray);padding:8px 0;">No patterns with ≥5 fires yet.</div>';
+
+  content.innerHTML = `
+    <div class="bt-kpis">
+      <div class="bt-kpi">
+        <div class="bt-kpi-val" style="color:${accColor};">${r.accuracy}%</div>
+        <div class="bt-kpi-lbl">Overall Accuracy</div>
+        <div class="bt-kpi-sub">${r.predictions} directional predictions</div>
+      </div>
+      <div class="bt-kpi">
+        <div class="bt-kpi-val" style="color:${bullColor};">${r.bullAccuracy}%</div>
+        <div class="bt-kpi-lbl">Bull Accuracy</div>
+        <div class="bt-kpi-sub">${r.bullCount} UP predictions</div>
+      </div>
+      <div class="bt-kpi">
+        <div class="bt-kpi-val" style="color:${bearColor};">${r.bearAccuracy}%</div>
+        <div class="bt-kpi-lbl">Bear Accuracy</div>
+        <div class="bt-kpi-sub">${r.bearCount} DOWN predictions</div>
+      </div>
+      <div class="bt-kpi">
+        <div class="bt-kpi-val" style="color:var(--gray);">${r.barsAvailable}</div>
+        <div class="bt-kpi-lbl">Trading Days</div>
+        <div class="bt-kpi-sub">Run: ${runDate}</div>
+      </div>
+    </div>
+
+    <div class="bt-section-title">Monthly Accuracy — green = ≥55%, red = &lt;45%</div>
+    <div class="bt-monthly">${monthBars || '<span style="font-size:10px;color:var(--gray);">No monthly data</span>'}</div>
+
+    <div class="bt-section-title">Top Patterns by Fire Count</div>
+    <div class="bt-pattern-row" style="font-size:8px;letter-spacing:1px;color:var(--gray);text-transform:uppercase;padding-bottom:4px;">
+      <div>Pattern</div><div style="text-align:right;">Fires</div><div style="text-align:right;">Correct</div><div style="text-align:right;">Win %</div>
+    </div>
+    ${patRows}
+
+    <div style="font-size:9px;color:var(--gray);margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05);line-height:1.6;">
+      ◆ Backtest uses technical indicators only (RSI, MACD, SMA, ATR, Vol). Seasonal weights use current month as approximation.<br>
+      ◆ 7-day lookahead. Outcome threshold: ±0.5% move to classify UP/DOWN. ${r.flatCount} FLAT predictions excluded from accuracy.
+    </div>
+  `;
 }
 
 // ═══════════════════════════════════════════════════════════

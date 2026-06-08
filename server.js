@@ -1599,6 +1599,47 @@ app.get('/api/brain-integrity', rlAudit, async (req, res) => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════
+//  BACKTEST ENDPOINTS
+// ═══════════════════════════════════════════════════════════
+const { runBacktest, getBacktestResult, getBacktestSummary } = require('./backtest');
+
+// Trigger backtest for one symbol — takes 30–60s, result stored in Firestore
+app.get('/api/backtest/run/:symbol', rlAudit, async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  const sym    = req.params.symbol.toUpperCase();
+  const key    = process.env.ALPACA_KEY;
+  const secret = process.env.ALPACA_SECRET;
+  if (!key) return res.json({ ok: false, error: 'No Alpaca credentials' });
+  try {
+    const result = await runBacktest(sym, admin.firestore(), key, secret);
+    res.json({ ok: true, result });
+  } catch(e) {
+    console.error('[Backtest] Error:', e.message);
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// Return cached backtest result for one symbol
+app.get('/api/backtest/results/:symbol', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  const sym = req.params.symbol.toUpperCase();
+  try {
+    const result = await getBacktestResult(sym, admin.firestore());
+    if (!result) return res.json({ ok: false, error: 'No backtest data yet — run /api/backtest/run/' + sym });
+    res.json({ ok: true, result });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// All symbols combined summary
+app.get('/api/backtest/summary', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const summary = await getBacktestSummary(admin.firestore());
+    res.json({ ok: true, ...summary });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 app.get('/api/vi/report', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
