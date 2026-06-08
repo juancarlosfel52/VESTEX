@@ -5495,13 +5495,21 @@ async function renderNewsFull() {
         const hsc   = sentimentClass(h.sentiment);
         const hIcon = hsc === 'pos' ? '▲' : hsc === 'neg' ? '▼' : '◆';
         const hClr  = hsc === 'pos' ? 'var(--green)' : hsc === 'neg' ? 'var(--red)' : 'var(--gray)';
+        const linkBtn = h.url
+          ? `<a href="${h.url}" target="_blank" rel="noopener noreferrer" title="Read full article" style="display:flex;align-items:center;color:var(--gray);opacity:.5;transition:opacity .2s;flex-shrink:0;text-decoration:none;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+             </a>`
+          : '';
         return `<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
           <span style="color:${hClr};font-size:11px;margin-top:1px;flex-shrink:0;">${hIcon}</span>
           <div style="flex:1;min-width:0;">
             <div style="font-size:12px;line-height:1.5;color:var(--dark);">${h.text || ''}</div>
             ${h.why ? `<div style="font-size:10px;color:var(--gray);margin-top:3px;">◆ ${h.why}</div>` : ''}
           </div>
-          <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:${hClr};white-space:nowrap;flex-shrink:0;">${hsc==='pos'?'GOOD':hsc==='neg'?'BAD':'NEU'}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:${hClr};white-space:nowrap;">${hsc==='pos'?'GOOD':hsc==='neg'?'BAD':'NEU'}</div>
+            ${linkBtn}
+          </div>
         </div>`;
       }).join('');
 

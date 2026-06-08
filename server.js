@@ -432,13 +432,25 @@ app.get('/api/news/headlines', async (req, res) => {
     return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
               .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'");
   }
-  function parseTitles(xml, skip) {
-    const cdata = [...xml.matchAll(/<title><!\[CDATA\[(.*?)\]\]><\/title>/gs)].map(m=>m[1].trim());
-    const plain = [...xml.matchAll(/<title>([^<]{10,})<\/title>/gs)].map(m=>m[1].trim());
-    return (cdata.length ? cdata : plain)
-      .map(decodeEntities)
-      .filter(t => !skip.some(p => t.toLowerCase().includes(p)) && t.length > 15)
-      .slice(0, 6);
+  function parseItems(xml, skip) {
+    // Extract <item> blocks then pull title + link from each
+    const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => m[1]);
+    const out = [];
+    for (const item of items) {
+      const cdataT = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/s);
+      const plainT = item.match(/<title>([^<]{10,})<\/title>/s);
+      const rawTitle = cdataT ? cdataT[1].trim() : plainT ? plainT[1].trim() : '';
+      const title = decodeEntities(rawTitle);
+      if (!title || title.length < 15) continue;
+      if (skip.some(p => title.toLowerCase().includes(p))) continue;
+      // Try <link> then <guid> for URL
+      const linkM = item.match(/<link>(https?:\/\/[^<]+)<\/link>/) ||
+                    item.match(/<guid[^>]*>(https?:\/\/[^<]+)<\/guid>/);
+      const url = linkM ? linkM[1].trim() : null;
+      out.push({ title, url });
+      if (out.length >= 6) break;
+    }
+    return out;
   }
   function keywordSentiment(title) {
     const t = title.toLowerCase();
@@ -463,17 +475,17 @@ app.get('/api/news/headlines', async (req, res) => {
       { url: `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${sym}&region=US&lang=en-US`, skip: ['yahoo finance','yahoo!'] },
     ];
     const HEADERS = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml,*/*' };
-    let titles = [];
+    let items = [];
     for (const src of sources) {
       try {
         const r = await axios.get(src.url, { timeout: 8000, headers: HEADERS });
-        titles  = parseTitles(r.data, src.skip);
-        if (titles.length >= 2) break;
+        items   = parseItems(r.data, src.skip);
+        if (items.length >= 2) break;
       } catch(e) {}
     }
-    if (!titles.length) titles = [`No recent headlines for ${company}`];
+    if (!items.length) items = [{ title: `No recent headlines for ${company}`, url: null }];
 
-    const scored    = titles.map(t => ({ text: t, sentiment: keywordSentiment(t), why: '' }));
+    const scored    = items.map(i => ({ text: i.title, url: i.url || null, sentiment: keywordSentiment(i.title), why: '' }));
     const posCount  = scored.filter(h => h.sentiment === 'positive').length;
     const negCount  = scored.filter(h => h.sentiment === 'negative').length;
     const overall   = posCount > negCount ? 'positive' : negCount > posCount ? 'negative' : 'neutral';
