@@ -2974,6 +2974,9 @@ canvas{max-height:300px;}
         <button onclick="ptRefresh()" style="background:none;border:1px solid var(--border);color:var(--gray);font-size:9px;letter-spacing:2px;padding:6px 14px;cursor:pointer;text-transform:uppercase;font-family:'Inter',sans-serif;">↻ Refresh</button>
       </div>
 
+      <!-- LIVE MARKET TICKER -->
+      <div class="ov-bar" id="pt-ov-bar" style="margin-bottom:22px;"></div>
+
       <!-- ACCOUNT SUMMARY -->
       <div class="kpi-4" id="pt-kpis" style="margin-bottom:22px;">
         <div class="kpi" style="border-left:3px solid var(--green);">
@@ -3518,7 +3521,7 @@ function nav(el, id) {
   if (id==='news')        renderNewsFull();
   if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
   if (id==='master')      renderMasterPage();
-  if (id==='trading')     { ptRefresh(); ptLoadHistory(); ptIntroCheck(); }
+  if (id==='trading')     { ptRefresh(); ptLoadHistory(); ptIntroCheck(); renderPtOvBar(); }
 }
 
 function mobNav(el, id) {
@@ -3533,7 +3536,7 @@ function mobNav(el, id) {
   if (id==='master')      renderMasterPage();
   if (id==='news')        renderNewsFull();
   if (id==='progress')    { renderProgress(); viRefreshDashboard(); }
-  if (id==='trading')     { ptRefresh(); ptLoadHistory(); ptIntroCheck(); }
+  if (id==='trading')     { ptRefresh(); ptLoadHistory(); ptIntroCheck(); renderPtOvBar(); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3745,6 +3748,22 @@ function renderOvBar() {
     const st = STOCKS[s];
     if (!st) return '';
     return `<div class="ov-item ${s===dashSym?'sel':''}" onclick="selectDashStock('${s}',this)">
+      <div class="ov-sym">${s}</div>
+      <div class="ov-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
+      <div class="ov-chg ${st.chg!=null?(st.chg>=0?'up':'dn'):''}">
+        ${st.chg!=null?(st.chg>=0?'▲ +':'▼ ')+Math.abs(st.chg).toFixed(2)+'% today':'<span style="color:#888;font-size:9px;">loading…</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPtOvBar() {
+  const el = document.getElementById('pt-ov-bar');
+  if (!el) return;
+  el.innerHTML = Object.keys(STOCKS).map(s => {
+    const st = STOCKS[s];
+    if (!st) return '';
+    return `<div class="ov-item" onclick="document.getElementById('pt-sym').value='${s}';ptEstCost();">
       <div class="ov-sym">${s}</div>
       <div class="ov-price">${st.price != null ? '$'+st.price.toFixed(2) : '—'}</div>
       <div class="ov-chg ${st.chg!=null?(st.chg>=0?'up':'dn'):''}">
@@ -6846,11 +6865,11 @@ function addStock() {
   document.getElementById('add-price').value = '';
 
   renderPortfolio();
-  renderOvBar();
+  renderOvBar(); renderPtOvBar();
   updateDashKPIs();
 
   // Fetch live price for the new stock immediately
-  fetchQuotes().then(() => { renderOvBar(); updateDashKPIs(); renderPortfolio(); }).catch(()=>{});
+  fetchQuotes().then(() => { renderOvBar(); renderPtOvBar(); updateDashKPIs(); renderPortfolio(); }).catch(()=>{});
 }
 
 function removeStock(i) {
