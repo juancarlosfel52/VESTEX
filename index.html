@@ -3633,15 +3633,19 @@ function renderDashPreds() {
 // ═══════════════════════════════════════════════════════════
 let liveSentiment = null;
 
-async function fetchSentiment() {
+async function fetchSentiment(retry = true) {
   try {
     const res  = await fetch('/api/sentiment');
     const data = await res.json();
-    if (data.ok && Object.keys(data.data).length) {
+    if (data.ok && data.data && Object.keys(data.data).length) {
       liveSentiment = data.data;
       console.log('[SENTIMENT] Live sentiment loaded');
+    } else if (!data.ok && retry) {
+      // Server triggered background refresh — retry once after 65s
+      console.log('[SENTIMENT] Cache loading — retrying in 65s');
+      setTimeout(() => fetchSentiment(false), 65000);
     }
-  } catch(e) { /* fall back to mock */ }
+  } catch(e) { /* silent */ }
 }
 
 function sentimentClass(overall) {

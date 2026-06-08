@@ -392,7 +392,8 @@ async function refreshSentimentCache() {
   }
 }
 
-// ── API: Get sentiment — memory first, Firestore fallback ──
+// ── API: Get sentiment — memory first, Firestore fallback, auto-refresh if empty ──
+let _sentRefreshing = false;
 app.get('/api/sentiment', async (req, res) => {
   // Return memory cache if available
   if (Object.keys(sentimentCache).length) {
@@ -404,10 +405,19 @@ app.get('/api/sentiment', async (req, res) => {
       const snap = await admin.firestore().collection('sentiment').get();
       const out  = {};
       snap.forEach(doc => { out[doc.id] = doc.data(); });
-      if (Object.keys(out).length) return res.json({ ok: true, data: out, source: 'firestore' });
+      if (Object.keys(out).length) {
+        sentimentCache = out; // warm memory cache from Firestore
+        return res.json({ ok: true, data: out, source: 'firestore' });
+      }
     } catch(e) {}
   }
-  res.json({ ok: false, error: 'Sentiment not yet loaded' });
+  // Cache empty — trigger background refresh so next request gets real data
+  if (process.env.CLAUDE_API_KEY && !_sentRefreshing) {
+    _sentRefreshing = true;
+    refreshSentimentCache().finally(() => { _sentRefreshing = false; });
+    console.log('[SENTIMENT] Cache empty on request — triggered background refresh');
+  }
+  res.json({ ok: false, error: 'Sentiment loading — check back in 60 seconds' });
 });
 
 // ── API: News headlines — always works, no Claude key needed ──
