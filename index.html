@@ -3905,10 +3905,7 @@ function viComputeReport(log) {
   return { accuracy, correct, total: verified.length, v7Count: v7.length, v30Count: v30.length, avgReturn, patternBoard, decisionBoard, confBoard };
 }
 
-function viRefreshDashboard() {
-  const log = viVerifyPending();
-  renderViDashboard(log);
-}
+// viRefreshDashboard defined above (async version)
 
 function renderViDashboard(log) {
   const allLog = log || viLoad();
