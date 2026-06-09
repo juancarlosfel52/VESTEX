@@ -142,22 +142,172 @@ async function fetchCompanyFacts(symbol) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  EARNINGS SURPRISE — Alpha Vantage EARNINGS endpoint
+//  Requires ALPHA_VANTAGE_KEY env var. Fails gracefully if absent.
+//  Returns actual EPS vs consensus, surprise %, direction.
+//  This is the primary signal for PEAD pattern activation.
+// ═══════════════════════════════════════════════════════════
+async function fetchEarningsSurprise(symbol) {
+  const key = process.env.ALPHA_VANTAGE_KEY;
+  if (!key) return null; // no key configured — skip silently
+
+  try {
+    const url = `https://www.alphavantage.co/query?function=EARNINGS&symbol=${symbol}&apikey=${key}`;
+    const res = await axios.get(url, { timeout: 10000 });
+
+    // Detect rate limit or demo key response
+    if (res.data?.Note || res.data?.Information) {
+      console.warn(`[EDGAR] Alpha Vantage rate limit or invalid key for ${symbol}`);
+      return null;
+    }
+
+    const quarters = res.data?.quarterlyEarnings;
+    if (!quarters || !quarters.length) return null;
+
+    const q         = quarters[0]; // most recent reported quarter
+    const reported  = parseFloat(q.reportedEPS);
+    const estimated = parseFloat(q.estimatedEPS);
+    if (isNaN(reported) || isNaN(estimated) || estimated === 0) return null;
+
+    const surprisePct = +((reported - estimated) / Math.abs(estimated) * 100).toFixed(2);
+    const direction   = surprisePct >  1 ? 'BEAT'
+                      : surprisePct < -1 ? 'MISS'
+                      :                   'MEET';
+    const magnitude   = Math.abs(surprisePct) >= 5 ? 'LARGE'
+                      : Math.abs(surprisePct) >= 1 ? 'SMALL'
+                      :                              'INLINE';
+
+    const reportDate  = q.reportedDate || null;
+    const daysAgo     = reportDate
+      ? Math.floor((Date.now() - new Date(reportDate).getTime()) / 86400000)
+      : null;
+
+    return {
+      symbol,
+      reportedEPS:  reported,
+      estimatedEPS: estimated,
+      surprisePct,
+      direction,
+      magnitude,
+      reportDate,
+      daysAgo,
+      quartersAgo:  0,
+      peadWindow:   daysAgo !== null && daysAgo >= 3 && daysAgo <= 60,
+      source:       'alphavantage',
+    };
+  } catch(e) {
+    console.warn(`[EDGAR] fetchEarningsSurprise ${symbol}:`, e.message);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INSTITUTIONAL INTELLIGENCE — SEC EDGAR 13F Search
+//  Uses free EFTS full-text search. No API key required.
+//  Returns institutional holder count + superinvestor presence.
+//  Confidence modifier only — never overrides masterScore.
+// ═══════════════════════════════════════════════════════════
+
+// Known superinvestor CIKs (SEC EDGAR internal identifiers)
+const SUPERINVESTOR_CIKS = new Set([
+  '0001067983', // Berkshire Hathaway (Buffett)
+  '0001336528', // Pershing Square (Ackman)
+  '0000827054', // Appaloosa Management (Tepper)
+  '0001040273', // Third Point (Loeb)
+  '0001061219', // Baupost Group (Klarman)
+  '0001167483', // Tiger Global (Coleman)
+  '0001079114', // Greenlight Capital (Einhorn)
+  '0001649339', // Scion Asset Management (Burry)
+  '0001168168', // Lone Pine Capital (Mandel)
+  '0001162461', // Viking Global Investors
+]);
+
+const SUPERINVESTOR_NAMES = {
+  '0001067983': 'Berkshire Hathaway (Buffett)',
+  '0001336528': 'Pershing Square (Ackman)',
+  '0000827054': 'Appaloosa (Tepper)',
+  '0001040273': 'Third Point (Loeb)',
+  '0001061219': 'Baupost Group (Klarman)',
+  '0001167483': 'Tiger Global (Coleman)',
+  '0001079114': 'Greenlight Capital (Einhorn)',
+  '0001649339': 'Scion Asset Mgmt (Burry)',
+  '0001168168': 'Lone Pine Capital (Mandel)',
+  '0001162461': 'Viking Global',
+};
+
+async function fetchInstitutional13F(symbol) {
+  try {
+    // Search EDGAR full-text for recent 13F-HR filings mentioning this symbol
+    // 13F filings list holdings by ticker, so this finds funds that hold the stock
+    const startdt = daysAgo(180); // last two quarters
+    const url = `https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(symbol)}%22&forms=13F-HR&dateRange=custom&startdt=${startdt}&enddt=${today()}`;
+    const res = await axios.get(url, { headers: HEADERS, timeout: 12000 });
+
+    const hits = res.data?.hits?.hits || [];
+    const totalFilers = res.data?.hits?.total?.value || hits.length;
+
+    // Check if any known superinvestors are among the filers
+    const foundSuperinvestors = [];
+    for (const hit of hits) {
+      const src  = hit._source || {};
+      const names = src.display_names || [];
+      for (const n of names) {
+        const cikPadded = String(n.CIK || n.cik || '').padStart(10, '0');
+        if (SUPERINVESTOR_CIKS.has(cikPadded)) {
+          const label = SUPERINVESTOR_NAMES[cikPadded] || cikPadded;
+          if (!foundSuperinvestors.includes(label)) foundSuperinvestors.push(label);
+        }
+      }
+    }
+
+    const superinvestorCount = foundSuperinvestors.length;
+
+    // Confidence impact score (0–10): used as modifier, not added to masterScore
+    const score = Math.min(10,
+      (superinvestorCount >= 3 ? 8 : superinvestorCount >= 1 ? 5 : 0) +
+      (totalFilers > 100 ? 2 : totalFilers > 30 ? 1 : 0)
+    );
+
+    return {
+      symbol,
+      totalFilers,
+      superinvestorCount,
+      superinvestors: foundSuperinvestors,
+      trend:          'STABLE', // Phase 2: compare to prior quarter for ACCUMULATING/REDUCING
+      score,
+      note:           superinvestorCount > 0
+                        ? `${superinvestorCount} superinvestor(s): ${foundSuperinvestors.join(', ')}`
+                        : `${totalFilers} institutional filers — no tracked superinvestors detected`,
+      source:         'sec_edgar_13f',
+      fetchedAt:      new Date().toISOString(),
+    };
+  } catch(e) {
+    console.warn(`[EDGAR] fetchInstitutional13F ${symbol}:`, e.message);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  MAIN — fetch all EDGAR data for a symbol
 // ═══════════════════════════════════════════════════════════
 async function fetchEdgarData(symbol) {
-  const [filings, insiders, facts] = await Promise.allSettled([
+  const [filings, insiders, facts, earningsSurprise, institutional] = await Promise.allSettled([
     fetchRecentFilings(symbol),
     fetchInsiderTrades(symbol),
     fetchCompanyFacts(symbol),
+    fetchEarningsSurprise(symbol),
+    fetchInstitutional13F(symbol),
   ]);
 
   return {
     symbol,
-    company:  COMPANY_NAMES[symbol],
-    filings:  filings.status  === 'fulfilled' ? filings.value  : [],
-    insiders: insiders.status === 'fulfilled' ? insiders.value : [],
-    facts:    facts.status    === 'fulfilled' ? facts.value    : null,
-    fetchedAt: new Date().toISOString(),
+    company:          COMPANY_NAMES[symbol],
+    filings:          filings.status          === 'fulfilled' ? filings.value          : [],
+    insiders:         insiders.status         === 'fulfilled' ? insiders.value         : [],
+    facts:            facts.status            === 'fulfilled' ? facts.value            : null,
+    earningsSurprise: earningsSurprise.status === 'fulfilled' ? earningsSurprise.value : null,
+    institutional:    institutional.status    === 'fulfilled' ? institutional.value    : null,
+    fetchedAt:        new Date().toISOString(),
   };
 }
 
@@ -229,4 +379,4 @@ function daysAgo(n) {
   return d.toISOString().split('T')[0];
 }
 
-module.exports = { fetchEdgarData, fetchAllEdgarData, CIK_MAP };
+module.exports = { fetchEdgarData, fetchAllEdgarData, fetchEarningsSurprise, fetchInstitutional13F, CIK_MAP };

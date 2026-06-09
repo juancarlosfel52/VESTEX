@@ -183,10 +183,48 @@ function calcSentimentScore(sentiment) {
 }
 
 // ── Fundamentals: 0–10 pts ────────────────────────────────
+// Primary signal: earnings surprise vs consensus (Alpha Vantage).
+// Fallback: static EDGAR profitability facts when no surprise data.
+// No artificial baseline — zero when no real data is available.
 function calcFundamentalsScore(edgar) {
-  if (!edgar) return { score: 5, detail: { note: 'No EDGAR data' } };
-  let score = 5;
+  if (!edgar) return { score: 0, detail: { note: 'No fundamentals data' } };
+
   const detail = {};
+  const es     = edgar.earningsSurprise;
+
+  // ── Primary path: earnings surprise (real predictive signal) ──
+  if (es && es.surprisePct !== null && es.direction !== 'UNKNOWN') {
+    const decay = Math.pow(0.8, es.quartersAgo || 0); // staleness per quarter
+    let score;
+
+    if (es.direction === 'BEAT') {
+      score = es.magnitude === 'LARGE' ? Math.round(9 * decay) : Math.round(6 * decay);
+      detail.earningsSurprise = `Beat by ${es.surprisePct.toFixed(1)}% — ${es.magnitude.toLowerCase()} beat (${es.reportDate})`;
+    } else if (es.direction === 'MISS') {
+      score = es.magnitude === 'LARGE' ? Math.round(1 * decay) : Math.round(3 * decay);
+      detail.earningsSurprise = `Missed by ${Math.abs(es.surprisePct).toFixed(1)}% — ${es.magnitude.toLowerCase()} miss (${es.reportDate})`;
+    } else {
+      score = Math.round(5 * decay);
+      detail.earningsSurprise = `Inline with consensus ±1% (${es.reportDate})`;
+    }
+
+    if (es.daysAgo !== null) detail.peadWindow = es.peadWindow
+      ? `${es.daysAgo}d since report — within PEAD drift window`
+      : `${es.daysAgo}d since report — outside 60d PEAD window`;
+
+    // Static profitability as minor overlay when surprise data exists
+    const facts = edgar.facts || {};
+    if (facts.netIncomeRaw != null && facts.netIncomeRaw < 0) {
+      score = Math.max(0, score - 1);
+      detail.netLoss = '⚠ Net loss on annual record';
+    }
+
+    return { score: Math.min(10, Math.max(0, score)), detail, earningsSurprise: es };
+  }
+
+  // ── Fallback path: static EDGAR profitability facts ──
+  // No baseline — honest zero when no real earnings surprise data available
+  let score = 0;
   const facts    = edgar.facts    || {};
   const insiders = edgar.insiders || [];
 
@@ -203,10 +241,9 @@ function calcFundamentalsScore(edgar) {
     score -= 1; detail.debt = '⚠ Debt with negative income';
   }
   if (insiders.length > 0) {
-    // EDGAR search does not return transaction type (buy vs sell) — score neutral
-    // until direction data is available; don't add bullish bias for unknown transactions
-    detail.insiders = `${insiders.length} insider transaction(s) recorded — direction unavailable`;
+    detail.insiders = `${insiders.length} insider transaction(s) — direction unavailable`;
   }
+  detail.note = 'No earnings surprise data — using static EDGAR facts';
 
   return { score: Math.min(10, Math.max(0, score)), detail };
 }
@@ -372,6 +409,16 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   // Confidence: rebuilt with Phase 2 engine
   const dataCount = [indicators, brainResult, sentiment, edgar, macroSnapshot, fearGreed, vix].filter(Boolean).length;
   const confResult  = buildConfidenceBreakdown(tech, brain, signal, regime, macro, sent, fund, indicators, masterScore, dataCount);
+
+  // Institutional confidence modifier (Task 3 — Phase 2)
+  // 13F data is 45 days delayed — influences conviction only, never masterScore
+  const inst = edgar?.institutional;
+  if (inst) {
+    if (inst.superinvestorCount >= 3)      confResult.finalConfidence = Math.min(92, confResult.finalConfidence + 6);
+    else if (inst.superinvestorCount >= 1) confResult.finalConfidence = Math.min(92, confResult.finalConfidence + 3);
+    if (inst.trend === 'REDUCING')         confResult.finalConfidence = Math.max(20, confResult.finalConfidence - 5);
+  }
+
   const confidence  = confResult.finalConfidence;
 
   let risk;
@@ -405,6 +452,9 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   const consistencyNote      = buildConsistencyNote(brain, masterScore, confidence);
   const explanation          = buildExplanation(symbol, masterScore, decision, tech, brain, sent, macro, regime);
   const warnings             = buildWarnings(indicators, macroSnapshot, edgar, vix, fearGreed, masterScore);
+  // Institutional warning injection
+  if (inst?.trend === 'REDUCING') warnings.push('⚠ Institutional holders reducing exposure this quarter (13F data)');
+  if (inst?.superinvestorCount > 0) warnings.push(`Smart money: ${inst.note}`);
 
   return {
     symbol, masterScore, decision, confidence, risk, holdTime,

@@ -697,7 +697,7 @@ function matchNews(sentiment, macro) {
 //  6. RESEARCH / ACADEMIC PATTERNS (11 patterns)
 //     5 evaluatable with available indicators
 // ═══════════════════════════════════════════════════════════
-function matchResearch(indicators, macro, regime) {
+function matchResearch(indicators, macro, regime, earningsSurprise) {
   const { rsi, sma7, sma21, atrPct } = indicators;
   const matches = [];
   const skipped = {};
@@ -706,7 +706,7 @@ function matchResearch(indicators, macro, regime) {
   const month = new Date().getMonth() + 1;
 
   const UNEVALUATABLE = new Set([
-    'small_cap_premium', 'value_premium', 'pead_earnings_drift',
+    'small_cap_premium', 'value_premium',
     'profitability_factor_rmw', 'investment_factor_cma', 'cape_valuation_signal',
     // Phase 1 cleanup 2026-06-06: time_series_momentum disabled — functionally
     // identical to PATTERN_001 (Golden Cross, win_rate=68). Fires simultaneously
@@ -767,6 +767,32 @@ function matchResearch(indicators, macro, regime) {
             impact: regime.vix > 45 ? 'high' : 'medium',
             reason: `VIX ${regime.vix} > 35: mean-reversion expected, >80% positive 3-month forward return historically (GARCH/VIX research)`,
           };
+        }
+        break;
+      case 'pead_earnings_drift': // Post-Earnings Announcement Drift — Bernard & Thomas 1989/1990
+        // Fires when actual EPS materially beat or missed consensus AND we are within the 60-day drift window.
+        // Source: earningsSurprise object from Alpha Vantage via edgar.js.
+        // Academic backing: 41/48 quarters positive drift; 8–15% post-cost annual in mid-cap.
+        if (earningsSurprise &&
+            earningsSurprise.surprisePct !== null &&
+            earningsSurprise.peadWindow === true) {
+          if (earningsSurprise.direction === 'BEAT' && earningsSurprise.magnitude !== 'INLINE') {
+            triggered = true; direction = 'bullish';
+            extras = {
+              win_rate:        null, // resolved via ACADEMIC tier in winRateRegistry (0.68)
+              confidence:      70,
+              avg_return_30d:  2.1,
+              reason: `PEAD: EPS beat ${earningsSurprise.surprisePct.toFixed(1)}% (${earningsSurprise.magnitude.toLowerCase()} beat, ${earningsSurprise.daysAgo}d ago) — drift typically continues 60 trading days (Bernard & Thomas)`,
+            };
+          } else if (earningsSurprise.direction === 'MISS' && earningsSurprise.magnitude !== 'INLINE') {
+            triggered = true; direction = 'bearish';
+            extras = {
+              win_rate:        null,
+              confidence:      68,
+              avg_return_30d:  -1.8,
+              reason: `PEAD: EPS missed ${Math.abs(earningsSurprise.surprisePct).toFixed(1)}% (${earningsSurprise.magnitude.toLowerCase()} miss, ${earningsSurprise.daysAgo}d ago) — negative drift expected through 60-day window`,
+            };
+          }
         }
         break;
       default:
@@ -937,6 +963,7 @@ function calcBrainScore(patterns) {
 // ═══════════════════════════════════════════════════════════
 async function runBrainAnalysis(indicators, extraContext = {}) {
   const { macroSnapshot, sentiment, edgar, regimeOverride, monthOverride } = extraContext;
+  const earningsSurprise = edgar?.earningsSurprise || null;
 
   // 1. Market regime — use historical override if provided (backtest), else live fetch
   const regime = regimeOverride || await fetchMarketRegime();
@@ -951,7 +978,7 @@ async function runBrainAnalysis(indicators, extraContext = {}) {
   const econResult  = matchEconomy(macroSnapshot);
   const coResult    = matchCompany(edgar, sentiment);
   const newsResult  = matchNews(sentiment, macroSnapshot);
-  const resResult   = matchResearch(indicators, macroSnapshot, regime);
+  const resResult   = matchResearch(indicators, macroSnapshot, regime, earningsSurprise);
   const mhResult    = matchMarketHistory(macroSnapshot, regime, indicators);
 
   // 4. Merge all matches (active_patterns for backward compat)
