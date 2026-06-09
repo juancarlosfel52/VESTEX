@@ -3158,16 +3158,15 @@ auth.onAuthStateChanged(user => {
     document.getElementById('user-av').textContent = name.charAt(0).toUpperCase();
     document.getElementById('logout-btn').style.display = 'block';
     // Show legal warning first (once ever), then beta popup (once ever)
-    const legalKey = 'vestex_legal_accepted_' + user.uid;
     const betaKey  = 'vestex_beta_accepted_'  + user.uid;
-    window._legalKey    = legalKey;
     window._betaKey     = betaKey;
     window._currentUid  = user.uid;
-    if (!localStorage.getItem(legalKey)) {
-      document.getElementById('legal-overlay').style.display = 'flex';
-    } else if (!localStorage.getItem(betaKey)) {
-      document.getElementById('beta-overlay').style.display = 'flex';
-    }
+    // Legal notice shows every login — no localStorage skip
+    const legalCheck = document.getElementById('legal-check');
+    const legalBtn   = document.getElementById('legal-btn');
+    if (legalCheck) { legalCheck.checked = false; }
+    if (legalBtn)   { legalBtn.classList.remove('active'); }
+    document.getElementById('legal-overlay').style.display = 'flex';
   } else {
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('beta-overlay').style.display = 'none';
@@ -3263,7 +3262,6 @@ function legalCheckToggle() {
 }
 function closeLegal() {
   if (!document.getElementById('legal-check').checked) return;
-  if (window._legalKey) localStorage.setItem(window._legalKey, '1');
   document.getElementById('legal-overlay').style.display = 'none';
   // Show beta popup after legal is accepted (if not yet seen)
   if (window._betaKey && !localStorage.getItem(window._betaKey)) {
