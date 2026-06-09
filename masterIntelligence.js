@@ -104,9 +104,9 @@ function calcBrainScore(brainResult) {
 // ── Signal Performance: 0–15 pts ──────────────────────────
 function calcSignalScore(signals) {
   if (!signals || !signals.length)
-    return { score: 7.5, avgAccuracy: null, detail: { note: 'No data — using midpoint' } };
+    return { score: 0, avgAccuracy: null, detail: { note: 'Insufficient verified signal data' } };
   const withData = signals.filter(s => s.totalUses > 5 && s.accuracy != null);
-  if (!withData.length) return { score: 7.5, avgAccuracy: null, detail: {} };
+  if (!withData.length) return { score: 0, avgAccuracy: null, detail: { note: 'Insufficient verified signal data' } };
   const avg = withData.reduce((s, x) => s + x.accuracy, 0) / withData.length;
   return {
     score:       Math.min(15, Math.max(0, +(avg / 100 * 15).toFixed(1))),

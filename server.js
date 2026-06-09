@@ -1901,9 +1901,9 @@ if (pipelineReady) {
     runPipeline().catch(console.error);
   }, { timezone: 'America/New_York' });
 
-  // Weekly prediction verification — Monday 6pm ET
-  cron.schedule('0 18 * * 1', () => {
-    console.log('[CRON] Weekly prediction verification triggered');
+  // Daily prediction verification — Mon–Fri 6pm ET (accelerates signal accuracy data)
+  cron.schedule('0 18 * * 1-5', () => {
+    console.log('[CRON] Daily prediction verification triggered');
     verifyPredictions().catch(console.error);
   }, { timezone: 'America/New_York' });
 
