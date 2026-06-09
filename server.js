@@ -736,14 +736,18 @@ app.get('/api/master-intelligence/:symbol', rlMI, async (req, res) => {
       : null;
     const indicators = _computeIndicators(bars);
 
-    // 2. Brain analysis
+    // 2. EDGAR — fetched first so earningsSurprise is available to brain analysis
+    let edgar = null;
+    try { edgar = await fetchEdgarData(sym); } catch(e) {}
+
+    // 3. Brain analysis — receives edgar so PEAD and earnings-surprise patterns can fire
     let brainResult = null;
     try {
       const { runBrainAnalysis } = require('./brain');
-      brainResult = await runBrainAnalysis(indicators || {rsi:null,macd:null,sma7:null,sma21:null,volSpike:false,streak:0,atrPct:null,score:0});
+      brainResult = await runBrainAnalysis(indicators || {rsi:null,macd:null,sma7:null,sma21:null,volSpike:false,streak:0,atrPct:null,score:0}, { edgar });
     } catch(e) { console.warn('[MI] Brain failed:', e.message); }
 
-    // 3. Signal performance
+    // 4. Signal performance
     let signals = [];
     try {
       const { SIGNAL_DEFAULTS, loadSignalPerformanceFull } = require('./signalPerformance');
@@ -751,12 +755,8 @@ app.get('/api/master-intelligence/:symbol', rlMI, async (req, res) => {
       else { signals = Object.entries(SIGNAL_DEFAULTS).map(([id,def])=>({id,label:def.label,totalUses:0,correct:0,accuracy:null,multiplier:1.0})); }
     } catch(e) {}
 
-    // 4. Sentiment (in-memory cache first)
+    // 5. Sentiment (in-memory cache first)
     const sentiment = sentimentCache[sym] || null;
-
-    // 5. EDGAR
-    let edgar = null;
-    try { edgar = await fetchEdgarData(sym); } catch(e) {}
 
     // 6. Macro snapshot — try Firestore latest prediction, else null
     let macroSnapshot = null;
@@ -1737,16 +1737,21 @@ app.get('/api/live-prediction/:symbol', rlLP, async (req, res) => {
     const indicators = _computeIndicators(bars);
 
     // 2. Brain analysis (with macro + sentiment context)
+    // 2. EDGAR first — earningsSurprise must reach brain for PEAD to fire
+    let edgar = null;
+    try { edgar = await fetchEdgarData(sym); } catch(e) {}
+
+    // 3. Brain analysis — edgar passed so PEAD pattern can evaluate
     let brainResult = null;
     try {
       const { runBrainAnalysis } = require('./brain');
       brainResult = await runBrainAnalysis(
         indicators || { rsi: null, macd: null, sma7: null, sma21: null, volSpike: false, streak: 0, atrPct: null, score: 0 },
-        { symbol: sym, macroSnapshot: null, sentiment: sentimentCache[sym] || null, edgar: null }
+        { symbol: sym, macroSnapshot: null, sentiment: sentimentCache[sym] || null, edgar }
       );
     } catch(e) { console.warn('[LP] Brain failed:', e.message); }
 
-    // 3. Signal performance
+    // 4. Signal performance
     let signals = [];
     try {
       const { SIGNAL_DEFAULTS, loadSignalPerformanceFull } = require('./signalPerformance');
@@ -1755,12 +1760,8 @@ app.get('/api/live-prediction/:symbol', rlLP, async (req, res) => {
         : Object.entries(SIGNAL_DEFAULTS).map(([id, def]) => ({ id, label: def.label, totalUses: 0, correct: 0, accuracy: null }));
     } catch(e) {}
 
-    // 4. Sentiment (memory cache)
+    // 5. Sentiment (memory cache)
     const sentiment = sentimentCache[sym] || null;
-
-    // 5. EDGAR
-    let edgar = null;
-    try { edgar = await fetchEdgarData(sym); } catch(e) {}
 
     // 6. Macro snapshot (from Firestore latest prediction)
     let macroSnapshot = null;
