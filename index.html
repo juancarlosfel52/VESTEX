@@ -992,8 +992,8 @@ canvas{max-height:300px;}
   --bac-yellow: #7a6a10;
   --bac-green:  #1a5c2a;
   --bac-gold:   #c9a84c;
-  --bac-tile:   10px;
-  --bac-gap:    3px;
+  --bac-tile:   16px;
+  --bac-gap:    5px;
 }
 .bac-panel{ overflow:visible !important; }
 .bac-modes{ display:flex; gap:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:3px; }
@@ -1007,11 +1007,11 @@ canvas{max-height:300px;}
 .bac-scroll-wrap::-webkit-scrollbar{ height:4px; }
 .bac-scroll-wrap::-webkit-scrollbar-track{ background:transparent; }
 .bac-scroll-wrap::-webkit-scrollbar-thumb{ background:rgba(201,168,76,.3); border-radius:2px; }
-.bac-grid-wrap{ min-width:600px; }
+.bac-grid-wrap{ width:100%; }
 .bac-months{ display:flex; gap:0; margin-bottom:4px; padding-left:26px; height:16px; position:relative; }
-.bac-month-lbl{ font-size:8px; letter-spacing:1.5px; color:var(--gray); text-transform:uppercase; position:absolute; opacity:0; animation:bacFadeIn .4s forwards; }
+.bac-month-lbl{ font-size:10px; letter-spacing:1.5px; color:var(--gray); text-transform:uppercase; position:absolute; opacity:0; animation:bacFadeIn .4s forwards; }
 .bac-day-labels{ display:flex; flex-direction:column; gap:var(--bac-gap); padding-top:2px; margin-right:6px; float:left; }
-.bac-day-lbl{ font-size:7px; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; height:var(--bac-tile); line-height:var(--bac-tile); width:20px; }
+.bac-day-lbl{ font-size:9px; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; height:var(--bac-tile); line-height:var(--bac-tile); width:22px; }
 .bac-weeks{ display:flex; gap:var(--bac-gap); }
 .bac-week{ display:flex; flex-direction:column; gap:var(--bac-gap); }
 .bac-tile{
@@ -1037,7 +1037,7 @@ canvas{max-height:300px;}
 .bac-shimmer{ display:flex; flex-direction:column; gap:var(--bac-gap); }
 .bac-shimmer-row{ height:var(--bac-tile); border-radius:2px; background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.03) 75%); background-size:400px 100%; animation:bacShimmer 1.2s infinite; }
 .bac-legend{ display:flex; align-items:center; gap:5px; margin-top:14px; }
-.bac-leg-tile{ width:10px; height:10px; border-radius:2px; }
+.bac-leg-tile{ width:14px; height:14px; border-radius:2px; }
 .bac-leg-label{ font-size:8px; color:var(--gray); letter-spacing:1px; }
 .bac-empty{ font-size:11px; color:var(--gray); text-align:center; padding:28px 0; letter-spacing:1px; }
 .bac-detail{ position:relative; margin:0 -22px -22px; padding:20px 22px; background:rgba(201,168,76,.06); border-top:1px solid rgba(201,168,76,.2); animation:bacDetailSlide .25s ease; }
@@ -1056,11 +1056,16 @@ canvas{max-height:300px;}
 .bac-tt-status{ margin-top:6px; font-size:8px; letter-spacing:2px; text-transform:uppercase; font-weight:700; }
 @media(prefers-reduced-motion:reduce){ .bac-tile,.bac-month-lbl{ animation:none !important; opacity:1 !important; } }
 @media(max-width:768px){
-  :root{ --bac-tile:9px; --bac-gap:2px; }
+  :root{ --bac-tile:12px; --bac-gap:3px; }
   .bac-modes{ flex-wrap:wrap; }
   .bac-stats{ gap:14px; }
   .bac-stat-val{ font-size:18px; }
   .bac-detail-grid{ grid-template-columns:repeat(2,1fr); }
+  .bac-month-lbl{ font-size:9px; }
+}
+@media(max-width:480px){
+  :root{ --bac-tile:10px; --bac-gap:2px; }
+  .bac-month-lbl{ font-size:8px; }
 }
 
 /* ── Brain Integrity Score — S7 2026-06-06 ── */
@@ -5264,9 +5269,9 @@ function _bacBuildGrid() {
   }
 
   // Render month labels
-  const tileW  = 10 + 3; // tile + gap (px approx)
+  const tileW  = 16 + 5; // tile + gap (px approx)
   const monthsHtml = months.map(m =>
-    `<span class="bac-month-lbl" style="left:${26 + m.col * tileW}px;animation-delay:${m.col * 0.02}s">${m.label}</span>`
+    `<span class="bac-month-lbl" style="left:${28 + m.col * tileW}px;animation-delay:${m.col * 0.02}s">${m.label}</span>`
   ).join('');
 
   // Render day labels
