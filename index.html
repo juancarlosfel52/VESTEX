@@ -1008,18 +1008,17 @@ canvas{max-height:300px;}
 .bac-scroll-wrap::-webkit-scrollbar-track{ background:transparent; }
 .bac-scroll-wrap::-webkit-scrollbar-thumb{ background:rgba(201,168,76,.3); border-radius:2px; }
 .bac-grid-wrap{ width:100%; }
-.bac-months{ display:flex; gap:0; margin-bottom:4px; padding-left:26px; height:16px; position:relative; }
-.bac-month-lbl{ font-size:10px; letter-spacing:1.5px; color:var(--gray); text-transform:uppercase; position:absolute; opacity:0; animation:bacFadeIn .4s forwards; }
-.bac-day-labels{ display:flex; flex-direction:column; gap:var(--bac-gap); padding-top:2px; margin-right:6px; float:left; }
+.bac-months{ display:flex; gap:var(--bac-gap); margin-bottom:4px; padding-left:28px; height:16px; }
+.bac-month-lbl{ font-size:10px; letter-spacing:1.5px; color:var(--gray); text-transform:uppercase; flex:1; opacity:0; animation:bacFadeIn .4s forwards; white-space:nowrap; }
+.bac-day-labels{ display:flex; flex-direction:column; gap:var(--bac-gap); padding-top:2px; margin-right:6px; flex-shrink:0; }
 .bac-day-lbl{ font-size:9px; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; height:var(--bac-tile); line-height:var(--bac-tile); width:22px; }
-.bac-weeks{ display:flex; gap:var(--bac-gap); }
-.bac-week{ display:flex; flex-direction:column; gap:var(--bac-gap); }
+.bac-weeks{ display:flex; gap:var(--bac-gap); flex:1; }
+.bac-week{ display:flex; flex-direction:column; gap:var(--bac-gap); flex:1; }
 .bac-tile{
-  width:var(--bac-tile); height:var(--bac-tile); border-radius:2px;
+  width:100%; height:var(--bac-tile); border-radius:2px;
   background:var(--bac-empty); cursor:pointer; position:relative;
   transition:transform .15s, box-shadow .15s, background .3s;
   opacity:0; animation:bacTileFadeIn .35s forwards;
-  flex-shrink:0;
 }
 .bac-tile:hover{ transform:scale(1.4) translateY(-1px); z-index:10; }
 .bac-tile.bac-c-red    { background:var(--bac-red);    box-shadow:0 0 6px rgba(180,30,30,.4); }
@@ -5245,10 +5244,8 @@ function _bacBuildGrid() {
   const MONTH = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
   // Build week columns
-  const weeks  = [];
-  const months = []; // { label, col }
-  let   cur    = new Date(startDate);
-  let   col    = 0;
+  const weeks = [];
+  let   cur   = new Date(startDate);
 
   while (cur <= today || (cur.getDay() > 0 && cur <= today)) {
     const week = [];
@@ -5256,23 +5253,19 @@ function _bacBuildGrid() {
       const dateStr = cur.toISOString().split('T')[0];
       const dayData = _bacData[dateStr] || null;
       const isFuture = cur > today;
-      week.push({ date: cur.toISOString().split('T')[0], data: dayData, isFuture });
-      // Track month label
-      if (cur.getDate() <= 7 && d === cur.getDay()) {
-        months.push({ label: MONTH[cur.getMonth()], col });
-      }
+      week.push({ date: dateStr, data: dayData, isFuture });
       cur.setDate(cur.getDate() + 1);
     }
     weeks.push(week);
-    col++;
     if (cur > today && cur.getDay() === 0) break;
   }
 
-  // Render month labels
-  const tileW  = 16 + 5; // tile + gap (px approx)
-  const monthsHtml = months.map(m =>
-    `<span class="bac-month-lbl" style="left:${28 + m.col * tileW}px;animation-delay:${m.col * 0.02}s">${m.label}</span>`
-  ).join('');
+  // One month label per week column — only the column containing the 1st of month gets a label
+  const monthsHtml = weeks.map((week, wIdx) => {
+    const firstDay = week.find(cell => new Date(cell.date + 'T00:00:00').getDate() === 1);
+    const lbl = firstDay ? MONTH[new Date(firstDay.date + 'T00:00:00').getMonth()] : '';
+    return `<span class="bac-month-lbl" style="animation-delay:${wIdx * 0.02}s">${lbl}</span>`;
+  }).join('');
 
   // Render day labels
   const dayLabelsHtml = DAYS.map((d,i) => `<div class="bac-day-lbl">${i % 2 === 1 ? d : ''}</div>`).join('');
@@ -5280,10 +5273,9 @@ function _bacBuildGrid() {
   // Render week columns
   const weeksHtml = weeks.map((week, wIdx) =>
     `<div class="bac-week">${week.map((cell, dIdx) => {
-      const delay   = (wIdx * 7 + dIdx) * 0.008;
-      const cls     = cell.isFuture ? 'bac-future' : _bacTileClass(cell.data, cell.date === todayStr);
-      const dataStr = cell.data ? `data-date="${cell.date}"` : `data-date="${cell.date}"`;
-      return `<div class="bac-tile ${cls}" ${dataStr} style="animation-delay:${delay}s"
+      const delay = (wIdx * 7 + dIdx) * 0.008;
+      const cls   = cell.isFuture ? 'bac-future' : _bacTileClass(cell.data, cell.date === todayStr);
+      return `<div class="bac-tile ${cls}" data-date="${cell.date}" style="animation-delay:${delay}s"
         onmouseenter="bacShowTooltip(event,'${cell.date}')"
         onmouseleave="bacHideTooltip()"
         onclick="${cell.isFuture ? '' : `bacClickTile('${cell.date}')`}"></div>`;
@@ -5291,7 +5283,7 @@ function _bacBuildGrid() {
   ).join('');
 
   calEl.innerHTML = `
-    <div class="bac-months" style="position:relative;height:16px;margin-bottom:4px;">${monthsHtml}</div>
+    <div class="bac-months">${monthsHtml}</div>
     <div style="display:flex;">
       <div class="bac-day-labels">${dayLabelsHtml}</div>
       <div class="bac-weeks">${weeksHtml}</div>
