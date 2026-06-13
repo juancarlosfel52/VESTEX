@@ -523,6 +523,43 @@ async function runPipeline() {
 
       await storePrediction(symbol, prediction, bars[bars.length - 1].close);
 
+      // ── Log pattern fires to vi_pattern_fires for win-rate verification ──
+      // Runs every pipeline cycle so pattern fires are recorded daily regardless of user visits.
+      if (brain && brain.active_patterns && brain.active_patterns.length > 0) {
+        try {
+          const currentPrice = bars[bars.length - 1].close;
+          const today        = new Date().toISOString().split('T')[0];
+          const db2          = getDB();
+          const batch        = db2.batch();
+          let   writes       = 0;
+          for (const p of brain.active_patterns) {
+            if (!p.pattern_id || p.direction === 'neutral') continue;
+            const id     = `${p.pattern_id}_${symbol}_${today}`;
+            const docRef = db2.collection('vi_pattern_fires').doc(id);
+            const snap   = await docRef.get().catch(() => null);
+            if (snap?.exists) continue;
+            batch.set(docRef, {
+              id, patternId: p.pattern_id, patternName: p.name || p.pattern_id,
+              symbol, date: today, timestamp: Date.now(),
+              priceAtFire: currentPrice, spyPriceAtFire: null,
+              direction: p.direction, strength: p.strength || null,
+              impact: p.impact || null, category: p.category || 'technical',
+              note: p.note || null,
+              verification7d: null, verification30d: null,
+              source: 'pipeline',
+            });
+            writes++;
+            if (writes >= 10) break;
+          }
+          if (writes > 0) {
+            await batch.commit().catch(e => console.warn('[VI-PAT-PIPE] Batch write failed:', e.message));
+            console.log(`[VI-PAT-PIPE] ${symbol}: logged ${writes} pattern fires`);
+          }
+        } catch(pe) {
+          console.warn(`[VI-PAT-PIPE] ${symbol} pattern fire log failed:`, pe.message);
+        }
+      }
+
       results.push({ symbol, status: 'ok', prediction });
       await new Promise(r => setTimeout(r, 500));
 

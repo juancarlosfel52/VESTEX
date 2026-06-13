@@ -102,16 +102,39 @@ function calcBrainScore(brainResult) {
 }
 
 // ── Signal Performance: 0–15 pts ──────────────────────────
+// Maturity scaling: signals contribute proportionally as they accumulate verified uses.
+// 0 uses=0%, 5 uses=25%, 10 uses=50%, 15 uses=75%, 20+ uses=100%
+// This replaces the hard cliff at 5 uses that caused a 0→full jump.
+function _signalMaturity(uses) {
+  if (uses >= 20) return 1.00;
+  if (uses >= 15) return 0.75;
+  if (uses >= 10) return 0.50;
+  if (uses >= 5)  return 0.25;
+  return 0;
+}
 function calcSignalScore(signals) {
   if (!signals || !signals.length)
     return { score: 0, avgAccuracy: null, detail: { note: 'Insufficient verified signal data' } };
-  const withData = signals.filter(s => s.totalUses > 5 && s.accuracy != null);
+  const withData = signals.filter(s => s.totalUses > 0 && s.accuracy != null);
   if (!withData.length) return { score: 0, avgAccuracy: null, detail: { note: 'Insufficient verified signal data' } };
-  const avg = withData.reduce((s, x) => s + x.accuracy, 0) / withData.length;
+
+  let weightedAccSum = 0, weightSum = 0;
+  for (const s of withData) {
+    const mf = _signalMaturity(s.totalUses);
+    if (mf === 0) continue;
+    weightedAccSum += s.accuracy * mf;
+    weightSum      += mf;
+  }
+  if (weightSum === 0) return { score: 0, avgAccuracy: null, detail: { note: 'Signals maturing — data accumulating' } };
+
+  const avg       = weightedAccSum / weightSum;
+  const avgMf     = weightSum / withData.filter(s => _signalMaturity(s.totalUses) > 0).length;
+  const score     = (avg / 100 * 15) * avgMf;
+
   return {
-    score:       Math.min(15, Math.max(0, +(avg / 100 * 15).toFixed(1))),
+    score:       Math.min(15, Math.max(0, +score.toFixed(1))),
     avgAccuracy: +avg.toFixed(1),
-    detail:      { signalCount: withData.length },
+    detail:      { signalCount: withData.length, maturityPct: +(avgMf * 100).toFixed(0) },
   };
 }
 
@@ -431,9 +454,18 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   const mhResult    = calcMarketHealth(macroSnapshot, fearGreed, vix, sentiment);
   const mhScore     = mhResult.score;
   const topPatterns = brain.patterns.map(p => ({
-    name: p.name, category: p.category,
-    winRate: p.win_rate || null, impact: p.score || null, reason: p.reason || '',
-    avgReturn: p.avg_return || null, uses: p.uses || null,
+    name:             p.name,
+    category:         p.category,
+    patternId:        p.pattern_id      || null,
+    direction:        p.direction       || null,
+    winRate:          p.win_rate        || null,
+    winRateSource:    p.win_rate_source || null,
+    winRateUses:      p.win_rate_uses   || null,
+    confidenceImpact: p.score           || null,
+    impact:           p.score           || null,
+    reason:           p.reason          || '',
+    avgReturn:        p.avg_return      || null,
+    uses:             p.uses            || null,
   }));
 
   const scoreBreakdown = {

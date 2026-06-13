@@ -182,8 +182,10 @@ function extractEventsFromEdgar(symbol, edgar) {
     if (!eventType) continue;
 
     // Refine 8-K classification by label keywords
-    if (form === '8-K' && filing.label) {
-      const lbl = filing.label.toLowerCase();
+    // If no keywords match, skip — generic 8-Ks (routine material disclosures) are not
+    // meaningful catalysts and should not be classified as MERGER_ACQUISITION by default.
+    if (form === '8-K') {
+      const lbl = (filing.label || '').toLowerCase();
       if (lbl.includes('earnings') || lbl.includes('results') || lbl.includes('revenue'))
         eventType = EVENT_TYPES.EARNINGS;
       else if (lbl.includes('merger') || lbl.includes('acqui'))
@@ -204,6 +206,7 @@ function extractEventsFromEdgar(symbol, edgar) {
         eventType = EVENT_TYPES.PARTNERSHIP;
       else if (lbl.includes('regulator') || lbl.includes('ftc') || lbl.includes('doj') || lbl.includes('sec '))
         eventType = EVENT_TYPES.REGULATORY_ACTION;
+      else continue; // unidentifiable 8-K — skip rather than mislabel as MERGER_ACQUISITION
     }
 
     const impactScore = eventType === EVENT_TYPES.EARNINGS         ? 9
@@ -315,20 +318,21 @@ function computeCatalystModifier(events, predictionDirection) {
 
     // Impact decay: closer = stronger; past events decay over their durationDays window
     const dur = ev.durationDays || 3; // fallback 3 days for events without duration
-    let timeFactor = 0.3; // no date or far future
+    let timeFactor = 0.3; // no date or far future default
     if (hasDate && days !== null) {
-      if (days >= 0 && days <= 7)   timeFactor = 1.0;
-      else if (days <= 14)          timeFactor = 0.7;
-      else if (days <= 30)          timeFactor = 0.5;
-      else if (days <= 60)          timeFactor = 0.3;
-      // past events: linear decay over durationDays window
-      else if (days < 0 && -days <= dur) {
-        timeFactor = Math.max(0.05, 0.5 * (1 - (-days / dur)));
-      }
-      else if (days < 0)            timeFactor = 0; // outside event's impact window — expired
+      if      (days >= 0  && days <= 7)   timeFactor = 1.0;
+      else if (days > 7   && days <= 14)  timeFactor = 0.7;
+      else if (days > 14  && days <= 30)  timeFactor = 0.5;
+      else if (days > 30  && days <= 60)  timeFactor = 0.3;
+      else if (days > 60)                 timeFactor = 0.15;
+      // past events: linear decay only within their active durationDays window
+      else if (days < 0 && -days <= dur)  timeFactor = Math.max(0.05, 0.5 * (1 - (-days / dur)));
+      else                                timeFactor = 0; // past + outside window — fully expired
     } else if (!hasDate) {
       timeFactor = 0.25; // no date = low weight
     }
+    // Track whether this event is fully expired (past + outside window)
+    const isExpired = hasDate && days !== null && days < 0 && timeFactor === 0;
 
     // Rumored event = weaker impact; confirmed/scheduled = full impact
     const confirmFactor = isConfirmed ? 1.0 : 0.35;
@@ -350,7 +354,8 @@ function computeCatalystModifier(events, predictionDirection) {
       }
     } else {
       // Neutral direction — FOMC, scheduled earnings etc: reduce confidence near event
-      if (hasDate && days !== null && days <= 7) {
+      // Only fire for UPCOMING events (days >= 0), not resolved past events
+      if (hasDate && days !== null && days >= 0 && days <= 7) {
         contribution = -rawImpact * 0.3;
         if (ev.impactScore >= 7) {
           warns.push(`⚠ ${ev.eventTitle} in ${days} day${days === 1 ? '' : 's'} — high volatility expected.`);
@@ -358,14 +363,15 @@ function computeCatalystModifier(events, predictionDirection) {
       }
     }
 
-    // Major confirmed bearish events always add warning
-    if (evDir === 'bearish' && isConfirmed && ev.impactScore >= 8) {
+    // Major confirmed bearish events: only warn for non-expired events
+    if (evDir === 'bearish' && isConfirmed && ev.impactScore >= 8 && !isExpired) {
       warns.push(`🔴 ${ev.eventTitle}: confirmed high-impact negative event.`);
     }
 
-    // Major event within 7 days: reduce prediction confidence unless strongly supported
+    // Major UPCOMING event within 7 days: reduce prediction confidence
     // IMPORTANT: must update contribution here so active[].contribution matches applied delta
-    if (isConfirmed && ev.impactScore >= 8 && hasDate && days !== null && days <= 7) {
+    // Only applies to FUTURE events (days >= 0) — past events are resolved
+    if (isConfirmed && ev.impactScore >= 8 && hasDate && days !== null && days >= 0 && days <= 7) {
       const magnitude = ev.impactScore >= 9 ? 0.6 : 0.4;
       const suppress  = -rawImpact * magnitude;
       contribution    = suppress;   // ← sync contribution so stored value matches applied delta
@@ -378,7 +384,8 @@ function computeCatalystModifier(events, predictionDirection) {
     active.push({
       ...ev,
       daysUntil:    days,
-      contribution: Math.round(contribution * 10) / 10,   // now always matches applied delta
+      status:       isExpired ? 'RESOLVED' : (ev.status || 'UNKNOWN'),
+      contribution: Math.round(contribution * 10) / 10,
     });
   }
 
