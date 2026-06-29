@@ -929,6 +929,9 @@ async function runVIVerification() {
     if (['SELL','STRONG SELL'].includes(decision))           return ret < -1;
     return Math.abs(ret) <= 5;
   }
+  function isDirectional(decision) {
+    return ['STRONG BUY','BUY','BUY SMALL','SELL','STRONG SELL'].includes(decision);
+  }
 
   // ── Resolve vi_predictions ──
   let verifiedCount = 0;
@@ -965,7 +968,9 @@ async function runVIVerification() {
       const verif  = {
         priceAfter: currentPrice, returnPct: retPct, spyReturn: spyRet,
         outperformedSpy: spyRet != null ? retPct > spyRet : null,
-        correct: isCorrect(e.decision, retPct), verifiedAt: now,
+        correct: isCorrect(e.decision, retPct),
+        decisionType: isDirectional(e.decision) ? 'directional' : 'neutral',
+        verifiedAt: now,
       };
       const update = {};
       if (!e.verification7d  && age >= VI_7D)  { update.verification7d  = verif; verifiedCount++; }
@@ -1020,14 +1025,23 @@ async function runVIVerification() {
     const catSnap = await db.collection(VI_COL)
       .where('catalystDelta', '!=', null).limit(300).get();
     const catDocs = catSnap.docs
-      .map(d => d.data())
-      .filter(e => Array.isArray(e.catalystEvents) && e.catalystEvents.length > 0);
+      .map(d => ({ ref: d.ref, data: d.data() }))
+      // Skip predictions whose catalyst stats are fully processed (permanent flags)
+      .filter(({ data: e }) => Array.isArray(e.catalystEvents) && e.catalystEvents.length > 0
+        && !(e.catalyst7dProcessed && e.catalyst30dProcessed));
 
-    for (const pred of catDocs) {
+    const catProcBatch = db.batch();
+    let   catProcWrites = 0;
+
+    for (const { ref: predRef, data: pred } of catDocs) {
       const v7  = pred.verification7d;
       const v30 = pred.verification30d;
       // Only process if at least one verification window is resolved
       if (!v7 && !v30) continue;
+
+      // Permanent processed flags — prevent re-accumulation across cron runs
+      const already7d  = pred.catalyst7dProcessed  === true;
+      const already30d = pred.catalyst30dProcessed === true;
 
       for (const ev of pred.catalystEvents) {
         if (!ev.eventType) continue;
@@ -1061,7 +1075,9 @@ async function runVIVerification() {
 
         const catalystDelta = pred.catalystDelta ?? 0;
 
-        if (v7 && !perf[dedupKey7]) {
+        // already7d/already30d gate: if the vi_prediction doc is permanently flagged,
+        // skip accumulation for that window (secondary safety behind the perf-doc dedup keys)
+        if (v7 && !already7d && !perf[dedupKey7]) {
           perf.uses7d++;
           if (v7.correct) perf.wins7d++; else perf.losses7d++;
           perf._sumReturn7d += v7.returnPct ?? 0;
@@ -1072,7 +1088,7 @@ async function runVIVerification() {
           perf[dedupKey7] = true;
           catalystUpdated++;
         }
-        if (v30 && !perf[dedupKey30]) {
+        if (v30 && !already30d && !perf[dedupKey30]) {
           perf.uses30d++;
           if (v30.correct) perf.wins30d++; else perf.losses30d++;
           perf._sumReturn30d += v30.returnPct ?? 0;
@@ -1087,7 +1103,15 @@ async function runVIVerification() {
         perf.updatedAt = new Date().toISOString();
         await perfRef.set(perf);
       }
+
+      // Write permanent processed flags to vi_prediction (idempotent — survives cron restarts)
+      const predUpdate = {};
+      if (v7  && !already7d)  predUpdate.catalyst7dProcessed  = true;
+      if (v30 && !already30d) predUpdate.catalyst30dProcessed = true;
+      if (Object.keys(predUpdate).length) { catProcBatch.update(predRef, predUpdate); catProcWrites++; }
     }
+
+    if (catProcWrites > 0) await catProcBatch.commit().catch(ce => console.warn('[VI-CAT] Proc flag write failed:', ce.message));
   } catch(e3) { console.warn('[VI-CAT] Catalyst performance update error:', e3.message); }
 
   console.log(`[VI] Resolution complete — predictions: ${verifiedCount}, pattern fires: ${patVerified}, catalyst perf updates: ${catalystUpdated}`);
@@ -1221,7 +1245,17 @@ app.get('/api/brain-calendar', async (req, res) => {
       // Verification counts
       const verified = preds.filter(p => p.verification7d || p.verification30d);
       const correct  = verified.filter(p => (p.verification7d || p.verification30d).correct === true);
+      // v1: mixed accuracy (all decisions) — preserved for backward compat
       const verifiedAccuracy = verified.length > 0 ? +(correct.length / verified.length * 100).toFixed(1) : null;
+
+      // v2: split accuracy — directional (BUY/SELL) vs neutral (HOLD/WAIT)
+      const DIR_DECISIONS = ['STRONG BUY','BUY','BUY SMALL','SELL','STRONG SELL'];
+      const dirVerified    = verified.filter(p => DIR_DECISIONS.includes(p.decision));
+      const dirCorrect     = dirVerified.filter(p => (p.verification7d || p.verification30d).correct === true);
+      const directionalAccuracy = dirVerified.length > 0 ? +(dirCorrect.length / dirVerified.length * 100).toFixed(1) : null;
+      const neutVerified   = verified.filter(p => !DIR_DECISIONS.includes(p.decision));
+      const neutCorrect    = neutVerified.filter(p => (p.verification7d || p.verification30d).correct === true);
+      const neutralAccuracy = neutVerified.length > 0 ? +(neutCorrect.length / neutVerified.length * 100).toFixed(1) : null;
 
       // Avg master score + confidence
       const scores = preds.map(p => p.masterScore).filter(s => s != null);
@@ -1254,10 +1288,12 @@ app.get('/api/brain-calendar', async (req, res) => {
         });
       });
 
-      // Brain health = confidence × verifiedAccuracy / 100 (only if verified data exists)
-      const brainHealth = (avgConfidence != null && verifiedAccuracy != null)
-        ? +(avgConfidence * verifiedAccuracy / 100).toFixed(1)
-        : null;
+      // Brain health = confidence × directionalAccuracy / 100 (v2: directional only)
+      const brainHealth = (avgConfidence != null && directionalAccuracy != null)
+        ? +(avgConfidence * directionalAccuracy / 100).toFixed(1)
+        : (avgConfidence != null && verifiedAccuracy != null)
+          ? +(avgConfidence * verifiedAccuracy / 100).toFixed(1)
+          : null;
 
       // Best/worst symbol by return
       const symReturns = preds
@@ -1276,7 +1312,11 @@ app.get('/api/brain-calendar', async (req, res) => {
         bullishPatterns:       bullish,
         bearishPatterns:       bearish,
         verifiedPredictions:   verified.length,
-        verifiedAccuracy,
+        verifiedAccuracy,                          // v1: all decisions mixed (backward compat)
+        directionalVerified:   dirVerified.length, // v2
+        directionalAccuracy,                       // v2: BUY/SELL only
+        neutralVerified:       neutVerified.length,// v2
+        neutralAccuracy,                           // v2: HOLD/WAIT only
         catalystCount,
         avgSentimentScore,
         topPattern,

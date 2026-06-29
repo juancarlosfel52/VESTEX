@@ -2737,7 +2737,7 @@ canvas{max-height:300px;}
             <div class="prog-stat"><div class="prog-stat-lbl">Predictions Logged</div><div class="prog-stat-val" id="vi-total">0</div><div class="prog-stat-note">Since tracking began</div></div>
             <div class="prog-stat"><div class="prog-stat-lbl">7-Day Verified</div><div class="prog-stat-val" id="vi-verified7">0</div><div class="prog-stat-note">Results confirmed</div></div>
             <div class="prog-stat"><div class="prog-stat-lbl">30-Day Verified</div><div class="prog-stat-val" id="vi-verified30">0</div><div class="prog-stat-note">Full-cycle results</div></div>
-            <div class="prog-stat"><div class="prog-stat-lbl">Overall Accuracy</div><div class="prog-stat-val" id="vi-accuracy" style="color:var(--gold);">—</div><div class="prog-stat-note" id="vi-accuracy-note">Verified predictions only</div></div>
+            <div class="prog-stat"><div class="prog-stat-lbl">Directional Accuracy</div><div class="prog-stat-val" id="vi-accuracy" style="color:var(--gold);">—</div><div class="prog-stat-note" id="vi-accuracy-note">BUY/SELL only · v2</div></div>
           </div>
           <div id="vi-empty-state" style="font-size:11px;color:var(--gray);padding:16px 0;text-align:center;">No predictions logged yet. Open Master Intelligence for any stock to start tracking.</div>
           <div id="vi-dashboard" style="display:none;">
@@ -4138,9 +4138,18 @@ function viComputeReport(log) {
   const v7  = log.filter(e => e.verification7d);
   const v30 = log.filter(e => e.verification30d);
 
-  // Overall accuracy
+  // v1: overall accuracy — all decisions mixed (preserved for backward compat, not displayed as main metric)
   const correct = verified.filter(e => (e.verification7d || e.verification30d).correct).length;
   const accuracy = verified.length > 0 ? Math.round(correct / verified.length * 100) : null;
+
+  // v2: split accuracy
+  const DIR_DECISIONS = ['STRONG BUY','BUY','BUY SMALL','SELL','STRONG SELL'];
+  const dirVerified = verified.filter(e => DIR_DECISIONS.includes(e.decision));
+  const dirCorrect  = dirVerified.filter(e => (e.verification7d || e.verification30d).correct).length;
+  const directionalAccuracy = dirVerified.length > 0 ? Math.round(dirCorrect / dirVerified.length * 100) : null;
+  const neutVerified = verified.filter(e => !DIR_DECISIONS.includes(e.decision));
+  const neutCorrect  = neutVerified.filter(e => (e.verification7d || e.verification30d).correct).length;
+  const neutralAccuracy = neutVerified.length > 0 ? Math.round(neutCorrect / neutVerified.length * 100) : null;
 
   // Avg return
   const returns = verified.map(e => (e.verification7d || e.verification30d).returnPct).filter(r => r != null);
@@ -4199,7 +4208,9 @@ function viComputeReport(log) {
     avgReturn: b.returns.length > 0 ? +(b.returns.reduce((a,c)=>a+c,0)/b.returns.length).toFixed(2) : null,
   }));
 
-  return { accuracy, correct, total: verified.length, v7Count: v7.length, v30Count: v30.length, avgReturn, patternBoard, decisionBoard, confBoard };
+  return { accuracy, correct, total: verified.length, v7Count: v7.length, v30Count: v30.length, avgReturn, patternBoard, decisionBoard, confBoard,
+    directionalAccuracy, directionalCount: dirVerified.length, directionalCorrect: dirCorrect,
+    neutralAccuracy,    neutralCount: neutVerified.length,    neutralCorrect: neutCorrect };
 }
 
 // viRefreshDashboard defined above (async version)
@@ -4213,13 +4224,19 @@ function renderViDashboard(log) {
   document.getElementById('vi-verified30').textContent = r.v30Count;
   const accEl = document.getElementById('vi-accuracy');
   const noteEl = document.getElementById('vi-accuracy-note');
-  if (r.accuracy != null) {
+  // Show directional accuracy (v2) as the primary metric; fall back to mixed v1 only if no directional data yet
+  if (r.directionalAccuracy != null) {
+    accEl.textContent = r.directionalAccuracy + '%';
+    accEl.style.color = r.directionalAccuracy >= 65 ? 'var(--green)' : r.directionalAccuracy >= 50 ? 'var(--gold)' : 'var(--red)';
+    const neutralNote = r.neutralAccuracy != null ? ` · HOLD/WAIT ${r.neutralAccuracy}%` : '';
+    noteEl.textContent = `${r.directionalCorrect}/${r.directionalCount} BUY/SELL correct${neutralNote}`;
+  } else if (r.accuracy != null) {
     accEl.textContent = r.accuracy + '%';
     accEl.style.color = r.accuracy >= 65 ? 'var(--green)' : r.accuracy >= 50 ? 'var(--gold)' : 'var(--red)';
-    noteEl.textContent = `${r.correct}/${r.total} correct · avg return ${r.avgReturn >= 0 ? '+' : ''}${r.avgReturn}%`;
+    noteEl.textContent = `${r.correct}/${r.total} correct (mixed v1) · no directional predictions yet`;
   } else {
     accEl.textContent = '—';
-    noteEl.textContent = 'Awaiting 7-day verification windows';
+    noteEl.textContent = 'Awaiting BUY/SELL verification windows';
   }
 
   const hasVerified = r.total > 0;
@@ -5302,8 +5319,9 @@ function _bacTileClass(data, isToday) {
   }
 
   if (_bacMode === 'accuracy') {
-    if (data.verifiedAccuracy === null) return isToday ? 'bac-c-pulse' : 'bac-c-yellow'; // pending
-    const a = data.verifiedAccuracy;
+    // Use directionalAccuracy (v2) if available; fall back to verifiedAccuracy (v1)
+    const a = data.directionalAccuracy ?? data.verifiedAccuracy;
+    if (a == null) return isToday ? 'bac-c-pulse' : 'bac-c-yellow'; // pending
     if (a < 40)  return 'bac-c-red';
     if (a < 55)  return 'bac-c-orange';
     if (a < 65)  return 'bac-c-yellow';
@@ -5332,14 +5350,15 @@ function _bacRenderStats(calendar) {
   const active = days.filter(d => d.predictionsGenerated > 0);
   const verif  = days.filter(d => d.verifiedPredictions > 0);
   const totalPats = days.reduce((a, d) => a + (d.patternsFired || 0), 0);
-  const accVals   = verif.map(d => d.verifiedAccuracy).filter(v => v != null);
-  const avgAcc    = accVals.length ? (accVals.reduce((a,b)=>a+b,0)/accVals.length).toFixed(1) : null;
+  // Use directionalAccuracy (v2) for the stat bar; fall back to verifiedAccuracy (v1)
+  const accVals = verif.map(d => d.directionalAccuracy ?? d.verifiedAccuracy).filter(v => v != null);
+  const avgAcc  = accVals.length ? (accVals.reduce((a,b)=>a+b,0)/accVals.length).toFixed(1) : null;
 
   const stats = [
-    { val: active.length,        lbl: 'Active Days'   },
-    { val: totalPats,            lbl: 'Patterns Fired' },
-    { val: verif.length,         lbl: 'Days Verified'  },
-    { val: avgAcc != null ? avgAcc + '%' : '—', lbl: 'Avg Accuracy' },
+    { val: active.length,        lbl: 'Active Days'    },
+    { val: totalPats,            lbl: 'Patterns Fired'  },
+    { val: verif.length,         lbl: 'Days Verified'   },
+    { val: avgAcc != null ? avgAcc + '%' : '—', lbl: 'Dir. Accuracy' },
   ];
 
   el.innerHTML = stats.map(s => `
@@ -5377,12 +5396,13 @@ function bacShowTooltip(e, dateStr) {
   let statusLabel = 'No Data';
   let statusColor = 'var(--gray)';
   if (data) {
-    if (data.verifiedPredictions > 0 && data.verifiedAccuracy !== null) {
-      const a = data.verifiedAccuracy;
-      if (a >= 80)      { statusLabel = 'Excellent';  statusColor = 'var(--gold)'; }
-      else if (a >= 65) { statusLabel = 'Strong';     statusColor = 'var(--green)'; }
-      else if (a >= 50) { statusLabel = 'Mixed';      statusColor = '#e07b39'; }
-      else              { statusLabel = 'Weak';        statusColor = 'var(--red)'; }
+    // Status uses directionalAccuracy (v2) if available, else v1
+    const _a = data.directionalAccuracy ?? data.verifiedAccuracy;
+    if (data.verifiedPredictions > 0 && _a !== null && _a !== undefined) {
+      if (_a >= 80)      { statusLabel = 'Excellent';  statusColor = 'var(--gold)'; }
+      else if (_a >= 65) { statusLabel = 'Strong';     statusColor = 'var(--green)'; }
+      else if (_a >= 50) { statusLabel = 'Mixed';      statusColor = '#e07b39'; }
+      else               { statusLabel = 'Weak';       statusColor = 'var(--red)'; }
     } else if (data.predictionsGenerated > 0) {
       statusLabel = 'Pending Verification'; statusColor = 'var(--gold)';
     }
@@ -5393,7 +5413,7 @@ function bacShowTooltip(e, dateStr) {
     ${data ? `
     <div class="bac-tt-row"><span>Patterns fired</span><span>${data.patternsFired ?? '—'}</span></div>
     <div class="bac-tt-row"><span>Avg confidence</span><span>${data.avgConfidence != null ? data.avgConfidence + '%' : '—'}</span></div>
-    <div class="bac-tt-row"><span>Verified accuracy</span><span>${data.verifiedAccuracy != null ? data.verifiedAccuracy + '%' : 'Pending'}</span></div>
+    <div class="bac-tt-row"><span>Dir. accuracy (BUY/SELL)</span><span>${data.directionalAccuracy != null ? data.directionalAccuracy + '%' : data.verifiedAccuracy != null ? data.verifiedAccuracy + '% (v1)' : 'Pending'}</span></div>
     <div class="bac-tt-row"><span>Brain health</span><span>${data.brainHealth != null ? data.brainHealth.toFixed(1) : '—'}</span></div>
     ${data.topPattern ? `<div class="bac-tt-row"><span>Top pattern</span><span style="max-width:100px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${data.topPattern}</span></div>` : ''}
     <div class="bac-tt-status" style="color:${statusColor};">${statusLabel}</div>
@@ -5434,22 +5454,25 @@ function bacClickTile(dateStr) {
       <div class="bac-detail-date">${label}</div>
       <div class="bac-detail-note">No brain activity recorded on this day.</div>`;
   } else {
-    const correct   = data.verifiedPredictions > 0 && data.verifiedAccuracy != null
-      ? Math.round(data.verifiedPredictions * data.verifiedAccuracy / 100)
+    // Use directionalAccuracy (v2) for display; fall back to verifiedAccuracy (v1)
+    const _dispAcc  = data.directionalAccuracy ?? data.verifiedAccuracy;
+    const _dispCnt  = data.directionalAccuracy != null ? (data.directionalVerified ?? data.verifiedPredictions) : data.verifiedPredictions;
+    const correct   = _dispCnt > 0 && _dispAcc != null
+      ? Math.round(_dispCnt * _dispAcc / 100)
       : null;
-    const incorrect = correct != null ? data.verifiedPredictions - correct : null;
+    const incorrect = correct != null ? _dispCnt - correct : null;
     const pending   = data.predictionsGenerated - data.verifiedPredictions;
 
-    // Narrative note
+    // Narrative note (uses directional accuracy when available)
     let note = '';
-    if (data.verifiedAccuracy === null && data.predictionsGenerated > 0) {
+    if (_dispAcc == null && data.predictionsGenerated > 0) {
       note = 'The brain was active on this day, but verification windows haven\'t closed yet. Check back in 7–30 days.';
-    } else if (data.verifiedAccuracy !== null && data.verifiedAccuracy >= 75 && data.avgConfidence > 70) {
+    } else if (_dispAcc != null && _dispAcc >= 75 && data.avgConfidence > 70) {
       note = 'High confidence matched strong verified outcomes — a strong day for the VESTEX brain.';
-    } else if (data.verifiedAccuracy !== null && data.verifiedAccuracy >= 55) {
+    } else if (_dispAcc != null && _dispAcc >= 55) {
       note = 'Moderate accuracy on a day with solid activity. The brain performed above baseline.';
-    } else if (data.verifiedAccuracy !== null && data.verifiedAccuracy < 45) {
-      note = 'The brain was active but accuracy fell below expectations. The model learns from days like this.';
+    } else if (_dispAcc != null && _dispAcc < 45) {
+      note = 'The brain was active but directional accuracy fell below expectations. The model learns from days like this.';
     } else {
       note = 'Brain activity recorded. Verification data building as time windows close.';
     }
