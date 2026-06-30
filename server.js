@@ -1713,6 +1713,182 @@ app.get('/api/vi/report', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ═══════════════════════════════════════════════════════════
+//  SPRINT 2 — DATABASE INTEGRITY AUDIT (read-only)
+//  Checks: duplicates, missing verifications, orphan fires,
+//  catalyst double-processing, timestamp consistency.
+// ═══════════════════════════════════════════════════════════
+app.get('/api/db-integrity', rlAudit, async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  const db = admin.firestore();
+  const SYMS = ['AAPL','TSLA','GOOGL','MSFT','AMZN'];
+  const now = Date.now();
+  const VI_7D  = 7  * 24 * 3600 * 1000;
+  const VI_30D = 30 * 24 * 3600 * 1000;
+  const issues = [];
+  const counts = {};
+
+  try {
+    // ── 1. vi_predictions — duplicates + missing dates ──
+    const predSnap = await db.collection(VI_COL).limit(500).get();
+    const preds = predSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    counts.vi_predictions = preds.length;
+
+    // Check for duplicate symbol+date combos
+    const predKeys = {};
+    const predDuplicates = [];
+    preds.forEach(p => {
+      const key = `${p.symbol}_${p.date}`;
+      if (predKeys[key]) predDuplicates.push({ key, ids: [predKeys[key], p.id] });
+      else predKeys[key] = p.id;
+    });
+    if (predDuplicates.length) issues.push({ type: 'DUPLICATE_PREDICTIONS', count: predDuplicates.length, samples: predDuplicates.slice(0, 5) });
+
+    // Check for missing fields
+    const predsNoPrice = preds.filter(p => p.priceAtPrediction == null);
+    const predsNoDate  = preds.filter(p => !p.date);
+    const predsNoTs    = preds.filter(p => !p.timestamp);
+    const predsNoDecision = preds.filter(p => !p.decision);
+    if (predsNoPrice.length) issues.push({ type: 'PREDICTION_MISSING_PRICE', count: predsNoPrice.length, ids: predsNoPrice.slice(0,5).map(p=>p.id) });
+    if (predsNoDate.length)  issues.push({ type: 'PREDICTION_MISSING_DATE', count: predsNoDate.length, ids: predsNoDate.slice(0,5).map(p=>p.id) });
+    if (predsNoTs.length)    issues.push({ type: 'PREDICTION_MISSING_TIMESTAMP', count: predsNoTs.length });
+    if (predsNoDecision.length) issues.push({ type: 'PREDICTION_MISSING_DECISION', count: predsNoDecision.length });
+
+    // ── 2. Missing 7d verification where age >= 7d ──
+    const missing7d = preds.filter(p => p.timestamp && (now - p.timestamp) >= VI_7D && !p.verification7d && p.priceAtPrediction != null);
+    if (missing7d.length) issues.push({ type: 'MISSING_7D_VERIFICATION', count: missing7d.length, samples: missing7d.slice(0,5).map(p => ({ id: p.id, date: p.date, symbol: p.symbol, ageDays: Math.floor((now - p.timestamp)/86400000) })) });
+
+    // ── 3. Missing 30d verification where age >= 30d ──
+    const missing30d = preds.filter(p => p.timestamp && (now - p.timestamp) >= VI_30D && !p.verification30d && p.priceAtPrediction != null);
+    if (missing30d.length) issues.push({ type: 'MISSING_30D_VERIFICATION', count: missing30d.length, samples: missing30d.slice(0,5).map(p => ({ id: p.id, date: p.date, symbol: p.symbol, ageDays: Math.floor((now - p.timestamp)/86400000) })) });
+
+    // ── 4. vi_pattern_fires — duplicates ──
+    const patSnap = await db.collection(VI_PAT_COL).limit(1000).get();
+    const pats = patSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    counts.vi_pattern_fires = pats.length;
+
+    const patKeys = {};
+    const patDuplicates = [];
+    pats.forEach(p => {
+      const key = `${p.patternId}_${p.symbol}_${p.date}`;
+      if (patKeys[key]) patDuplicates.push({ key, ids: [patKeys[key], p.id] });
+      else patKeys[key] = p.id;
+    });
+    if (patDuplicates.length) issues.push({ type: 'DUPLICATE_PATTERN_FIRES', count: patDuplicates.length, samples: patDuplicates.slice(0, 5) });
+
+    // Missing 7d verification on pattern fires
+    const patMissing7d = pats.filter(p => p.timestamp && (now - p.timestamp) >= VI_7D && !p.verification7d && p.priceAtFire != null);
+    if (patMissing7d.length) issues.push({ type: 'PATTERN_FIRE_MISSING_7D', count: patMissing7d.length });
+
+    // ── 5. Orphan pattern fires — symbol+date with no matching prediction ──
+    const predDateSet = new Set(preds.map(p => `${p.symbol}_${p.date}`));
+    const orphanFires = pats.filter(p => !predDateSet.has(`${p.symbol}_${p.date}`));
+    if (orphanFires.length) issues.push({ type: 'ORPHAN_PATTERN_FIRES', count: orphanFires.length, note: 'Pattern fires with no matching vi_prediction for that symbol+date', samples: orphanFires.slice(0,5).map(p => ({ id: p.id, symbol: p.symbol, date: p.date, pattern: p.patternId })) });
+
+    // ── 6. signalPerformance — check all 19 expected signals exist ──
+    const sigSnap = await db.collection('signalPerformance').get();
+    const sigDocs = sigSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    counts.signalPerformance = sigDocs.length;
+
+    const expectedSignals = ['SMA_UPTREND','SMA_DOWNTREND','MACD_BULLISH','MACD_BEARISH',
+      'RSI_DEEPLY_OVERSOLD','RSI_OVERSOLD','RSI_MILD_BULLISH','RSI_SEVERELY_OVERBOUGHT',
+      'RSI_OVERBOUGHT','RSI_MILD_BEARISH','MOMENTUM_STRONG_BULLISH','MOMENTUM_MILD_BULLISH',
+      'MOMENTUM_STRONG_BEARISH','MOMENTUM_MILD_BEARISH','VOLUME_SPIKE_BULLISH',
+      'VOLUME_SPIKE_BEARISH','STREAK_EXHAUSTION','STREAK_CONTINUATION_BULL','STREAK_CONTINUATION_BEAR'];
+    const sigIds = new Set(sigDocs.map(s => s.id));
+    const missingSignals = expectedSignals.filter(s => !sigIds.has(s));
+    if (missingSignals.length) issues.push({ type: 'MISSING_SIGNAL_RECORDS', count: missingSignals.length, signals: missingSignals });
+
+    // Signals with 0 totalUses after sufficient time
+    const zeroUseSigs = sigDocs.filter(s => (s.totalUses || 0) === 0);
+    if (zeroUseSigs.length) issues.push({ type: 'SIGNALS_ZERO_USES', count: zeroUseSigs.length, signals: zeroUseSigs.map(s => s.id), note: 'Expected if signal rarely fires or system is young' });
+
+    // ── 7. catalyst_performance — check for double-processing artifacts ──
+    const catSnap = await db.collection('catalyst_performance').limit(50).get();
+    const catDocs = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    counts.catalyst_performance = catDocs.length;
+
+    const catIssues = [];
+    catDocs.forEach(c => {
+      // Count _seen7_ keys — each should correspond to one prediction
+      const seen7Keys  = Object.keys(c).filter(k => k.startsWith('_seen7_'));
+      const seen30Keys = Object.keys(c).filter(k => k.startsWith('_seen30_'));
+      // If uses7d > seen7Keys count, accumulation may have occurred before dedup keys existed
+      if (c.uses7d > 0 && seen7Keys.length < c.uses7d) {
+        catIssues.push({ eventType: c.id, uses7d: c.uses7d, dedupKeys7d: seen7Keys.length, gap: c.uses7d - seen7Keys.length });
+      }
+      if (c.uses30d > 0 && seen30Keys.length < c.uses30d) {
+        catIssues.push({ eventType: c.id, uses30d: c.uses30d, dedupKeys30d: seen30Keys.length, gap: c.uses30d - seen30Keys.length });
+      }
+    });
+    if (catIssues.length) issues.push({ type: 'CATALYST_POSSIBLE_DOUBLE_COUNT', count: catIssues.length, note: 'uses exceeds dedup key count — may indicate pre-fix double accumulation', details: catIssues });
+
+    // Check vi_predictions for catalyst processed flags
+    const catPredsMissing = preds.filter(p =>
+      p.verification7d && Array.isArray(p.catalystEvents) && p.catalystEvents.length > 0 && !p.catalyst7dProcessed
+    );
+    if (catPredsMissing.length) issues.push({ type: 'CATALYST_UNPROCESSED_PREDICTIONS', count: catPredsMissing.length, note: 'Predictions with 7d verification + catalyst events but no catalyst7dProcessed flag — next cron run will process them' });
+
+    // ── 8. Timestamp consistency ──
+    const tsIssues = [];
+    preds.forEach(p => {
+      if (!p.timestamp || !p.date) return;
+      const tsDate = new Date(p.timestamp).toISOString().split('T')[0];
+      if (tsDate !== p.date) tsIssues.push({ id: p.id, timestamp: new Date(p.timestamp).toISOString(), date: p.date, mismatch: 'timestamp date != date field' });
+    });
+    // Verification timestamps should be after prediction timestamp
+    preds.forEach(p => {
+      if (p.verification7d?.verifiedAt && p.timestamp && p.verification7d.verifiedAt < p.timestamp) {
+        tsIssues.push({ id: p.id, type: '7d_before_prediction', predTs: p.timestamp, verifTs: p.verification7d.verifiedAt });
+      }
+    });
+    if (tsIssues.length) issues.push({ type: 'TIMESTAMP_INCONSISTENCY', count: tsIssues.length, samples: tsIssues.slice(0, 5) });
+
+    // ── 9. Coverage stats ──
+    const symbolCoverage = {};
+    SYMS.forEach(s => {
+      const symPreds = preds.filter(p => p.symbol === s);
+      const symPats  = pats.filter(p => p.symbol === s);
+      const symV7    = symPreds.filter(p => p.verification7d);
+      symbolCoverage[s] = {
+        predictions: symPreds.length,
+        patternFires: symPats.length,
+        verified7d: symV7.length,
+        verified30d: symPreds.filter(p => p.verification30d).length,
+        avgConfidence: symPreds.length ? +(symPreds.reduce((a,p) => a + (p.confidence||0), 0) / symPreds.length).toFixed(1) : null,
+      };
+    });
+
+    // ── 10. Integrity Score ──
+    let score = 100;
+    issues.forEach(i => {
+      if (i.type.includes('DUPLICATE'))     score -= Math.min(15, i.count * 3);
+      if (i.type.includes('MISSING_7D'))    score -= Math.min(20, i.count * 2);
+      if (i.type.includes('MISSING_30D'))   score -= Math.min(10, i.count);
+      if (i.type.includes('ORPHAN'))        score -= Math.min(10, i.count);
+      if (i.type.includes('DOUBLE_COUNT'))  score -= Math.min(15, i.count * 5);
+      if (i.type.includes('TIMESTAMP'))     score -= Math.min(10, i.count * 2);
+      if (i.type.includes('MISSING_PRICE')) score -= Math.min(10, i.count * 2);
+      if (i.type.includes('MISSING_DATE'))  score -= Math.min(10, i.count * 2);
+    });
+    score = Math.max(0, score);
+    const status = score >= 90 ? 'HEALTHY' : score >= 70 ? 'MINOR_ISSUES' : score >= 50 ? 'NEEDS_ATTENTION' : 'CRITICAL';
+
+    res.json({
+      ok: true,
+      integrityScore: score,
+      status,
+      collections: counts,
+      symbolCoverage,
+      issueCount: issues.length,
+      issues,
+      auditedAt: new Date().toISOString(),
+    });
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/market-health', async (req, res) => {
   try {
     const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
