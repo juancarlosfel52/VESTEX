@@ -560,6 +560,53 @@ async function runPipeline() {
         }
       }
 
+      // ── Log vi_prediction for daily coverage ──
+      // Ensures every pipeline run creates a prediction record per symbol,
+      // matching the same schema as POST /api/vi/log. One per symbol per day.
+      try {
+        const today2    = new Date().toISOString().split('T')[0];
+        const viId      = `${symbol}_${today2}`;
+        const viRef     = getDB().collection('vi_predictions').doc(viId);
+        const viSnap    = await viRef.get().catch(() => null);
+        if (!viSnap?.exists) {
+          const currentPrice = bars[bars.length - 1].close;
+          // Map pipeline direction to decision label for schema parity
+          const decisionMap = { UP: 'BUY', DOWN: 'SELL', FLAT: 'HOLD' };
+          const topPats = (brain?.active_patterns || []).slice(0, 10).map(p => ({
+            name:           p.name || p.pattern_id,
+            category:       p.category || null,
+            patternId:      p.pattern_id || null,
+            direction:      p.direction || null,
+            winRate:        p.win_rate || null,
+            winRateSource:  p.win_rate_source || null,
+          }));
+          await viRef.set({
+            id:                viId,
+            symbol,
+            timestamp:         Date.now(),
+            date:              today2,
+            priceAtPrediction: currentPrice,
+            spyAtPrediction:   null,
+            masterScore:       null,  // pipeline path has no MI — filled by frontend if user visits
+            decision:          decisionMap[prediction.direction] || 'HOLD',
+            confidence:        prediction.confidence ?? null,
+            systemVotes:       null,
+            topPatterns:       topPats,
+            marketRegime:      brain?.regime?.name || null,
+            sentimentScore:    sentimentData?.score ?? null,
+            sentimentOverall:  sentimentData?.overall ?? null,
+            catalystDelta:     null,
+            catalystEvents:    [],
+            verification7d:    null,
+            verification30d:   null,
+            source:            'pipeline',
+          });
+          console.log(`[VI-PRED-PIPE] ${symbol}: logged prediction (${prediction.direction}, conf ${prediction.confidence}%)`);
+        }
+      } catch(ve) {
+        console.warn(`[VI-PRED-PIPE] ${symbol} prediction log failed:`, ve.message);
+      }
+
       results.push({ symbol, status: 'ok', prediction });
       await new Promise(r => setTimeout(r, 500));
 

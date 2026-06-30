@@ -984,7 +984,7 @@ async function runVIVerification() {
   let patVerified = 0;
   try {
     const patSnap = await db.collection(VI_PAT_COL)
-      .where('priceAtFire', '!=', null).limit(300).get();
+      .where('priceAtFire', '!=', null).limit(500).get();
     const patPending = patSnap.docs
       .map(d => ({ ref: d.ref, data: d.data() }))
       .filter(e => !e.data.verification7d || !e.data.verification30d);
