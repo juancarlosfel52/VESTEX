@@ -4348,17 +4348,22 @@ async function chartPeriod(p, el) {
 
 function updateChartStats() {
   const st  = STOCKS[chartSym];
-  const hi  = st.high  ? '$'+st.high.toFixed(2)  : (st.price ? '$'+(st.price*1.04).toFixed(2) : '—');
-  const lo  = st.low   ? '$'+st.low.toFixed(2)   : (st.price ? '$'+(st.price*0.97).toFixed(2) : '—');
+  const hi  = st.high  ? '$'+st.high.toFixed(2)  : '—';
+  const lo  = st.low   ? '$'+st.low.toFixed(2)   : '—';
   const vol = st.vol   ? (st.vol/1e6).toFixed(1)+'M shares' : '—';
   const priceStr = st.price != null ? '$'+st.price.toFixed(2) : '—';
   const chgVal = st.chg || 0;
+  // Timestamp from canonical quote
+  const qt = st.quoteTime ? new Date(st.quoteTime) : null;
+  const timeLbl = qt ? qt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+  const srcLbl  = st.quoteSrc === 'alpaca_live' ? 'Live' : st.quoteSrc === 'stale_cache' ? 'Cached' : st.quoteSrc === 'firestore_stale' ? 'Historical' : st.quoteSrc || '';
+  const freshTag = srcLbl ? `<span style="font-size:8px;letter-spacing:1.5px;color:${srcLbl==='Live'?'var(--green2)':srcLbl==='Cached'?'var(--gold)':'var(--gray)'};margin-left:6px;">${srcLbl.toUpperCase()}${timeLbl?' · '+timeLbl:''}</span>` : '';
   document.getElementById('chart-stats').innerHTML = `
-    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;">${priceStr}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Price Right Now${freshTag}</div><div style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;">${priceStr}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Change Today</div><div style="font-size:16px;color:${chgVal>=0?'var(--green)':'var(--red)'};">${chgVal>=0?'▲ +':'▼ '}${Math.abs(chgVal)}%</div></div>
-    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's High Price</div><div style="font-size:16px;">${hi}</div></div>
-    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's Low Price</div><div style="font-size:16px;">${lo}</div></div>
-    <div><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Shares Traded Today</div><div style="font-size:16px;">${vol}</div><div style="font-size:10px;color:var(--gray);">High volume = big news happening</div></div>`;
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's High</div><div style="font-size:16px;">${hi}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Today's Low</div><div style="font-size:16px;">${lo}</div></div>
+    <div><div style="font-size:9px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:3px;">Volume</div><div style="font-size:16px;">${vol}</div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -6958,8 +6963,13 @@ async function fetchQuotes() {
     STOCKS[s].low       = r.low            ?? null;
     STOCKS[s].vol       = r.volume         ?? null;
     STOCKS[s].quoteTime = r.timestamp      ?? null;
-    STOCKS[s].quoteSrc  = r.source         ?? null;
+    STOCKS[s].quoteSrc  = r.source         ?? data.source ?? null;
+    STOCKS[s].serverFetchedAt = r.serverFetchedAt ?? data.serverFetchedAt ?? null;
   });
+  // Store canonical metadata for any component that needs it
+  window._quoteSource    = data.source || 'unknown';
+  window._quoteCacheAge  = data.cacheAgeMs ?? null;
+  window._quoteFetchedAt = data.serverFetchedAt ?? null;
   setLiveStatus(true, data.cacheAgeMs);
 }
 
@@ -6989,6 +6999,23 @@ async function fetchHistory(sym, per) {
         lows.push(+parseFloat(bar.low).toFixed(2));
       });
       if (prices.length >= 2) {
+        // Reconcile: append live quote as final point if newer than last bar
+        const st = STOCKS[sym];
+        if (st?.price != null) {
+          const lastBarDate = toUse[toUse.length - 1]?.time;
+          const lastBarDay  = lastBarDate ? new Date(lastBarDate).toDateString() : null;
+          const today       = new Date().toDateString();
+          if (lastBarDay !== today) {
+            // Historical bars don't include today — append live point
+            labels.push('Now');
+            prices.push(+st.price.toFixed(2));
+            highs.push(+(st.high ?? st.price).toFixed(2));
+            lows.push(+(st.low ?? st.price).toFixed(2));
+          } else {
+            // Last bar IS today — update its close to the live price
+            prices[prices.length - 1] = +st.price.toFixed(2);
+          }
+        }
         return { prices, labels, highs, lows };
       }
     }
@@ -7026,10 +7053,18 @@ function setLiveStatus(ok, cacheAgeMs) {
   if (!el) return;
   if (!ok) { el.textContent = '● CONNECTING...'; el.style.color = 'var(--gold)'; return; }
   const ageS = cacheAgeMs != null ? Math.floor(cacheAgeMs / 1000) : null;
-  const ageTxt = ageS != null ? ` · ${ageS}s` : '';
-  const fresh  = ageS == null || ageS < 60;
-  el.textContent = fresh ? `● LIVE${ageTxt}` : `● CACHED (${ageS}s)`;
-  el.style.color = fresh ? 'var(--green2)' : 'var(--gold)';
+  const src  = window._quoteSource || 'unknown';
+  if (src === 'firestore_fallback' || src === 'firestore_stale') {
+    el.textContent = '● HISTORICAL'; el.style.color = 'var(--red)'; return;
+  }
+  if (src === 'stale_cache' || (ageS != null && ageS > 300)) {
+    el.textContent = `● STALE (${ageS ? Math.floor(ageS/60)+'m' : '?'})`; el.style.color = 'var(--red)'; return;
+  }
+  if (ageS != null && ageS >= 60) {
+    el.textContent = `● CACHED (${ageS}s)`; el.style.color = 'var(--gold)'; return;
+  }
+  el.textContent = `● LIVE${ageS != null ? ' · '+ageS+'s' : ''}`;
+  el.style.color = 'var(--green2)';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -7615,6 +7650,10 @@ async function init() {
       renderOvBar();
       updateDashKPIs();
       renderPortfolio();
+      // Keep chart page stats synced with canonical quote
+      if (document.getElementById('page-charts')?.classList.contains('active')) {
+        updateChartStats();
+      }
     } catch(e) {}
   }, 60000);
 }
