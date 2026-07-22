@@ -4160,10 +4160,12 @@ function viComputeReport(log) {
   verified.forEach(entry => {
     const v = entry.verification7d || entry.verification30d;
     (entry.topPatterns || []).forEach(p => {
-      if (!pMap[p]) pMap[p] = { name:p, correct:0, total:0, totalReturn:0 };
-      pMap[p].total++;
-      if (v.correct) pMap[p].correct++;
-      pMap[p].totalReturn += v.returnPct || 0;
+      const key = (typeof p === 'string' ? p : p?.name) || null;
+      if (!key || key === 'undefined') return; // skip unnamed/undefined pattern rows
+      if (!pMap[key]) pMap[key] = { name:key, correct:0, total:0, totalReturn:0 };
+      pMap[key].total++;
+      if (v.correct) pMap[key].correct++;
+      pMap[key].totalReturn += v.returnPct || 0;
     });
   });
   const patternBoard = Object.values(pMap).map(p => ({
@@ -7138,7 +7140,7 @@ function renderLivePrediction(sym, d) {
         ${p.reason ? `<div class="lp-reason">${p.reason}</div>` : ''}
       </div>
       <div style="text-align:right;margin-left:12px;">
-        <div class="lp-lpms" style="color:${pColor};">${p.lpms.toFixed(3)}</div>
+        <div class="lp-lpms" style="color:${pColor};">${p.lpms != null ? p.lpms.toFixed(3) : '—'}</div>
         <div style="font-size:8px;color:${pColor};letter-spacing:1px;text-transform:uppercase;">${p.direction}</div>
       </div>
     </div>`;
@@ -7236,13 +7238,13 @@ function renderLivePrediction(sym, d) {
     <div class="lp-scores">
       <div class="lp-score-box">
         <div class="lp-score-lbl">Pattern Score</div>
-        <div class="lp-score-val">${d.livePatternMatchScore?.toFixed(1)}<span style="font-size:10px;color:var(--gray)">/10</span></div>
-        <div class="lp-score-bar"><div class="lp-score-bar-fill" style="width:${d.livePatternMatchScore * 10}%;background:${barColor(d.livePatternMatchScore, 10)};"></div></div>
+        <div class="lp-score-val">${d.livePatternMatchScore?.toFixed(1) ?? '—'}<span style="font-size:10px;color:var(--gray)">/10</span></div>
+        <div class="lp-score-bar"><div class="lp-score-bar-fill" style="width:${(d.livePatternMatchScore ?? 0) * 10}%;background:${barColor(d.livePatternMatchScore ?? 0, 10)};"></div></div>
       </div>
       <div class="lp-score-box">
         <div class="lp-score-lbl">Consensus Score</div>
-        <div class="lp-score-val">${d.consensusScore?.toFixed(0)}<span style="font-size:10px;color:var(--gray)">/100</span></div>
-        <div class="lp-score-bar"><div class="lp-score-bar-fill" style="width:${d.consensusScore}%;background:${barColor(d.consensusScore, 100)};"></div></div>
+        <div class="lp-score-val">${d.consensusScore?.toFixed(0) ?? '—'}<span style="font-size:10px;color:var(--gray)">/100</span></div>
+        <div class="lp-score-bar"><div class="lp-score-bar-fill" style="width:${d.consensusScore ?? 0}%;background:${barColor(d.consensusScore ?? 0, 100)};"></div></div>
       </div>
       <div class="lp-score-box">
         <div class="lp-score-lbl">Active Patterns</div>
