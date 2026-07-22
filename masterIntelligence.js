@@ -101,6 +101,61 @@ function calcBrainScore(brainResult) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════
+//  ENGINE V2 SHADOW — Brain Translation Layer V2 (additive)
+//  Constitution: THE MARKET DECIDES. V2 never makes production
+//  decisions. It is logged beside V1 and judged by the ledger.
+//
+//  V1 translation: activePercent/100 × 20 (discards win rates,
+//  magnitudes, direction detail — measured ~80% information loss).
+//  V2 translation: consumes the Brain's own signed, win-rate-
+//  weighted category breakdown (calcBrainScoreBreakdown output),
+//  which V1 computes and throws away.
+//
+//  Design decisions (documented for the research ledger):
+//  • Neutral midpoint = 10/20. No evidence = neutral, not bearish.
+//    (V1 scores an evidence-free day 0/20 — punishing silence.)
+//  • Per-category clamp ±0.4 weighted (≈ ±5 pts) — no single
+//    category can dictate the Brain slice. Trust-tier ready.
+//  • Scale K=12.5: weightedSum +0.8 (strong multi-category bull
+//    consensus) → 20/20; −0.8 → 0/20.
+//  • Same 0–20 range as V1 so masterScoreV2 stays 0–100 and the
+//    V1 decision thresholds apply identically — the ONLY variable
+//    between engines is the Brain translation. Clean experiment.
+// ═══════════════════════════════════════════════════════════
+const BRAIN_V2_CATEGORIES = ['technical','psychology','economy','company','news','research','marketHistory'];
+const BRAIN_V2_CAT_CLAMP  = 0.4;   // max |weighted| contribution per category
+const BRAIN_V2_SCALE      = 12.5;  // weightedSum → points
+const ENGINE_V2_VERSION   = 'v2.0-shadow-1';
+
+function calcBrainScoreV2(brainResult) {
+  if (!brainResult?.brainVault?.scoreBreakdown) {
+    return { score: 10, weightedSum: 0, categories: {}, note: 'No Brain breakdown — neutral midpoint' };
+  }
+  const sb = brainResult.brainVault.scoreBreakdown;
+  const categories = {};
+  let weightedSum = 0;
+  for (const k of BRAIN_V2_CATEGORIES) {
+    const raw     = sb[k]?.weighted ?? 0;
+    const clamped = Math.max(-BRAIN_V2_CAT_CLAMP, Math.min(BRAIN_V2_CAT_CLAMP, raw));
+    categories[k] = { weighted: +raw.toFixed(4), clamped: +clamped.toFixed(4), matched: sb[k]?.matched ?? 0 };
+    weightedSum  += clamped;
+  }
+  const score = Math.min(20, Math.max(0, +(10 + weightedSum * BRAIN_V2_SCALE).toFixed(1)));
+  return { score, weightedSum: +weightedSum.toFixed(4), categories };
+}
+
+// Same thresholds as V1 (line ~424) — deliberately identical.
+function decisionFromScore(score) {
+  if (score >= 85) return 'STRONG BUY';
+  if (score >= 70) return 'BUY';
+  if (score >= 60) return 'BUY SMALL';
+  if (score >= 45) return 'HOLD';
+  if (score >= 35) return 'WAIT';
+  if (score >= 21) return 'SELL';
+  return 'STRONG SELL';
+}
+
 // ── Signal Performance: 0–15 pts ──────────────────────────
 // Maturity scaling: signals contribute proportionally as they accumulate verified uses.
 // 0 uses=0%, 5 uses=25%, 10 uses=50%, 15 uses=75%, 20+ uses=100%
@@ -451,6 +506,33 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
   else if (masterScore < 60 || (ap && ap > 1.5))                  risk = 'Medium';
   else                                                              risk = 'Low';
 
+  // ══ ENGINE V2 SHADOW (additive — makes NO production decisions) ══
+  // Same 7 subsystems, same weights, same thresholds, same ATR penalty.
+  // ONLY variable: Brain translation (calcBrainScoreV2 breakdown consumption
+  // vs V1 activePercent compression). V1 fields above remain byte-identical.
+  const brainV2 = calcBrainScoreV2(brainResult);
+  let masterScoreV2 = Math.min(100, Math.max(0, Math.round(
+    tech.score + brainV2.score + signal.score + regime.score +
+    macro.score + sent.score + fund.score
+  )));
+  if (atrPct > 2.5) {
+    masterScoreV2 = Math.max(0, masterScoreV2 - Math.min(4, Math.round((atrPct - 2.5) * 1.2)));
+  }
+  const decisionV2 = decisionFromScore(masterScoreV2);
+  let divergence = null;
+  if (decisionV2 !== decision) {
+    divergence = {
+      decisionV1: decision,
+      decisionV2,
+      brainScoreV1: brain.score,
+      brainScoreV2: brainV2.score,
+      brainDelta: +(brainV2.score - brain.score).toFixed(1),
+      masterDelta: masterScoreV2 - masterScore,
+      categories: brainV2.categories,
+      note: `V2 diverged solely via Brain translation: V1 activePercent gave ${brain.score}/20, V2 breakdown gave ${brainV2.score}/20 (Δ${(brainV2.score - brain.score).toFixed(1)}).`,
+    };
+  }
+
   const mhResult    = calcMarketHealth(macroSnapshot, fearGreed, vix, sentiment);
   const mhScore     = mhResult.score;
   const topPatterns = brain.patterns.map(p => ({
@@ -498,6 +580,17 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
     consistencyNote,
     marketHealth: { score: mhScore, label: healthLabel(mhScore), color: scoreColor(mhScore), contributions: mhResult.contributions },
     topPatterns, explanation, warnings,
+    // ── Engine V2 Shadow (additive; no V1 field altered) ──
+    engineV2: {
+      engineVersion: ENGINE_V2_VERSION,
+      brainScoreV2:  brainV2.score,
+      weightedSum:   brainV2.weightedSum,
+      categories:    brainV2.categories,
+      masterScoreV2,
+      decisionV2,
+      confidenceV2:  confidence, // Phase 1: confidence engine unchanged — same as V1
+      divergence,
+    },
     generatedAt: new Date().toISOString(),
   };
 }

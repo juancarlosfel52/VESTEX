@@ -4108,6 +4108,15 @@ async function viLogPrediction(d) {
         // ── Catalyst state at prediction time ──
         catalystDelta:     d.catalystDelta  ?? null,
         catalystEvents,
+        // ── Engine V2 Shadow (additive — V1 remains the deciding engine) ──
+        engineVersion:     d.engineV2?.engineVersion ?? null,
+        decisionSource:    'engine-v1',
+        masterScoreV2:     d.engineV2?.masterScoreV2 ?? null,
+        brainScoreV1:      d.scoreBreakdown?.brainVault?.score ?? null,
+        brainScoreV2:      d.engineV2?.brainScoreV2  ?? null,
+        confidenceV2:      d.engineV2?.confidenceV2  ?? null,
+        decisionV2:        d.engineV2?.decisionV2    ?? null,
+        divergence:        d.engineV2?.divergence    ?? null,
       }),
     });
   } catch(e) { console.warn('[VI] Log failed:', e.message); }

@@ -906,6 +906,15 @@ app.post('/api/vi/log', rlVI, async (req, res) => {
       // ── Catalyst state at prediction time ──
       catalystDelta:     d.catalystDelta      ?? null,
       catalystEvents:    d.catalystEvents     ?? [],
+      // ── Engine V2 Shadow (additive; V1 fields above unchanged) ──
+      engineVersion:     d.engineVersion      ?? null,
+      decisionSource:    d.decisionSource     ?? 'engine-v1',
+      masterScoreV2:     d.masterScoreV2      ?? null,
+      brainScoreV1:      d.brainScoreV1       ?? null,
+      brainScoreV2:      d.brainScoreV2       ?? null,
+      confidenceV2:      d.confidenceV2       ?? null,
+      decisionV2:        d.decisionV2         ?? null,
+      divergence:        d.divergence         ?? null,
       // ── Outcome slots (filled by runVIVerification) ──
       verification7d:    null,
       verification30d:   null,

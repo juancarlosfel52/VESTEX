@@ -600,6 +600,7 @@ async function runPipeline() {
             verification7d:    null,
             verification30d:   null,
             source:            'pipeline',
+            decisionSource:    'pipeline-direction', // additive — distinguishes pipeline rows from engine-v1 MI rows
           });
           console.log(`[VI-PRED-PIPE] ${symbol}: logged prediction (${prediction.direction}, conf ${prediction.confidence}%)`);
         }
