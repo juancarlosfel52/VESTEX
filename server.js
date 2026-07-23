@@ -1140,6 +1140,275 @@ app.get('/api/vi/verify', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ═══════════════════════════════════════════════════════════
+//  RESEARCH JOURNAL — V1/V2 shadow engine comparison ledger
+//  Collection: research_journal (one doc per trading day)
+//  Cron: 6:30pm ET Mon–Fri (after runVIVerification 6:15pm)
+//  READ-ONLY on predictions — never modifies vi_predictions
+// ═══════════════════════════════════════════════════════════
+const JOURNAL_COL           = 'research_journal';
+const JOURNAL_SCHEMA_VERSION = 1;
+const JOURNAL_SYMBOLS        = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN'];
+
+// ── Comparison rules (NON-NEGOTIABLE — stored per entry for reproducibility) ──
+const JOURNAL_COMPARISON_RULES = {
+  version: 1,
+  buyCorrectThreshold:    1,    // return > 1% → BUY family correct
+  sellCorrectThreshold:  -1,    // return < -1% → SELL family correct
+  neutralBandPct:         5,    // |return| <= 5% → HOLD/WAIT correct
+  evaluationHorizons:    ['7d', '30d'],
+  buyFamily:  ['STRONG BUY', 'BUY', 'BUY SMALL'],
+  sellFamily: ['SELL', 'STRONG SELL'],
+  holdFamily: ['HOLD', 'WAIT'],
+  // Hypothetical return logic:
+  //   BUY family  → +returnPct (went long)
+  //   SELL family  → -returnPct (avoided/shorted)
+  //   HOLD/WAIT   → 0 (no action)
+  // Winner categories: v1_better | v2_better | both_correct | both_wrong | tie | not_comparable | pending
+};
+
+function journalIsCorrect(decision, returnPct) {
+  const r = JOURNAL_COMPARISON_RULES;
+  if (r.buyFamily.includes(decision))  return returnPct > r.buyCorrectThreshold;
+  if (r.sellFamily.includes(decision)) return returnPct < r.sellCorrectThreshold;
+  return Math.abs(returnPct) <= r.neutralBandPct;
+}
+
+function journalHypotheticalReturn(decision, returnPct) {
+  const r = JOURNAL_COMPARISON_RULES;
+  if (r.buyFamily.includes(decision))  return +returnPct;
+  if (r.sellFamily.includes(decision)) return -returnPct;
+  return 0; // HOLD/WAIT = no position change
+}
+
+function journalDetermineWinner(v1Decision, v2Decision, returnPct, spyReturn) {
+  // Same decision = tie (no divergence to judge)
+  if (v1Decision === v2Decision) return 'tie';
+  // If returnPct is null, verification hasn't happened yet
+  if (returnPct == null) return 'pending';
+
+  const v1Correct = journalIsCorrect(v1Decision, returnPct);
+  const v2Correct = journalIsCorrect(v2Decision, returnPct);
+  const v1Hypo    = journalHypotheticalReturn(v1Decision, returnPct);
+  const v2Hypo    = journalHypotheticalReturn(v2Decision, returnPct);
+
+  if (v1Correct && !v2Correct) return 'v1_better';
+  if (!v1Correct && v2Correct) return 'v2_better';
+  if (v1Correct && v2Correct)  return 'both_correct';
+  if (!v1Correct && !v2Correct) return 'both_wrong';
+  return 'not_comparable';
+}
+
+function isTradingDay(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  const day = d.getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
+function getTradingDays(count) {
+  const days = [];
+  const d = new Date();
+  // Start from today and walk backwards
+  for (let i = 0; days.length < count; i++) {
+    const check = new Date(d);
+    check.setDate(check.getDate() - i);
+    const str = check.toISOString().split('T')[0];
+    if (isTradingDay(str)) days.push(str);
+    if (i > 30) break; // safety
+  }
+  return days;
+}
+
+async function runResearchJournal() {
+  const db = admin.firestore();
+  const today = new Date().toISOString().split('T')[0];
+  const backfillDays = getTradingDays(5); // today + last 4 trading days
+
+  let created = 0, updated = 0, skipped = 0;
+
+  for (const date of backfillDays) {
+    const docId  = date;
+    const docRef = db.collection(JOURNAL_COL).doc(docId);
+    const existing = await docRef.get();
+    const existingData = existing.exists ? existing.data() : null;
+
+    // Gather all vi_predictions for this date
+    const predSnap = await db.collection(VI_COL)
+      .where('date', '==', date).get();
+    const preds = predSnap.docs.map(d => d.data());
+
+    if (preds.length === 0) {
+      skipped++;
+      continue;
+    }
+
+    const entries = {};
+    const sourcePredictionIds = [];
+
+    for (const p of preds) {
+      if (!JOURNAL_SYMBOLS.includes(p.symbol)) continue;
+      sourcePredictionIds.push(p.id);
+
+      // Check if this entry's verification has already been finalized
+      const existingEntry = existingData?.entries?.[p.symbol];
+      const v7dLocked  = existingEntry?.verification7d?.winner && existingEntry.verification7d.winner !== 'pending';
+      const v30dLocked = existingEntry?.verification30d?.winner && existingEntry.verification30d.winner !== 'pending';
+
+      const v1Decision = p.decision;
+      const v2Decision = p.decisionV2 ?? null;
+      const hasDivergence = p.divergence != null;
+
+      // Build verification blocks — merge later results without overwriting locked ones
+      const build7d = (!v7dLocked && p.verification7d) ? (() => {
+        const ret = p.verification7d.returnPct;
+        const spy = p.verification7d.spyReturn;
+        return {
+          returnPct: ret,
+          spyReturn: spy,
+          spyRelative: (ret != null && spy != null) ? +(ret - spy).toFixed(2) : null,
+          priceAfter: p.verification7d.priceAfter,
+          v1Correct: v1Decision ? journalIsCorrect(v1Decision, ret) : null,
+          v2Correct: v2Decision ? journalIsCorrect(v2Decision, ret) : null,
+          v1HypotheticalReturn: v1Decision ? journalHypotheticalReturn(v1Decision, ret) : null,
+          v2HypotheticalReturn: v2Decision ? journalHypotheticalReturn(v2Decision, ret) : null,
+          winner: (v1Decision && v2Decision) ? journalDetermineWinner(v1Decision, v2Decision, ret, spy) : 'not_comparable',
+          comparisonRulesVersion: JOURNAL_COMPARISON_RULES.version,
+          verifiedAt: p.verification7d.verifiedAt,
+        };
+      })() : (existingEntry?.verification7d ?? null);
+
+      const build30d = (!v30dLocked && p.verification30d) ? (() => {
+        const ret = p.verification30d.returnPct;
+        const spy = p.verification30d.spyReturn;
+        return {
+          returnPct: ret,
+          spyReturn: spy,
+          spyRelative: (ret != null && spy != null) ? +(ret - spy).toFixed(2) : null,
+          priceAfter: p.verification30d.priceAfter,
+          v1Correct: v1Decision ? journalIsCorrect(v1Decision, ret) : null,
+          v2Correct: v2Decision ? journalIsCorrect(v2Decision, ret) : null,
+          v1HypotheticalReturn: v1Decision ? journalHypotheticalReturn(v1Decision, ret) : null,
+          v2HypotheticalReturn: v2Decision ? journalHypotheticalReturn(v2Decision, ret) : null,
+          winner: (v1Decision && v2Decision) ? journalDetermineWinner(v1Decision, v2Decision, ret, spy) : 'not_comparable',
+          comparisonRulesVersion: JOURNAL_COMPARISON_RULES.version,
+          verifiedAt: p.verification30d.verifiedAt,
+        };
+      })() : (existingEntry?.verification30d ?? null);
+
+      entries[p.symbol] = {
+        // ── Engine V1 (production) ──
+        decisionV1:     v1Decision,
+        masterScoreV1:  p.masterScore ?? null,
+        confidenceV1:   p.confidence ?? null,
+        brainScoreV1:   p.brainScoreV1 ?? null,
+        // ── Engine V2 (shadow) ──
+        decisionV2:     v2Decision,
+        masterScoreV2:  p.masterScoreV2 ?? null,
+        confidenceV2:   p.confidenceV2 ?? null,
+        brainScoreV2:   p.brainScoreV2 ?? null,
+        engineVersion:  p.engineVersion ?? null,
+        // ── Divergence ──
+        hasDivergence,
+        divergenceNote: p.divergence?.note ?? null,
+        brainDelta:     p.divergence?.brainDelta ?? null,
+        masterDelta:    p.divergence?.masterDelta ?? null,
+        // ── Reference prices ──
+        referencePrice: p.priceAtPrediction ?? null,
+        spyReferencePrice: p.spyAtPrediction ?? null,
+        // ── Market context ──
+        marketRegime:   p.marketRegime ?? null,
+        catalystDelta:  p.catalystDelta ?? null,
+        sentimentScore: p.sentimentScore ?? null,
+        // ── Verification (merged later, never overwritten once final) ──
+        verification7d:  build7d,
+        verification30d: build30d,
+      };
+    }
+
+    if (Object.keys(entries).length === 0) {
+      skipped++;
+      continue;
+    }
+
+    // Build scoreboard from entries
+    const scoreboard = { v1_better: 0, v2_better: 0, both_correct: 0, both_wrong: 0, tie: 0, not_comparable: 0, pending: 0 };
+    for (const sym of Object.keys(entries)) {
+      const e = entries[sym];
+      // Use 7d winner for scoreboard (primary horizon)
+      const w7 = e.verification7d?.winner ?? 'pending';
+      if (scoreboard[w7] !== undefined) scoreboard[w7]++;
+      else scoreboard.pending++;
+    }
+
+    const now = Date.now();
+    const journalDoc = {
+      date,
+      journalSchemaVersion: JOURNAL_SCHEMA_VERSION,
+      sourcePredictionIds,
+      comparisonRules: JOURNAL_COMPARISON_RULES,
+      symbolCount: Object.keys(entries).length,
+      entries,
+      scoreboard,
+      updatedAt: now,
+    };
+
+    if (!existing.exists) {
+      journalDoc.createdAt = now;
+      journalDoc.backfilledAt = (date !== today) ? now : null;
+      await docRef.set(journalDoc);
+      created++;
+    } else {
+      // Idempotent merge: never overwrite createdAt or locked verification results
+      journalDoc.createdAt = existingData.createdAt ?? now;
+      journalDoc.backfilledAt = existingData.backfilledAt ?? null;
+      await docRef.set(journalDoc, { merge: true });
+      updated++;
+    }
+  }
+
+  console.log(`[JOURNAL] Complete: ${created} created, ${updated} updated, ${skipped} skipped`);
+  return { created, updated, skipped, dates: backfillDays };
+}
+
+// ── Journal endpoints ──
+app.get('/api/journal', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const db = admin.firestore();
+    const snap = await db.collection(JOURNAL_COL).orderBy('date', 'desc').limit(30).get();
+    const docs = snap.docs.map(d => d.data());
+
+    // Aggregate scoreboard across all days
+    const totals = { v1_better: 0, v2_better: 0, both_correct: 0, both_wrong: 0, tie: 0, not_comparable: 0, pending: 0 };
+    docs.forEach(d => {
+      if (d.scoreboard) {
+        Object.keys(totals).forEach(k => { totals[k] += d.scoreboard[k] || 0; });
+      }
+    });
+
+    res.json({ ok: true, count: docs.length, totals, days: docs });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/journal/today', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const db = admin.firestore();
+    const today = new Date().toISOString().split('T')[0];
+    const doc = await db.collection(JOURNAL_COL).doc(today).get();
+    if (!doc.exists) return res.json({ ok: true, data: null, message: 'No journal entry for today yet' });
+    res.json({ ok: true, data: doc.data() });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/journal/run', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const result = await runResearchJournal();
+    res.json({ ok: true, ...result });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // Phase 4: Pattern fire stats — aggregated win rates per pattern from verified fires
 app.get('/api/vi/pattern-stats', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
@@ -2137,6 +2406,12 @@ if (pipelineReady) {
   cron.schedule('15 18 * * 1-5', () => {
     console.log('[CRON] VI daily resolution triggered');
     runVIVerification().catch(console.error);
+  }, { timezone: 'America/New_York' });
+
+  // Research Journal — daily 6:30pm ET Mon–Fri (after VI verification, reads predictions, never modifies them)
+  cron.schedule('30 18 * * 1-5', () => {
+    console.log('[CRON] Research Journal triggered');
+    runResearchJournal().catch(console.error);
   }, { timezone: 'America/New_York' });
 
   // Sentiment analysis — every morning 8am ET before market open
