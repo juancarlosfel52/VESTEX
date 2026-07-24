@@ -878,6 +878,13 @@ async function viLogPatternFires(db, sym, patterns, price, spyPrice) {
 }
 
 // Log a prediction snapshot
+// ── V2 shadow field allowlist — only these may be merged onto existing docs ──
+const V2_SHADOW_FIELDS = [
+  'engineVersion', 'decisionSource', 'masterScoreV2',
+  'brainScoreV1', 'brainScoreV2', 'confidenceV2',
+  'decisionV2', 'divergence',
+];
+
 app.post('/api/vi/log', rlVI, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
@@ -887,39 +894,71 @@ app.post('/api/vi/log', rlVI, async (req, res) => {
     const today  = new Date().toISOString().split('T')[0];
     const id     = `${d.symbol}_${today}`;
     const docRef = db.collection(VI_COL).doc(id);
-    const existing = await docRef.get();
-    // One entry per symbol per day — don't overwrite
-    if (existing.exists) return res.json({ ok: true, id, skipped: true });
-    await docRef.set({
-      id, symbol: d.symbol, timestamp: Date.now(), date: today,
-      priceAtPrediction: d.priceAtPrediction ?? null,
-      spyAtPrediction:   d.spyAtPrediction   ?? null,
-      masterScore:       d.masterScore        ?? null,
-      decision:          d.decision,
-      confidence:        d.confidence         ?? null,
-      systemVotes:       d.systemVotes        ?? null,
-      topPatterns:       d.topPatterns        ?? [],
-      marketRegime:      d.marketRegime       ?? null,
-      // ── Sentiment at prediction time ──
-      sentimentScore:    d.sentimentScore     ?? null,
-      sentimentOverall:  d.sentimentOverall   ?? null,
-      // ── Catalyst state at prediction time ──
-      catalystDelta:     d.catalystDelta      ?? null,
-      catalystEvents:    d.catalystEvents     ?? [],
-      // ── Engine V2 Shadow (additive; V1 fields above unchanged) ──
-      engineVersion:     d.engineVersion      ?? null,
-      decisionSource:    d.decisionSource     ?? 'engine-v1',
-      masterScoreV2:     d.masterScoreV2      ?? null,
-      brainScoreV1:      d.brainScoreV1       ?? null,
-      brainScoreV2:      d.brainScoreV2       ?? null,
-      confidenceV2:      d.confidenceV2       ?? null,
-      decisionV2:        d.decisionV2         ?? null,
-      divergence:        d.divergence         ?? null,
-      // ── Outcome slots (filled by runVIVerification) ──
-      verification7d:    null,
-      verification30d:   null,
+
+    // ── Check if request carries any V2 payload ──
+    const hasV2Payload = V2_SHADOW_FIELDS.some(f => d[f] != null);
+
+    // ── Atomic transaction: handles create, V2 merge, and skip ──
+    const result = await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+
+      // ── Case 1: new document — full create ──
+      if (!snap.exists) {
+        tx.set(docRef, {
+          id, symbol: d.symbol, timestamp: Date.now(), date: today,
+          priceAtPrediction: d.priceAtPrediction ?? null,
+          spyAtPrediction:   d.spyAtPrediction   ?? null,
+          masterScore:       d.masterScore        ?? null,
+          decision:          d.decision,
+          confidence:        d.confidence         ?? null,
+          systemVotes:       d.systemVotes        ?? null,
+          topPatterns:       d.topPatterns        ?? [],
+          marketRegime:      d.marketRegime       ?? null,
+          sentimentScore:    d.sentimentScore     ?? null,
+          sentimentOverall:  d.sentimentOverall   ?? null,
+          catalystDelta:     d.catalystDelta      ?? null,
+          catalystEvents:    d.catalystEvents     ?? [],
+          engineVersion:     d.engineVersion      ?? null,
+          decisionSource:    d.decisionSource     ?? 'engine-v1',
+          masterScoreV2:     d.masterScoreV2      ?? null,
+          brainScoreV1:      d.brainScoreV1       ?? null,
+          brainScoreV2:      d.brainScoreV2       ?? null,
+          confidenceV2:      d.confidenceV2       ?? null,
+          decisionV2:        d.decisionV2         ?? null,
+          divergence:        d.divergence         ?? null,
+          verification7d:    null,
+          verification30d:   null,
+        });
+        return { action: 'created' };
+      }
+
+      // ── Document exists — only V2 shadow merge is permitted ──
+      if (!hasV2Payload) return { action: 'no_v2_payload' };
+
+      const existing = snap.data();
+      const patch = {};
+
+      for (const field of V2_SHADOW_FIELDS) {
+        // Only merge if: request has a value AND existing is null/undefined/absent
+        if (d[field] != null && (existing[field] == null)) {
+          patch[field] = d[field];
+        }
+      }
+
+      if (Object.keys(patch).length === 0) return { action: 'already_complete' };
+
+      // ── Provenance metadata (additive only) ──
+      if (existing.v2ShadowMergedAt == null) {
+        patch.v2ShadowMergedAt      = Date.now();
+        patch.v2ShadowMergeSource   = 'frontend-mi';
+        patch.v2ShadowSchemaVersion = 1;
+      }
+
+      tx.update(docRef, patch);
+      return { action: 'v2_merged', fieldsPatched: Object.keys(patch) };
     });
-    res.json({ ok: true, id });
+
+    res.json({ ok: true, id, ...result });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
