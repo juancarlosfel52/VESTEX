@@ -1448,6 +1448,46 @@ app.get('/api/journal/run', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── V2 shadow repair: fetch live MI, merge V2 fields into today's pipeline docs ──
+app.get('/api/v2-repair', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const axios   = require('axios');
+    const port    = process.env.PORT || 3000;
+    const base    = `http://localhost:${port}`;
+    const symbols = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN'];
+    const results = {};
+
+    for (const sym of symbols) {
+      try {
+        // Fetch live MI (computes V2 in real time)
+        const miRes = await axios.get(`${base}/api/master-intelligence/${sym}`, { timeout: 15000 });
+        const mi    = miRes.data?.data;
+        if (!mi?.engineV2) { results[sym] = { error: 'no engineV2 in MI response' }; continue; }
+
+        // Post to vi/log — the transactional merge will handle it
+        const logRes = await axios.post(`${base}/api/vi/log`, {
+          symbol:         sym,
+          decision:       mi.decision,
+          masterScore:    mi.masterScore,
+          confidence:     mi.confidence,
+          engineVersion:  mi.engineV2.engineVersion ?? null,
+          decisionSource: 'engine-v1',
+          masterScoreV2:  mi.engineV2.masterScoreV2 ?? null,
+          brainScoreV1:   mi.scoreBreakdown?.brainVault?.score ?? null,
+          brainScoreV2:   mi.engineV2.brainScoreV2 ?? null,
+          confidenceV2:   mi.engineV2.confidenceV2 ?? null,
+          decisionV2:     mi.engineV2.decisionV2 ?? null,
+          divergence:     mi.engineV2.divergence ?? null,
+        }, { timeout: 10000 });
+        results[sym] = logRes.data;
+      } catch(e) { results[sym] = { error: e.message }; }
+    }
+
+    res.json({ ok: true, results });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
 // Phase 4: Pattern fire stats — aggregated win rates per pattern from verified fires
 app.get('/api/vi/pattern-stats', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
