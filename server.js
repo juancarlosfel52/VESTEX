@@ -1325,6 +1325,86 @@ function journalDetermineWinner(v1Decision, v2Decision, returnPct, spyReturn) {
   return 'not_comparable';
 }
 
+// ── Shared journal builders ──
+// Used by BOTH the fresh-entry writer and the unresolved resolver so the two
+// paths can never disagree. Comparison math is the frozen journalIsCorrect /
+// journalHypotheticalReturn / journalDetermineWinner trio, unchanged.
+function buildJournalVerificationBlock(src, v1Decision, v2Decision) {
+  if (!src) return null;
+  const ret = src.returnPct;
+  const spy = src.spyReturn;
+  return {
+    returnPct: ret,
+    spyReturn: spy,
+    spyRelative: (ret != null && spy != null) ? +(ret - spy).toFixed(2) : null,
+    priceAfter: src.priceAfter,
+    v1Correct: v1Decision ? journalIsCorrect(v1Decision, ret) : null,
+    v2Correct: v2Decision ? journalIsCorrect(v2Decision, ret) : null,
+    v1HypotheticalReturn: v1Decision ? journalHypotheticalReturn(v1Decision, ret) : null,
+    v2HypotheticalReturn: v2Decision ? journalHypotheticalReturn(v2Decision, ret) : null,
+    winner: (v1Decision && v2Decision) ? journalDetermineWinner(v1Decision, v2Decision, ret, spy) : 'not_comparable',
+    comparisonRulesVersion: JOURNAL_COMPARISON_RULES.version,
+    verifiedAt: src.verifiedAt,
+  };
+}
+
+// Comparability classification — decides whether an entry is a scientifically
+// valid V1-vs-V2 observation. A valid comparison requires BOTH engines to come
+// from the SAME Master Intelligence computation on the SAME market snapshot.
+// Derived purely from stored provenance; never guesses, never recomputes.
+const JOURNAL_CLASS = {
+  COMPLETE_DUAL_ENGINE:   'COMPLETE_DUAL_ENGINE',
+  V2_NOT_CAPTURED:        'V2_NOT_CAPTURED',
+  V1_CONTEXT_INCOMPLETE:  'V1_CONTEXT_INCOMPLETE',
+  V2_INSTRUMENT_ARTIFACT: 'V2_INSTRUMENT_ARTIFACT',
+};
+
+function journalDualEngineClass(p) {
+  if (p.decisionV2 == null || p.masterScoreV2 == null) return JOURNAL_CLASS.V2_NOT_CAPTURED;
+  // V2 merged onto a pre-existing document => V1 and V2 were computed at
+  // different times from different market states. Not a valid comparison.
+  if (p.v2ShadowMergedAt != null)                      return JOURNAL_CLASS.V2_INSTRUMENT_ARTIFACT;
+  // Pipeline direction mapping is not an Engine V1 decision.
+  if (p.decisionSource === 'pipeline-direction')       return JOURNAL_CLASS.V2_INSTRUMENT_ARTIFACT;
+  if (p.masterScore == null)                           return JOURNAL_CLASS.V1_CONTEXT_INCOMPLETE;
+  if (p.priceAtPrediction == null)                     return JOURNAL_CLASS.V1_CONTEXT_INCOMPLETE;
+  if (p.dualEngineSnapshot === true)                   return JOURNAL_CLASS.COMPLETE_DUAL_ENGINE;
+  // Legacy frontend create-path: one MI response produced both engines.
+  if (p.engineVersion != null)                         return JOURNAL_CLASS.COMPLETE_DUAL_ENGINE;
+  return JOURNAL_CLASS.V1_CONTEXT_INCOMPLETE;
+}
+
+// Legacy scoreboard — unchanged shape/meaning, counts every entry.
+function buildJournalScoreboard(entries) {
+  const sb = { v1_better: 0, v2_better: 0, both_correct: 0, both_wrong: 0, tie: 0, not_comparable: 0, pending: 0 };
+  for (const sym of Object.keys(entries)) {
+    const w7 = entries[sym].verification7d?.winner ?? 'pending';
+    if (sb[w7] !== undefined) sb[w7]++;
+    else sb.pending++;
+  }
+  return sb;
+}
+
+// Promotion-facing tally — counts ONLY scientifically valid observations.
+// This is the scoreboard the V2 promotion gate must read.
+function buildJournalValidatedScoreboard(entries) {
+  const sb = { v1_better: 0, v2_better: 0, both_correct: 0, both_wrong: 0, tie: 0, pending: 0,
+               excluded: 0, excludedByClass: {} };
+  for (const sym of Object.keys(entries)) {
+    const e   = entries[sym];
+    const cls = e.comparabilityClass ?? JOURNAL_CLASS.V2_NOT_CAPTURED;
+    if (cls !== JOURNAL_CLASS.COMPLETE_DUAL_ENGINE) {
+      sb.excluded++;
+      sb.excludedByClass[cls] = (sb.excludedByClass[cls] || 0) + 1;
+      continue;
+    }
+    const w7 = e.verification7d?.winner ?? 'pending';
+    if (sb[w7] !== undefined) sb[w7]++;
+    else sb.pending++;
+  }
+  return sb;
+}
+
 function isTradingDay(dateStr) {
   const d = new Date(dateStr + 'T12:00:00Z');
   const day = d.getUTCDay();
@@ -1385,41 +1465,13 @@ async function runResearchJournal() {
       const hasDivergence = p.divergence != null;
 
       // Build verification blocks — merge later results without overwriting locked ones
-      const build7d = (!v7dLocked && p.verification7d) ? (() => {
-        const ret = p.verification7d.returnPct;
-        const spy = p.verification7d.spyReturn;
-        return {
-          returnPct: ret,
-          spyReturn: spy,
-          spyRelative: (ret != null && spy != null) ? +(ret - spy).toFixed(2) : null,
-          priceAfter: p.verification7d.priceAfter,
-          v1Correct: v1Decision ? journalIsCorrect(v1Decision, ret) : null,
-          v2Correct: v2Decision ? journalIsCorrect(v2Decision, ret) : null,
-          v1HypotheticalReturn: v1Decision ? journalHypotheticalReturn(v1Decision, ret) : null,
-          v2HypotheticalReturn: v2Decision ? journalHypotheticalReturn(v2Decision, ret) : null,
-          winner: (v1Decision && v2Decision) ? journalDetermineWinner(v1Decision, v2Decision, ret, spy) : 'not_comparable',
-          comparisonRulesVersion: JOURNAL_COMPARISON_RULES.version,
-          verifiedAt: p.verification7d.verifiedAt,
-        };
-      })() : (existingEntry?.verification7d ?? null);
+      const build7d  = (!v7dLocked  && p.verification7d)
+        ? buildJournalVerificationBlock(p.verification7d,  v1Decision, v2Decision)
+        : (existingEntry?.verification7d  ?? null);
 
-      const build30d = (!v30dLocked && p.verification30d) ? (() => {
-        const ret = p.verification30d.returnPct;
-        const spy = p.verification30d.spyReturn;
-        return {
-          returnPct: ret,
-          spyReturn: spy,
-          spyRelative: (ret != null && spy != null) ? +(ret - spy).toFixed(2) : null,
-          priceAfter: p.verification30d.priceAfter,
-          v1Correct: v1Decision ? journalIsCorrect(v1Decision, ret) : null,
-          v2Correct: v2Decision ? journalIsCorrect(v2Decision, ret) : null,
-          v1HypotheticalReturn: v1Decision ? journalHypotheticalReturn(v1Decision, ret) : null,
-          v2HypotheticalReturn: v2Decision ? journalHypotheticalReturn(v2Decision, ret) : null,
-          winner: (v1Decision && v2Decision) ? journalDetermineWinner(v1Decision, v2Decision, ret, spy) : 'not_comparable',
-          comparisonRulesVersion: JOURNAL_COMPARISON_RULES.version,
-          verifiedAt: p.verification30d.verifiedAt,
-        };
-      })() : (existingEntry?.verification30d ?? null);
+      const build30d = (!v30dLocked && p.verification30d)
+        ? buildJournalVerificationBlock(p.verification30d, v1Decision, v2Decision)
+        : (existingEntry?.verification30d ?? null);
 
       entries[p.symbol] = {
         // ── Engine V1 (production) ──
@@ -1433,6 +1485,11 @@ async function runResearchJournal() {
         confidenceV2:   p.confidenceV2 ?? null,
         brainScoreV2:   p.brainScoreV2 ?? null,
         engineVersion:  p.engineVersion ?? null,
+        // ── Comparability (does this row qualify as V1-vs-V2 evidence?) ──
+        comparabilityClass: journalDualEngineClass(p),
+        dualEngineSnapshot: p.dualEngineSnapshot ?? null,
+        v2ShadowMergedAt:   p.v2ShadowMergedAt ?? null,
+        decisionSourceV1:   p.decisionSource ?? null,
         // ── Divergence ──
         hasDivergence,
         divergenceNote: p.divergence?.note ?? null,
@@ -1456,15 +1513,9 @@ async function runResearchJournal() {
       continue;
     }
 
-    // Build scoreboard from entries
-    const scoreboard = { v1_better: 0, v2_better: 0, both_correct: 0, both_wrong: 0, tie: 0, not_comparable: 0, pending: 0 };
-    for (const sym of Object.keys(entries)) {
-      const e = entries[sym];
-      // Use 7d winner for scoreboard (primary horizon)
-      const w7 = e.verification7d?.winner ?? 'pending';
-      if (scoreboard[w7] !== undefined) scoreboard[w7]++;
-      else scoreboard.pending++;
-    }
+    // Build scoreboards from entries (7d winner = primary horizon)
+    const scoreboard          = buildJournalScoreboard(entries);
+    const validatedScoreboard = buildJournalValidatedScoreboard(entries);
 
     const now = Date.now();
     const journalDoc = {
@@ -1475,6 +1526,7 @@ async function runResearchJournal() {
       symbolCount: Object.keys(entries).length,
       entries,
       scoreboard,
+      validatedScoreboard,
       updatedAt: now,
     };
 
@@ -1496,6 +1548,115 @@ async function runResearchJournal() {
   return { created, updated, skipped, dates: backfillDays };
 }
 
+// ── Journal unresolved resolver ──
+// The rolling writer window (getTradingDays) covers exactly 5 trading days,
+// but 7d verification lands on trading day 6 and 30d around trading day 22 —
+// so the writer stops revisiting a prediction one run BEFORE its outcome
+// exists. This pass is the self-healing counterpart: it scans journal entries
+// whose outcome is still unresolved and attaches verification the moment it
+// genuinely exists on the source prediction.
+//
+// Guarantees: idempotent (locked winners are never rewritten), never fabricates
+// an outcome (writes only when source verification is present), and a failure
+// leaves the entry pending rather than corrupting it.
+async function runJournalResolver({ dryRun = false } = {}) {
+  const db = admin.firestore();
+  const telem = {
+    dryRun, docsScanned: 0, docsWithUnresolved: 0, entriesUnresolved: 0,
+    resolved7d: 0, resolved30d: 0, stillPending: 0, missingSource: 0,
+    docsUpdated: 0, writeFailures: 0,
+  };
+
+  for await (const { docs } of viPaginate(JOURNAL_COL)) {
+    for (const jdoc of docs) {
+      telem.docsScanned++;
+      const data    = jdoc.data();
+      const entries = data.entries || {};
+      const syms    = Object.keys(entries);
+      if (syms.length === 0) continue;
+
+      const isUnresolved = (e) => {
+        const w7  = e.verification7d?.winner;
+        const w30 = e.verification30d?.winner;
+        return (!w7 || w7 === 'pending') || (!w30 || w30 === 'pending');
+      };
+
+      const needs = syms.filter(s => isUnresolved(entries[s]));
+      if (needs.length === 0) continue;
+      telem.docsWithUnresolved++;
+      telem.entriesUnresolved += needs.length;
+
+      // Canonical source predictions for this trading date
+      let bySym = {};
+      try {
+        const predSnap = await db.collection(VI_COL).where('date', '==', data.date).get();
+        predSnap.docs.forEach(d => { const p = d.data(); if (p.symbol) bySym[p.symbol] = p; });
+      } catch (err) {
+        console.warn(`[JOURNAL-RESOLVE] ${data.date} source load failed:`, err.message);
+        telem.stillPending += needs.length;
+        continue; // leave pending, never corrupt
+      }
+
+      const nextEntries = { ...entries };
+      let changed = false;
+
+      for (const sym of needs) {
+        const e = nextEntries[sym];
+        const p = bySym[sym];
+        if (!p) { telem.missingSource++; telem.stillPending++; continue; }
+
+        const v1Decision = e.decisionV1 ?? null;
+        const v2Decision = e.decisionV2 ?? null;
+
+        const w7Locked  = e.verification7d?.winner  && e.verification7d.winner  !== 'pending';
+        const w30Locked = e.verification30d?.winner && e.verification30d.winner !== 'pending';
+
+        const updated = { ...e };
+        let touched = false;
+
+        if (!w7Locked && p.verification7d) {
+          updated.verification7d = buildJournalVerificationBlock(p.verification7d, v1Decision, v2Decision);
+          telem.resolved7d++; touched = true;
+        }
+        if (!w30Locked && p.verification30d) {
+          updated.verification30d = buildJournalVerificationBlock(p.verification30d, v1Decision, v2Decision);
+          telem.resolved30d++; touched = true;
+        }
+
+        // Refresh comparability from canonical source provenance
+        const cls = journalDualEngineClass(p);
+        if (updated.comparabilityClass !== cls) { updated.comparabilityClass = cls; touched = true; }
+        if (updated.dualEngineSnapshot === undefined) updated.dualEngineSnapshot = p.dualEngineSnapshot ?? null;
+        if (updated.v2ShadowMergedAt   === undefined) updated.v2ShadowMergedAt   = p.v2ShadowMergedAt ?? null;
+        if (updated.decisionSourceV1   === undefined) updated.decisionSourceV1   = p.decisionSource ?? null;
+
+        if (touched) { nextEntries[sym] = updated; changed = true; }
+        else telem.stillPending++;
+      }
+
+      if (!changed) continue;
+      if (dryRun) { telem.docsUpdated++; continue; }
+
+      try {
+        await jdoc.ref.update({
+          entries: nextEntries,
+          scoreboard:          buildJournalScoreboard(nextEntries),
+          validatedScoreboard: buildJournalValidatedScoreboard(nextEntries),
+          resolverRanAt: Date.now(),
+          updatedAt:     Date.now(),
+        });
+        telem.docsUpdated++;
+      } catch (err) {
+        telem.writeFailures++;
+        console.warn(`[JOURNAL-RESOLVE] ${data.date} update failed:`, err.message);
+      }
+    }
+  }
+
+  console.log(`[JOURNAL-RESOLVE] ${JSON.stringify(telem)}`);
+  return telem;
+}
+
 // ── Journal endpoints ──
 app.get('/api/journal', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
@@ -1512,7 +1673,18 @@ app.get('/api/journal', async (req, res) => {
       }
     });
 
-    res.json({ ok: true, count: docs.length, totals, days: docs });
+    // Promotion-facing totals — only scientifically valid same-snapshot observations
+    const validatedTotals = { v1_better: 0, v2_better: 0, both_correct: 0, both_wrong: 0, tie: 0, pending: 0, excluded: 0, excludedByClass: {} };
+    docs.forEach(d => {
+      const vs = d.validatedScoreboard;
+      if (!vs) return;
+      ['v1_better','v2_better','both_correct','both_wrong','tie','pending','excluded'].forEach(k => { validatedTotals[k] += vs[k] || 0; });
+      Object.entries(vs.excludedByClass || {}).forEach(([k, n]) => {
+        validatedTotals.excludedByClass[k] = (validatedTotals.excludedByClass[k] || 0) + n;
+      });
+    });
+
+    res.json({ ok: true, count: docs.length, totals, validatedTotals, days: docs });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -1531,6 +1703,15 @@ app.get('/api/journal/run', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const result = await runResearchJournal();
+    res.json({ ok: true, ...result });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Resolve aged pending journal entries. ?dryRun=1 reports intended writes only.
+app.get('/api/journal/resolve', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const result = await runJournalResolver({ dryRun: req.query.dryRun === '1' });
     res.json({ ok: true, ...result });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
@@ -2578,6 +2759,13 @@ if (pipelineReady) {
   cron.schedule('30 18 * * 1-5', () => {
     console.log('[CRON] Research Journal triggered');
     runResearchJournal().catch(console.error);
+  }, { timezone: 'America/New_York' });
+
+  // Journal resolver — daily 6:35pm ET Mon–Fri. Attaches 7d/30d outcomes to
+  // journal entries that aged out of the writer's rolling window.
+  cron.schedule('35 18 * * 1-5', () => {
+    console.log('[CRON] Journal resolver triggered');
+    runJournalResolver().catch(console.error);
   }, { timezone: 'America/New_York' });
 
   // Sentiment analysis — every morning 8am ET before market open
