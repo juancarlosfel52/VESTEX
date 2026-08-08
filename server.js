@@ -962,6 +962,33 @@ app.post('/api/vi/log', rlVI, async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
+// ── VI pagination — deterministic, bounded-memory traversal ──
+// Replaces fixed .limit() caps that silently starved verification.
+// NOTE: the previous queries used .where(field,'!=',null), which forces
+// Firestore to order by that field first — so the highest-priced rows fell
+// off the edge and could never be verified. Ordering by documentId() gives a
+// total, stable order with no value bias and requires no composite index.
+const VI_PAGE_SIZE     = 300;
+const VI_MAX_PAGES     = 200;               // safety valve — 60k docs
+const VI_HORIZON_GRACE = 36 * 3600 * 1000;  // 1.5d tolerance before a row counts as late-verified
+
+async function* viPaginate(collName, pageSize = VI_PAGE_SIZE, maxPages = VI_MAX_PAGES) {
+  const db = admin.firestore();
+  const FP = admin.firestore.FieldPath.documentId();
+  let last = null, page = 0;
+  while (page < maxPages) {
+    let q = db.collection(collName).orderBy(FP).limit(pageSize);
+    if (last) q = q.startAfter(last);
+    const snap = await q.get();
+    if (snap.empty) return;
+    page++;
+    yield { docs: snap.docs, page };
+    if (snap.size < pageSize) return;
+    last = snap.docs[snap.docs.length - 1];
+  }
+  console.warn(`[VI] Pagination hit max page guard (${maxPages}) on ${collName}`);
+}
+
 // ── VI resolution core — called by cron + manual endpoint ──
 async function runVIVerification() {
   const axios  = require('axios');
@@ -981,35 +1008,59 @@ async function runVIVerification() {
     return ['STRONG BUY','BUY','BUY SMALL','SELL','STRONG SELL'].includes(decision);
   }
 
-  // ── Resolve vi_predictions ──
+  // ── Shared price cache — one Alpaca call per symbol per run, across all pages ──
+  const priceCache = {};
+  let priceFetchFailures = 0;
+  async function fetchPrices(symbols) {
+    const need = symbols.filter(s => !(s in priceCache));
+    if (need.length) {
+      try {
+        const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
+          params: { symbols: need.join(','), feed: 'iex' },
+          headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
+          timeout: 10000,
+        });
+        need.forEach(s => {
+          const sn = r.data[s];
+          priceCache[s] = sn ? (sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null) : null;
+        });
+      } catch(e) {
+        priceFetchFailures++;
+        console.warn('[VI] Price fetch failed:', e.message);
+        need.forEach(s => { priceCache[s] = null; });
+      }
+    }
+    return priceCache;
+  }
+
+  const telem = {
+    predictions:  { pages: 0, scanned: 0, eligible: 0, newly7d: 0, newly30d: 0, alreadyResolved: 0, skippedNoPrice: 0, lateVerified: 0 },
+    patternFires: { pages: 0, scanned: 0, eligible: 0, newly7d: 0, newly30d: 0, alreadyResolved: 0, skippedNoPrice: 0, lateVerified: 0 },
+    writeFailures: 0,
+  };
+
+  // ── Resolve vi_predictions (paginated — every eligible row reachable) ──
   let verifiedCount = 0;
-  const snap = await db.collection(VI_COL)
-    .where('priceAtPrediction', '!=', null).limit(200).get();
+  for await (const { docs, page } of viPaginate(VI_COL)) {
+    telem.predictions.pages = page;
+    telem.predictions.scanned += docs.length;
 
-  const pending = snap.docs
-    .map(d => ({ ref: d.ref, data: d.data() }))
-    .filter(e => !e.data.verification7d || !e.data.verification30d);
+    const pending = docs
+      .map(d => ({ ref: d.ref, data: d.data() }))
+      .filter(e => e.data.priceAtPrediction != null && (!e.data.verification7d || !e.data.verification30d));
 
-  if (pending.length > 0) {
-    const syms = [...new Set(pending.map(e => e.data.symbol).concat(['SPY']))];
-    let prices = {};
-    try {
-      const r = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
-        params: { symbols: syms.join(','), feed: 'iex' },
-        headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
-        timeout: 10000,
-      });
-      syms.forEach(s => {
-        const sn = r.data[s];
-        if (sn) prices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null;
-      });
-    } catch(e) { console.warn('[VI] Price fetch failed:', e.message); }
+    telem.predictions.alreadyResolved += docs.length - pending.length;
+    if (pending.length === 0) continue;
+    telem.predictions.eligible += pending.length;
+
+    const prices = await fetchPrices([...new Set(pending.map(e => e.data.symbol).concat(['SPY']))]);
 
     const batch = db.batch();
+    let ops = 0;
     pending.forEach(({ ref, data: e }) => {
       const currentPrice = prices[e.symbol];
       const spyPrice     = prices['SPY'];
-      if (!currentPrice) return;
+      if (!currentPrice) { telem.predictions.skippedNoPrice++; return; }
       const age    = now - e.timestamp;
       const retPct = +(((currentPrice - e.priceAtPrediction) / e.priceAtPrediction) * 100).toFixed(2);
       const spyRet = (spyPrice && e.spyAtPrediction) ? +(((spyPrice - e.spyAtPrediction) / e.spyAtPrediction) * 100).toFixed(2) : null;
@@ -1019,50 +1070,82 @@ async function runVIVerification() {
         correct: isCorrect(e.decision, retPct),
         decisionType: isDirectional(e.decision) ? 'directional' : 'neutral',
         verifiedAt: now,
+        ageDaysAtVerification: Math.floor(age / 86400000),
       };
       const update = {};
-      if (!e.verification7d  && age >= VI_7D)  { update.verification7d  = verif; verifiedCount++; }
-      if (!e.verification30d && age >= VI_30D) { update.verification30d = verif; verifiedCount++; }
-      if (Object.keys(update).length) batch.update(ref, update);
+      let late = false;
+      if (!e.verification7d  && age >= VI_7D)  {
+        update.verification7d  = verif; verifiedCount++; telem.predictions.newly7d++;
+        if (age >= VI_7D  + VI_HORIZON_GRACE) late = true;
+      }
+      if (!e.verification30d && age >= VI_30D) {
+        update.verification30d = verif; verifiedCount++; telem.predictions.newly30d++;
+        if (age >= VI_30D + VI_HORIZON_GRACE) late = true;
+      }
+      if (Object.keys(update).length === 0) return;
+      // Provenance only — never alters the measured result. Frozen verification
+      // rule prices late rows at today's quote, so their effective horizon
+      // exceeds the nominal window. Tagged so they stay out of the validated experiment.
+      if (late) {
+        update.verificationBackfilled = true;
+        update.horizonInflated        = true;
+        telem.predictions.lateVerified++;
+      }
+      batch.update(ref, update); ops++;
     });
-    await batch.commit();
+    if (ops > 0) {
+      await batch.commit().catch(err => { telem.writeFailures++; console.warn('[VI] Prediction batch commit failed:', err.message); });
+    }
   }
 
-  // ── Resolve vi_pattern_fires ──
+  // ── Resolve vi_pattern_fires (paginated — was capped at 500 vs a population of 1000+) ──
   let patVerified = 0;
   try {
-    const patSnap = await db.collection(VI_PAT_COL)
-      .where('priceAtFire', '!=', null).limit(500).get();
-    const patPending = patSnap.docs
-      .map(d => ({ ref: d.ref, data: d.data() }))
-      .filter(e => !e.data.verification7d || !e.data.verification30d);
+    for await (const { docs, page } of viPaginate(VI_PAT_COL)) {
+      telem.patternFires.pages = page;
+      telem.patternFires.scanned += docs.length;
 
-    if (patPending.length > 0) {
-      const patSyms = [...new Set(patPending.map(e => e.data.symbol).concat(['SPY']))];
-      let patPrices = {};
-      try {
-        const pr = await axios.get('https://data.alpaca.markets/v2/stocks/snapshots', {
-          params: { symbols: patSyms.join(','), feed: 'iex' },
-          headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret }, timeout: 10000,
-        });
-        patSyms.forEach(s => { const sn = pr.data[s]; if (sn) patPrices[s] = sn.latestTrade?.p ?? sn.latestQuote?.bp ?? null; });
-      } catch(e2) { /* skip */ }
+      const patPending = docs
+        .map(d => ({ ref: d.ref, data: d.data() }))
+        .filter(e => e.data.priceAtFire != null && (!e.data.verification7d || !e.data.verification30d));
+
+      telem.patternFires.alreadyResolved += docs.length - patPending.length;
+      if (patPending.length === 0) continue;
+      telem.patternFires.eligible += patPending.length;
+
+      const patPrices = await fetchPrices([...new Set(patPending.map(e => e.data.symbol).concat(['SPY']))]);
 
       const patBatch = db.batch();
+      let patOps = 0;
       patPending.forEach(({ ref, data: e }) => {
         const cp = patPrices[e.symbol], spyP = patPrices['SPY'];
-        if (!cp) return;
+        if (!cp) { telem.patternFires.skippedNoPrice++; return; }
         const age    = now - e.timestamp;
         const retPct = +(((cp - e.priceAtFire) / e.priceAtFire) * 100).toFixed(2);
         const spyRet = (spyP && e.spyPriceAtFire) ? +(((spyP - e.spyPriceAtFire) / e.spyPriceAtFire) * 100).toFixed(2) : null;
         const correct = e.direction === 'bullish' ? retPct > 1 : e.direction === 'bearish' ? retPct < -1 : Math.abs(retPct) <= 3;
-        const verif = { priceAfter: cp, returnPct: retPct, spyReturn: spyRet, outperformedSpy: spyRet!=null?retPct>spyRet:null, correct, verifiedAt: now };
+        const verif = { priceAfter: cp, returnPct: retPct, spyReturn: spyRet, outperformedSpy: spyRet!=null?retPct>spyRet:null, correct, verifiedAt: now, ageDaysAtVerification: Math.floor(age / 86400000) };
         const upd = {};
-        if (!e.verification7d  && age >= VI_7D)  { upd.verification7d  = verif; patVerified++; }
-        if (!e.verification30d && age >= VI_30D) { upd.verification30d = verif; patVerified++; }
-        if (Object.keys(upd).length) patBatch.update(ref, upd);
+        let late = false;
+        if (!e.verification7d  && age >= VI_7D)  {
+          upd.verification7d  = verif; patVerified++; telem.patternFires.newly7d++;
+          if (age >= VI_7D  + VI_HORIZON_GRACE) late = true;
+        }
+        if (!e.verification30d && age >= VI_30D) {
+          upd.verification30d = verif; patVerified++; telem.patternFires.newly30d++;
+          if (age >= VI_30D + VI_HORIZON_GRACE) late = true;
+        }
+        if (Object.keys(upd).length === 0) return;
+        if (late) {
+          upd.verificationBackfilled = true;
+          upd.horizonInflated        = true;
+          telem.patternFires.lateVerified++;
+        }
+        patBatch.update(ref, upd); patOps++;
       });
-      await patBatch.commit();
+      if (patOps > 0) {
+        await patBatch.commit().catch(err => { telem.writeFailures++; console.warn('[VI-PAT] Batch commit failed:', err.message); });
+      }
     }
   } catch(e2) { console.warn('[VI-PAT] Verify error:', e2.message); }
 
@@ -1162,12 +1245,16 @@ async function runVIVerification() {
     if (catProcWrites > 0) await catProcBatch.commit().catch(ce => console.warn('[VI-CAT] Proc flag write failed:', ce.message));
   } catch(e3) { console.warn('[VI-CAT] Catalyst performance update error:', e3.message); }
 
+  telem.priceFetchFailures = priceFetchFailures;
   console.log(`[VI] Resolution complete — predictions: ${verifiedCount}, pattern fires: ${patVerified}, catalyst perf updates: ${catalystUpdated}`);
+  console.log(`[VI] Telemetry — preds: ${JSON.stringify(telem.predictions)}`);
+  console.log(`[VI] Telemetry — pats:  ${JSON.stringify(telem.patternFires)}`);
+  console.log(`[VI] Telemetry — priceFetchFailures: ${priceFetchFailures}, writeFailures: ${telem.writeFailures}`);
 
   // Phase 2A: Refresh win rate registry so LPMS and Brain Vault pick up newly verified rates
   refreshRegistry(db).catch(e => console.warn('[WinRateRegistry] Post-VI refresh failed:', e.message));
 
-  return { verified: verifiedCount, patternFiresVerified: patVerified, catalystUpdated };
+  return { verified: verifiedCount, patternFiresVerified: patVerified, catalystUpdated, telemetry: telem };
 }
 
 // Run verification: fill in 7d/30d results for pending predictions
