@@ -10,6 +10,7 @@ const { runBrainAnalysis } = require('./brain');
 const { loadSignalWeights, updateSignalPerformance, calcSignalConfAdj } = require('./signalPerformance');
 const { fetchMacroSnapshot } = require('./macro');
 const { fetchEdgarData } = require('./edgar');
+const { getTradingDate } = require('./marketDate');
 
 const ALPACA_KEY    = process.env.ALPACA_KEY;
 const ALPACA_SECRET = process.env.ALPACA_SECRET;
@@ -528,7 +529,7 @@ async function runPipeline() {
       if (brain && brain.active_patterns && brain.active_patterns.length > 0) {
         try {
           const currentPrice = bars[bars.length - 1].close;
-          const today        = new Date().toISOString().split('T')[0];
+          const today        = getTradingDate();
           const db2          = getDB();
           const batch        = db2.batch();
           let   writes       = 0;
@@ -564,7 +565,7 @@ async function runPipeline() {
       // Ensures every pipeline run creates a prediction record per symbol,
       // matching the same schema as POST /api/vi/log. One per symbol per day.
       try {
-        const today2    = new Date().toISOString().split('T')[0];
+        const today2    = getTradingDate();
         const viId      = `${symbol}_${today2}`;
         const viRef     = getDB().collection('vi_predictions').doc(viId);
         const viSnap    = await viRef.get().catch(() => null);

@@ -8,6 +8,7 @@ const { fetchEdgarData, fetchAllEdgarData }             = require('./edgar');
 const { buildMasterIntelligence, calcMarketHealth, healthLabel } = require('./masterIntelligence');
 const { analyzeCatalysts, storeCatalystEvents }         = require('./catalystEngine');
 const { refreshRegistry, getRegistrySnapshot }          = require('./winRateRegistry');
+const { getTradingDate, getTradingDays, isTradingDay }  = require('./marketDate');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -853,7 +854,7 @@ async function _getSpyPrice(key, sec) {
 
 async function viLogPatternFires(db, sym, patterns, price, spyPrice) {
   if (!db || !patterns || !patterns.length || !price) return;
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTradingDate();
   const batch = db.batch();
   let writes = 0;
   for (const p of patterns) {
@@ -891,7 +892,7 @@ app.post('/api/vi/log', rlVI, async (req, res) => {
     const d = req.body;
     if (!d?.symbol || !d?.decision) return res.json({ ok: false, error: 'Missing required fields' });
     const db     = admin.firestore();
-    const today  = new Date().toISOString().split('T')[0];
+    const today  = getTradingDate();
     const id     = `${d.symbol}_${today}`;
     const docRef = db.collection(VI_COL).doc(id);
 
@@ -1405,29 +1406,13 @@ function buildJournalValidatedScoreboard(entries) {
   return sb;
 }
 
-function isTradingDay(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00Z');
-  const day = d.getUTCDay();
-  return day >= 1 && day <= 5;
-}
-
-function getTradingDays(count) {
-  const days = [];
-  const d = new Date();
-  // Start from today and walk backwards
-  for (let i = 0; days.length < count; i++) {
-    const check = new Date(d);
-    check.setDate(check.getDate() - i);
-    const str = check.toISOString().split('T')[0];
-    if (isTradingDay(str)) days.push(str);
-    if (i > 30) break; // safety
-  }
-  return days;
-}
+// isTradingDay / getTradingDays now come from ./marketDate (ET-canonical,
+// holiday-aware). The former local versions used UTC weekday arithmetic and
+// knew nothing about NYSE closures.
 
 async function runResearchJournal() {
   const db = admin.firestore();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTradingDate();
   const backfillDays = getTradingDays(5); // today + last 4 trading days
 
   let created = 0, updated = 0, skipped = 0;
@@ -1692,7 +1677,7 @@ app.get('/api/journal/today', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const db = admin.firestore();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTradingDate();
     const doc = await db.collection(JOURNAL_COL).doc(today).get();
     if (!doc.exists) return res.json({ ok: true, data: null, message: 'No journal entry for today yet' });
     res.json({ ok: true, data: doc.data() });
