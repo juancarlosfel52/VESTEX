@@ -9,6 +9,9 @@ const { buildMasterIntelligence, calcMarketHealth, healthLabel } = require('./ma
 const { analyzeCatalysts, storeCatalystEvents }         = require('./catalystEngine');
 const { refreshRegistry, getRegistrySnapshot }          = require('./winRateRegistry');
 const { getTradingDate, getTradingDays, isTradingDay }  = require('./marketDate');
+const {
+  VI_CLASS, V2_SHADOW_FIELDS, classifyDualEngine, buildViPredictionRecord,
+} = require('./viRecord');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -878,14 +881,8 @@ async function viLogPatternFires(db, sym, patterns, price, spyPrice) {
   if (writes > 0) await batch.commit().catch(e => console.warn('[VI-PAT] Batch write failed:', e.message));
 }
 
-// Log a prediction snapshot
-// ── V2 shadow field allowlist — only these may be merged onto existing docs ──
-const V2_SHADOW_FIELDS = [
-  'engineVersion', 'decisionSource', 'masterScoreV2',
-  'brainScoreV1', 'brainScoreV2', 'confidenceV2',
-  'decisionV2', 'divergence',
-];
-
+// Log a prediction snapshot.
+// V2_SHADOW_FIELDS (the merge allowlist) now comes from ./viRecord.
 app.post('/api/vi/log', rlVI, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
@@ -904,33 +901,47 @@ app.post('/api/vi/log', rlVI, async (req, res) => {
       const snap = await tx.get(docRef);
 
       // ── Case 1: new document — full create ──
+      // The frontend sends V1 and V2 from a single Master Intelligence
+      // response, so this IS a same-snapshot pair. buildViPredictionRecord
+      // decides that for itself from the payload; it is not asserted here.
       if (!snap.exists) {
-        tx.set(docRef, {
-          id, symbol: d.symbol, timestamp: Date.now(), date: today,
-          priceAtPrediction: d.priceAtPrediction ?? null,
-          spyAtPrediction:   d.spyAtPrediction   ?? null,
-          masterScore:       d.masterScore        ?? null,
-          decision:          d.decision,
-          confidence:        d.confidence         ?? null,
-          systemVotes:       d.systemVotes        ?? null,
-          topPatterns:       d.topPatterns        ?? [],
-          marketRegime:      d.marketRegime       ?? null,
-          sentimentScore:    d.sentimentScore     ?? null,
-          sentimentOverall:  d.sentimentOverall   ?? null,
-          catalystDelta:     d.catalystDelta      ?? null,
-          catalystEvents:    d.catalystEvents     ?? [],
-          engineVersion:     d.engineVersion      ?? null,
-          decisionSource:    d.decisionSource     ?? 'engine-v1',
-          masterScoreV2:     d.masterScoreV2      ?? null,
-          brainScoreV1:      d.brainScoreV1       ?? null,
-          brainScoreV2:      d.brainScoreV2       ?? null,
-          confidenceV2:      d.confidenceV2       ?? null,
-          decisionV2:        d.decisionV2         ?? null,
-          divergence:        d.divergence         ?? null,
-          verification7d:    null,
-          verification30d:   null,
+        const record = buildViPredictionRecord({
+          symbol: d.symbol,
+          date:   today,
+          snapshot: {
+            price: d.priceAtPrediction ?? null,
+            spy:   d.spyAtPrediction   ?? null,
+          },
+          v1: {
+            masterScore: d.masterScore ?? null,
+            decision:    d.decision,
+            confidence:  d.confidence  ?? null,
+            systemVotes: d.systemVotes ?? null,
+          },
+          v2: hasV2Payload ? {
+            engineVersion: d.engineVersion ?? null,
+            masterScoreV2: d.masterScoreV2 ?? null,
+            brainScoreV1:  d.brainScoreV1  ?? null,
+            brainScoreV2:  d.brainScoreV2  ?? null,
+            confidenceV2:  d.confidenceV2  ?? null,
+            decisionV2:    d.decisionV2    ?? null,
+            divergence:    d.divergence    ?? null,
+          } : null,
+          context: {
+            topPatterns:      d.topPatterns      ?? [],
+            marketRegime:     d.marketRegime     ?? null,
+            sentimentScore:   d.sentimentScore   ?? null,
+            sentimentOverall: d.sentimentOverall ?? null,
+            catalystDelta:    d.catalystDelta    ?? null,
+            catalystEvents:   d.catalystEvents   ?? [],
+          },
+          provenance: {
+            source:         'frontend-mi',
+            decisionSource: d.decisionSource ?? 'engine-v1',
+          },
         });
-        return { action: 'created' };
+        tx.set(docRef, record);
+        return { action: 'created', dualEngineSnapshot: record.dualEngineSnapshot };
       }
 
       // ── Document exists — only V2 shadow merge is permitted ──
@@ -1353,27 +1364,12 @@ function buildJournalVerificationBlock(src, v1Decision, v2Decision) {
 // valid V1-vs-V2 observation. A valid comparison requires BOTH engines to come
 // from the SAME Master Intelligence computation on the SAME market snapshot.
 // Derived purely from stored provenance; never guesses, never recomputes.
-const JOURNAL_CLASS = {
-  COMPLETE_DUAL_ENGINE:   'COMPLETE_DUAL_ENGINE',
-  V2_NOT_CAPTURED:        'V2_NOT_CAPTURED',
-  V1_CONTEXT_INCOMPLETE:  'V1_CONTEXT_INCOMPLETE',
-  V2_INSTRUMENT_ARTIFACT: 'V2_INSTRUMENT_ARTIFACT',
-};
-
-function journalDualEngineClass(p) {
-  if (p.decisionV2 == null || p.masterScoreV2 == null) return JOURNAL_CLASS.V2_NOT_CAPTURED;
-  // V2 merged onto a pre-existing document => V1 and V2 were computed at
-  // different times from different market states. Not a valid comparison.
-  if (p.v2ShadowMergedAt != null)                      return JOURNAL_CLASS.V2_INSTRUMENT_ARTIFACT;
-  // Pipeline direction mapping is not an Engine V1 decision.
-  if (p.decisionSource === 'pipeline-direction')       return JOURNAL_CLASS.V2_INSTRUMENT_ARTIFACT;
-  if (p.masterScore == null)                           return JOURNAL_CLASS.V1_CONTEXT_INCOMPLETE;
-  if (p.priceAtPrediction == null)                     return JOURNAL_CLASS.V1_CONTEXT_INCOMPLETE;
-  if (p.dualEngineSnapshot === true)                   return JOURNAL_CLASS.COMPLETE_DUAL_ENGINE;
-  // Legacy frontend create-path: one MI response produced both engines.
-  if (p.engineVersion != null)                         return JOURNAL_CLASS.COMPLETE_DUAL_ENGINE;
-  return JOURNAL_CLASS.V1_CONTEXT_INCOMPLETE;
-}
+// Comparability is defined once, in ./viRecord, and shared by the writer that
+// produces records and the journal that judges them. Two definitions of
+// "countable" would eventually disagree, and the disagreement would silently
+// decide the V2 promotion gate.
+const JOURNAL_CLASS = VI_CLASS;
+const journalDualEngineClass = classifyDualEngine;
 
 // Legacy scoreboard — unchanged shape/meaning, counts every entry.
 function buildJournalScoreboard(entries) {

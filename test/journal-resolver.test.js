@@ -24,8 +24,7 @@ const PARTS = [
   grab(/function journalHypotheticalReturn[\s\S]*?\n\}\n/, 'journalHypotheticalReturn'),
   grab(/function journalDetermineWinner[\s\S]*?\n\}\n/, 'journalDetermineWinner'),
   grab(/function buildJournalVerificationBlock[\s\S]*?\n\}\n/, 'buildJournalVerificationBlock'),
-  grab(/const JOURNAL_CLASS = \{[\s\S]*?\n\};\n/, 'JOURNAL_CLASS'),
-  grab(/function journalDualEngineClass[\s\S]*?\n\}\n/, 'journalDualEngineClass'),
+  grab(/const JOURNAL_CLASS = VI_CLASS;\nconst journalDualEngineClass = classifyDualEngine;\n/, 'journal class delegation'),
   grab(/function buildJournalScoreboard[\s\S]*?\n\}\n/, 'buildJournalScoreboard'),
   grab(/function buildJournalValidatedScoreboard[\s\S]*?\n\}\n/, 'buildJournalValidatedScoreboard'),
   grab(/const VI_PAGE_SIZE[\s\S]*?const VI_HORIZON_GRACE = [^\n]*\n/, 'VI constants'),
@@ -74,13 +73,19 @@ function makeDb(store) {
   return admin;
 }
 
+// Comparability now lives in ./viRecord and is shared with the writer, so the
+// sandbox imports it rather than extracting a second copy. The delegation
+// lines are still extracted above, which keeps this test bound to the real
+// wiring: if server.js stops delegating, the grab() assertion fires.
+const { VI_CLASS, classifyDualEngine } = require('../viRecord');
+
 function load(store) {
   const admin = makeDb(store);
-  const factory = new Function('admin', 'console', `
+  const factory = new Function('admin', 'console', 'VI_CLASS', 'classifyDualEngine', `
     ${PARTS}
     return { runJournalResolver, JOURNAL_CLASS, journalDualEngineClass, buildJournalValidatedScoreboard };
   `);
-  return factory(admin, { warn() {}, log() {} });
+  return factory(admin, { warn() {}, log() {} }, VI_CLASS, classifyDualEngine);
 }
 
 // ── Fixtures ──

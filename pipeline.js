@@ -11,6 +11,7 @@ const { loadSignalWeights, updateSignalPerformance, calcSignalConfAdj } = requir
 const { fetchMacroSnapshot } = require('./macro');
 const { fetchEdgarData } = require('./edgar');
 const { getTradingDate } = require('./marketDate');
+const { buildViPredictionRecord } = require('./viRecord');
 
 const ALPACA_KEY    = process.env.ALPACA_KEY;
 const ALPACA_SECRET = process.env.ALPACA_SECRET;
@@ -581,29 +582,31 @@ async function runPipeline() {
             winRate:        p.win_rate || null,
             winRateSource:  p.win_rate_source || null,
           }));
-          await viRef.set({
-            id:                viId,
+          const record = buildViPredictionRecord({
             symbol,
-            timestamp:         Date.now(),
-            date:              today2,
-            priceAtPrediction: currentPrice,
-            spyAtPrediction:   null,
-            masterScore:       null,  // pipeline path has no MI — filled by frontend if user visits
-            decision:          decisionMap[prediction.direction] || 'HOLD',
-            confidence:        prediction.confidence ?? null,
-            systemVotes:       null,
-            topPatterns:       topPats,
-            marketRegime:      brain?.regime?.name || null,
-            sentimentScore:    sentimentData?.score ?? null,
-            sentimentOverall:  sentimentData?.overall ?? null,
-            catalystDelta:     null,
-            catalystEvents:    [],
-            verification7d:    null,
-            verification30d:   null,
-            source:            'pipeline',
-            decisionSource:    'pipeline-direction', // additive — distinguishes pipeline rows from engine-v1 MI rows
+            date:     today2,
+            snapshot: { price: currentPrice, spy: null },
+            v1: {
+              // No Master Intelligence on this path yet, so there is no real
+              // Engine V1 decision — only a direction mapping, which cannot
+              // express WAIT. buildViPredictionRecord marks the row
+              // uncomparable for exactly this reason.
+              masterScore: null,
+              decision:    decisionMap[prediction.direction] || 'HOLD',
+              confidence:  prediction.confidence ?? null,
+              systemVotes: null,
+            },
+            v2: null,
+            context: {
+              topPatterns:      topPats,
+              marketRegime:     brain?.regime?.name  || null,
+              sentimentScore:   sentimentData?.score ?? null,
+              sentimentOverall: sentimentData?.overall ?? null,
+            },
+            provenance: { source: 'pipeline', decisionSource: 'pipeline-direction' },
           });
-          console.log(`[VI-PRED-PIPE] ${symbol}: logged prediction (${prediction.direction}, conf ${prediction.confidence}%)`);
+          await viRef.set(record);
+          console.log(`[VI-PRED-PIPE] ${symbol}: logged prediction (${prediction.direction}, conf ${prediction.confidence}%, comparable=${record.dualEngineSnapshot})`);
         }
       } catch(ve) {
         console.warn(`[VI-PRED-PIPE] ${symbol} prediction log failed:`, ve.message);
