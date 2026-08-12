@@ -29,7 +29,9 @@ const PARTS = [
   grab(/function buildJournalValidatedScoreboard[\s\S]*?\n\}\n/, 'buildJournalValidatedScoreboard'),
   grab(/const VI_PAGE_SIZE[\s\S]*?const VI_HORIZON_GRACE = [^\n]*\n/, 'VI constants'),
   grab(/async function\* viPaginate[\s\S]*?\n\}\n/, 'viPaginate'),
-  grab(/async function runJournalResolver[\s\S]*?\n\}\n(?=\n\/\/ ── Journal endpoints)/, 'runJournalResolver'),
+  // Anchored on "next top-level comment block" rather than a specific heading,
+  // so inserting an unrelated section after the resolver does not break extraction.
+  grab(/async function runJournalResolver[\s\S]*?\n\}\n(?=\n\/\/ (?:═|──))/, 'runJournalResolver'),
 ].join('\n');
 
 // ── Mock Firestore ──

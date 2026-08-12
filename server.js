@@ -675,6 +675,11 @@ function _computeIndicators(bars) {
 
 // ── Caches: Master intelligence (5min), Fear&Greed/VIX (10min) ──
 const _miCache = {}, _miFetchedAt = {};
+// Market snapshot that accompanied each cached MI result. The MI result object
+// carries scores but no price, and the shadow ledger needs the exact price both
+// engines were scored against. Written alongside _miCache, never read by the
+// route — additive only.
+const _miSnapCache = {};
 let _fgCache = null, _fgAt = 0;
 let _vixCache = null, _vixAt = 0;
 const MI_TTL = 300000, FG_TTL = 600000;
@@ -704,18 +709,27 @@ async function _getVix() {
   } catch(e) { return _vixCache; }
 }
 
-// ── API: Master Intelligence — single symbol ──
-app.get('/api/master-intelligence/:symbol', rlMI, async (req, res) => {
-  const sym  = req.params.symbol.toUpperCase();
+// ── Master Intelligence — canonical computation ──
+// This is the ONE definition of Engine V1. It previously lived inline in the
+// route below, which meant V1 existed only when a browser asked for it: the
+// nightly pipeline had no access to it and fell back to a direction map that
+// cannot even express WAIT. Extracting it verbatim lets unattended server-side
+// jobs obtain a genuine V1 + V2 pair from a single computation.
+//
+// The body from `const axios` through the Firestore store block is byte-identical
+// to the former route body and is pinned by test/fixtures/mi-assembly.golden.txt.
+// Returns the same envelope the route used to send, plus an additive `snapshot`
+// the wrapper strips before responding.
+async function computeMISnapshot(sym) {
   const key  = process.env.ALPACA_KEY;
   const sec  = process.env.ALPACA_SECRET;
   const now  = Date.now();
 
   // Serve cache if fresh
   if (_miCache[sym] && now - (_miFetchedAt[sym]||0) < MI_TTL)
-    return res.json({ ok: true, data: _miCache[sym], source: 'cache' });
+    return { ok: true, data: _miCache[sym], source: 'cache', snapshot: _miSnapCache[sym] || null };
 
-  if (!key) return res.json({ ok: false, error: 'No Alpaca credentials configured' });
+  if (!key) return { ok: false, error: 'No Alpaca credentials configured' };
 
   try {
     const axios = require('axios');
@@ -825,11 +839,29 @@ app.get('/api/master-intelligence/:symbol', rlMI, async (req, res) => {
 
     _miCache[sym]     = result;
     _miFetchedAt[sym] = now;
-    res.json({ ok: true, data: result, source: 'live' });
+    // Additive: the market snapshot both engines were scored against. `bars`
+    // and `spyBars` are still in scope from the assembly above.
+    const _snapshot = {
+      price: bars.length    ? bars[bars.length - 1].close    : null,
+      spy:   spyBars.length ? spyBars[spyBars.length - 1].close : null,
+      at:    now,
+    };
+    _miSnapCache[sym] = _snapshot;
+    return { ok: true, data: result, source: 'live', snapshot: _snapshot };
 
   } catch(e) {
-    res.json({ ok: false, error: e.message });
+    return { ok: false, error: e.message };
   }
+}
+
+// ── API: Master Intelligence — single symbol ──
+// Thin wrapper. Reconstructs the response field-for-field so the public shape
+// is unchanged; `snapshot` is internal and deliberately not exposed.
+app.get('/api/master-intelligence/:symbol', rlMI, async (req, res) => {
+  const sym = req.params.symbol.toUpperCase();
+  const r   = await computeMISnapshot(sym);
+  if (!r.ok) return res.json({ ok: false, error: r.error });
+  res.json({ ok: true, data: r.data, source: r.source });
 });
 
 // ── API: Market Health — all systems combined ──
@@ -1637,6 +1669,141 @@ async function runJournalResolver({ dryRun = false } = {}) {
   console.log(`[JOURNAL-RESOLVE] ${JSON.stringify(telem)}`);
   return telem;
 }
+
+// ═══════════════════════════════════════════════════════════
+//  V2 SHADOW CAPTURE — server-side, same-snapshot
+//
+//  Until now the only writer that produced a real Engine V1 was the browser.
+//  V2 was therefore persisted only for symbols a human happened to look at,
+//  and the unattended pipeline wrote a direction-mapped pseudo-V1 that is not
+//  comparable to anything. This job removes the human from the instrument.
+//
+//  It computes V1 and V2 from ONE computeMISnapshot() call per symbol, so both
+//  engines observe one market snapshot by construction. It is instrumentation
+//  only: it writes to vi_predictions and nothing else, and V2 never becomes a
+//  user-facing decision.
+// ═══════════════════════════════════════════════════════════
+async function runV2ShadowCapture({ dryRun = false, symbols = null } = {}) {
+  const db    = admin.firestore();
+  const date  = getTradingDate();
+  const syms  = symbols || SYMBOLS || [];
+  const telem = {
+    date, dryRun, symbols: syms.length,
+    created: 0, upgraded: 0, skippedAlreadyValid: 0,
+    skippedNotComparable: 0, miFailures: 0, writeFailures: 0,
+    divergences: 0, gaps: {},
+  };
+
+  if (!isTradingDay(date)) {
+    console.log(`[V2-CAPTURE] ${date} is not a market session — skipping`);
+    return { ...telem, skipped: 'not_a_trading_day' };
+  }
+
+  for (const sym of syms) {
+    let mi;
+    try {
+      mi = await computeMISnapshot(sym);
+    } catch (e) {
+      telem.miFailures++;
+      console.warn(`[V2-CAPTURE] ${sym} MI threw:`, e.message);
+      continue;
+    }
+    if (!mi?.ok || !mi.data) {
+      telem.miFailures++;
+      console.warn(`[V2-CAPTURE] ${sym} MI unavailable:`, mi?.error || 'no data');
+      continue;
+    }
+
+    const d  = mi.data;
+    const v2 = d.engineV2;
+
+    // Build the canonical record. dualEngineSnapshot is derived inside
+    // buildViPredictionRecord — this job cannot assert it.
+    const record = buildViPredictionRecord({
+      symbol: sym,
+      date,
+      snapshot: {
+        price: mi.snapshot?.price ?? null,
+        spy:   mi.snapshot?.spy   ?? null,
+        at:    mi.snapshot?.at    ?? Date.now(),
+      },
+      v1: {
+        masterScore: d.masterScore ?? null,
+        decision:    d.decision    ?? null,
+        confidence:  d.confidence  ?? null,
+        systemVotes: d.systemVotes ?? null,
+      },
+      v2: v2 ? {
+        engineVersion: v2.engineVersion ?? null,
+        masterScoreV2: v2.masterScoreV2 ?? null,
+        brainScoreV1:  d.scoreBreakdown?.brainVault?.score ?? null,
+        brainScoreV2:  v2.brainScoreV2  ?? null,
+        confidenceV2:  v2.confidenceV2  ?? null,
+        decisionV2:    v2.decisionV2    ?? null,
+        divergence:    v2.divergence    ?? null,
+      } : null,
+      context: {
+        topPatterns:    d.topPatterns    ?? [],
+        marketRegime:   d.marketHealth?.label ?? null,
+        catalystDelta:  d.catalystDelta  ?? null,
+        catalystEvents: d.activeCatalysts ?? [],
+      },
+      provenance: { source: 'v2-shadow-capture', decisionSource: 'engine-v1' },
+    });
+
+    if (!record.dualEngineSnapshot) {
+      // Never write a record this job knows is uncomparable — the pipeline
+      // fallback already covers the symbol-day honestly.
+      telem.skippedNotComparable++;
+      (record.snapshotGaps || []).forEach(g => { telem.gaps[g] = (telem.gaps[g] || 0) + 1; });
+      console.warn(`[V2-CAPTURE] ${sym} not same-snapshot: ${(record.snapshotGaps || []).join(',')}`);
+      continue;
+    }
+
+    if (record.divergence) telem.divergences++;
+    if (dryRun) { telem.created++; continue; }
+
+    // Idempotent write. A valid dual-engine record for this symbol-day is
+    // never overwritten — re-running must not disturb a captured session.
+    try {
+      const ref = db.collection(VI_COL).doc(record.id);
+      const outcome = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) { tx.set(ref, record); return 'created'; }
+        const existing = snap.data();
+        if (classifyDualEngine(existing) === VI_CLASS.COMPLETE_DUAL_ENGINE) return 'already_valid';
+        // Existing row is a pipeline fallback or an incomplete record. Replace
+        // it with the same-snapshot capture, but never touch verification
+        // outcomes that have already been resolved against it.
+        tx.set(ref, {
+          ...record,
+          verification7d:  existing.verification7d  ?? null,
+          verification30d: existing.verification30d ?? null,
+          upgradedFrom:    existing.decisionSource  ?? existing.source ?? 'unknown',
+          upgradedAt:      Date.now(),
+        });
+        return 'upgraded';
+      });
+      if (outcome === 'created')            telem.created++;
+      else if (outcome === 'upgraded')      telem.upgraded++;
+      else                                  telem.skippedAlreadyValid++;
+    } catch (e) {
+      telem.writeFailures++;
+      console.warn(`[V2-CAPTURE] ${sym} write failed:`, e.message);
+    }
+  }
+
+  console.log(`[V2-CAPTURE] ${JSON.stringify(telem)}`);
+  return telem;
+}
+
+app.get('/api/v2-capture/run', async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const telemetry = await runV2ShadowCapture({ dryRun: req.query.dryRun === '1' });
+    res.json({ ok: true, telemetry });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
 
 // ── Journal endpoints ──
 app.get('/api/journal', async (req, res) => {
@@ -2722,6 +2889,15 @@ if (pipelineReady) {
   cron.schedule('0 21 * * 1-5', () => {
     console.log('[CRON] Daily pipeline triggered');
     runPipeline().catch(console.error);
+  }, { timezone: 'America/New_York' });
+
+  // V2 shadow capture — 9:45pm ET Mon–Fri, 45 minutes after the pipeline starts.
+  // Runs AFTER the pipeline (so its fallback rows exist to be upgraded) and well
+  // before the next session's 6:30pm journal, which reads what this leaves behind.
+  // Post-Repair-3 the ET trading date at 21:45 is still the current session.
+  cron.schedule('45 21 * * 1-5', () => {
+    console.log('[CRON] V2 shadow capture triggered');
+    runV2ShadowCapture().catch(console.error);
   }, { timezone: 'America/New_York' });
 
   // Daily prediction verification — Mon–Fri 6pm ET (accelerates signal accuracy data)

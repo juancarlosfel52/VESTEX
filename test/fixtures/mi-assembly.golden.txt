@@ -1,0 +1,104 @@
+    const axios = require('axios');
+
+    // 1. Fetch 40 days of bars → compute indicators
+    const end = new Date(), start = new Date();
+    start.setDate(start.getDate() - 45);
+    const _barParams  = { timeframe:'1Day', start:start.toISOString().split('T')[0], end:end.toISOString().split('T')[0], limit:40, feed:'iex' };
+    const _barHeaders = { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': sec };
+
+    // Phase 1+3: fetch symbol bars and SPY bars in parallel for Pattern_117 (Relative Strength)
+    const [barsResp, spyBarsResp] = await Promise.all([
+      axios.get(`https://data.alpaca.markets/v2/stocks/${sym}/bars`,   { headers: _barHeaders, params: _barParams, timeout: 12000 }),
+      sym !== 'SPY'
+        ? axios.get('https://data.alpaca.markets/v2/stocks/SPY/bars', { headers: _barHeaders, params: _barParams, timeout: 12000 }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    const bars    = (barsResp.data.bars||[]).map(b=>({close:b.c,high:b.h,low:b.l,open:b.o,volume:b.v}));
+    const spyBars = spyBarsResp ? (spyBarsResp.data?.bars||[]).map(b=>({close:b.c})) : [];
+    const spyData = spyBars.length >= 10
+      ? { return10d: +((spyBars[spyBars.length-1].close - spyBars[spyBars.length-10].close) / spyBars[spyBars.length-10].close * 100).toFixed(2) }
+      : null;
+    const indicators = _computeIndicators(bars);
+
+    // 2. EDGAR — fetched first so earningsSurprise is available to brain analysis
+    let edgar = null;
+    try { edgar = await fetchEdgarData(sym); } catch(e) {}
+
+    // 3. Brain analysis — receives edgar so PEAD and earnings-surprise patterns can fire
+    let brainResult = null;
+    try {
+      const { runBrainAnalysis } = require('./brain');
+      brainResult = await runBrainAnalysis(indicators || {rsi:null,macd:null,sma7:null,sma21:null,volSpike:false,streak:0,atrPct:null,score:0}, { edgar });
+    } catch(e) { console.warn('[MI] Brain failed:', e.message); }
+
+    // 4. Signal performance
+    let signals = [];
+    try {
+      const { SIGNAL_DEFAULTS, loadSignalPerformanceFull } = require('./signalPerformance');
+      if (pipelineReady) { signals = await loadSignalPerformanceFull(admin.firestore()); }
+      else { signals = Object.entries(SIGNAL_DEFAULTS).map(([id,def])=>({id,label:def.label,totalUses:0,correct:0,accuracy:null,multiplier:1.0})); }
+    } catch(e) {}
+
+    // 5. Sentiment (in-memory cache first)
+    const sentiment = sentimentCache[sym] || null;
+
+    // 6. Macro snapshot — try Firestore latest prediction, else null
+    let macroSnapshot = null;
+    if (pipelineReady) {
+      try {
+        const snap = await admin.firestore().collection('latest_predictions').doc(sym).get();
+        if (snap.exists) macroSnapshot = snap.data()?.macroSnapshot || null;
+      } catch(e) {}
+    }
+
+    // 7. Fear & Greed + VIX (shared caches)
+    const [fearGreed, vix] = await Promise.all([_getFearGreed(), _getVix()]);
+
+    // Phase 1: Compute chart patterns and inject into brainResult so MI can see them
+    // Chart patterns are directional intelligence that should flow into Master Intelligence.
+    // CHART_HIGH_ATR (isVolatilityWarning) is excluded — it's handled via Pattern_125 ATR reducer.
+    let brainForMI = brainResult;
+    try {
+      const { analyzeChartStructure } = require('./livePatternMatcher');
+      const livePrice         = bars.length ? bars[bars.length - 1].close : null;
+      const chartResult       = analyzeChartStructure(bars, livePrice, spyData);
+      const directionalCharts = chartResult.patterns.filter(p => !p.isVolatilityWarning);
+      if (brainResult && directionalCharts.length > 0) {
+        brainForMI = { ...brainResult, active_patterns: [...(brainResult.active_patterns || []), ...directionalCharts] };
+      }
+    } catch(e) { console.warn('[MI] Chart injection failed:', e.message); }
+
+    // 8. Build master score (brainForMI includes chart patterns)
+    const result = buildMasterIntelligence(sym, indicators, brainForMI, signals, sentiment, edgar, macroSnapshot, fearGreed, vix);
+
+    // 9. Apply Catalyst modifier — confidence only, never touches masterScore
+    try {
+      const now2 = Date.now();
+      let catalystData = _catalystCache[sym];
+      if (!catalystData || (now2 - (_catalystFetchedAt[sym] || 0) > CATALYST_TTL)) {
+        const headlines      = sentiment?.headlines?.map(h => h.text || h).filter(Boolean) || [];
+        const sentimentEvts  = sentiment?.events || [];
+        const predDir        = result.decision?.toLowerCase().includes('buy') ? 'bullish'
+                             : result.decision?.toLowerCase().includes('sell') ? 'bearish' : 'neutral';
+        catalystData = await analyzeCatalysts(sym, headlines, edgar, predDir, sentimentEvts);
+        _catalystCache[sym]     = catalystData;
+        _catalystFetchedAt[sym] = now2;
+        if (pipelineReady) storeCatalystEvents(admin.firestore(), sym, catalystData.events).catch(() => {});
+      }
+      if (catalystData?.modifier) {
+        const { confidenceDelta, warnings, activeCatalysts } = catalystData.modifier;
+        result.confidence          = Math.max(0, Math.min(100, (result.confidence || 50) + confidenceDelta));
+        result.catalystWarnings    = warnings;
+        result.activeCatalysts     = activeCatalysts;
+        result.catalystDelta       = confidenceDelta;
+      }
+    } catch(e) { console.warn('[MI] Catalyst injection failed:', e.message); }
+
+    // 10. Store to Firestore for history tracking
+    if (pipelineReady) {
+      try {
+        const db = admin.firestore();
+        await db.collection('master_intelligence').doc(sym).set(result);
+        await db.collection('master_intelligence_history').add({ ...result, sym });
+      } catch(e) { /* non-critical */ }
+    }
