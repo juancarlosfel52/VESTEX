@@ -1033,6 +1033,34 @@ async function* viPaginate(collName, pageSize = VI_PAGE_SIZE, maxPages = VI_MAX_
   console.warn(`[VI] Pagination hit max page guard (${maxPages}) on ${collName}`);
 }
 
+// ── Audit traversal — full scan with an HONEST completeness flag ──
+// The audit endpoints used to read .limit(500)/.limit(1000) and report the
+// result as a count. One run reported exactly 1000 orphan pattern fires, which
+// was not a measurement — it was the cap. Worse, orphans were found by
+// comparing a 1000-row pattern sample against a 500-row prediction sample, so
+// a fire looked orphaned merely because its prediction fell outside the
+// smaller window.
+//
+// This reads every document and, when it cannot, says so instead of returning
+// a number that looks like a total. Both bounds are declared here so
+// `truncated` is decidable: we stop either on the document cap or because
+// viPaginate ran out of pages. A partial read is never labelled complete.
+const AUDIT_PAGE_SIZE = 300;
+const AUDIT_MAX_DOCS  = 20000;
+const AUDIT_MAX_PAGES = Math.ceil(AUDIT_MAX_DOCS / AUDIT_PAGE_SIZE);
+
+async function auditCollectAll(collName) {
+  const docs = [];
+  let pages = 0, capped = false;
+  for await (const page of viPaginate(collName, AUDIT_PAGE_SIZE, AUDIT_MAX_PAGES)) {
+    pages = page.page;
+    for (const d of page.docs) docs.push({ id: d.id, ...d.data() });
+    if (docs.length >= AUDIT_MAX_DOCS) { capped = true; break; }
+  }
+  const truncated = capped || pages >= AUDIT_MAX_PAGES;
+  return { docs, count: docs.length, pages, complete: !truncated, truncated };
+}
+
 // ── VI resolution core — called by cron + manual endpoint ──
 async function runVIVerification() {
   const axios  = require('axios');
@@ -1909,8 +1937,13 @@ app.get('/api/vi/pattern-stats', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const db   = admin.firestore();
-    const snap = await db.collection(VI_PAT_COL).limit(500).get();
+    // Read cap. vi_pattern_fires is already past 1000 docs, so this is a
+    // SAMPLE, not the collection. The win rates below are therefore sample
+    // rates — `sampled` and `totalFires` must be read together.
+    const PS_LIMIT = 500;
+    const snap = await db.collection(VI_PAT_COL).limit(PS_LIMIT).get();
     const docs = snap.docs.map(d => d.data());
+    const sampled = snap.size >= PS_LIMIT;
     const stats = {};
     docs.forEach(d => {
       if (!stats[d.patternId]) stats[d.patternId] = { patternId: d.patternId, name: d.patternName, uses7d: 0, wins7d: 0, uses30d: 0, wins30d: 0, avgReturn7d: [], avgReturn30d: [] };
@@ -1940,7 +1973,11 @@ app.get('/api/vi/pattern-stats', async (req, res) => {
         winRateUses,
       };
     }).sort((a, b) => (b.uses7d) - (a.uses7d));
-    res.json({ ok: true, stats: result, totalFires: docs.length });
+    res.json({
+      ok: true, stats: result,
+      totalFires: docs.length, sampled, sampleLimit: PS_LIMIT,
+      ...(sampled ? { sampleNote: `Read cap of ${PS_LIMIT} fires reached — totalFires is the sample size, not the collection size, and win rates are sample rates.` } : {}),
+    });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -1951,7 +1988,8 @@ app.get('/api/vi/catalyst-stats', async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const db   = admin.firestore();
-    const snap = await db.collection('catalyst_performance').limit(50).get();
+    const CS_LIMIT = 50;
+    const snap = await db.collection('catalyst_performance').limit(CS_LIMIT).get();
     const docs = snap.docs.map(d => {
       const raw = d.data();
       // Strip internal dedup keys (_seen7_*, _seen30_*) from response
@@ -1963,7 +2001,10 @@ app.get('/api/vi/catalyst-stats', async (req, res) => {
       return clean;
     });
     docs.sort((a, b) => (b.uses7d || 0) - (a.uses7d || 0));
-    res.json({ ok: true, stats: docs, totalEventTypes: docs.length });
+    // One doc per event type — normally well under the cap, but say so rather
+    // than assume it.
+    const sampled = snap.size >= CS_LIMIT;
+    res.json({ ok: true, stats: docs, totalEventTypes: docs.length, sampled, sampleLimit: CS_LIMIT });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -2315,7 +2356,7 @@ app.get('/api/brain-integrity', rlAudit, async (req, res) => {
   // CAT 6 — Verification Health (weight 10%)
   // ════════════════════════════════════════════════════════════
   let cat6 = 0;
-  let verifiedCount = 0, totalVIPreds = 0;
+  let verifiedCount = 0, totalVIPreds = 0, countsComplete = true;
 
   if (pipelineReady) {
     // VI accessible: 30 pts
@@ -2324,15 +2365,16 @@ app.get('/api/brain-integrity', rlAudit, async (req, res) => {
     // Has predictions logged: 30 pts
     if (viCount > 0) {
       cat6 += 30;
-      // Attempt to count verified
+      // Count verified. This used to read .limit(50) and publish viAll.size as
+      // `meta.viPredictions` — a cap presented as a total. It also meant
+      // `verifiedCount` could be 0 while hundreds of verified rows sat outside
+      // the first 50 documents, silently costing this category 10 points.
       try {
-        const db = admin.firestore();
-        const viAll = await db.collection(VI_COL).limit(50).get().catch(() => null);
-        if (viAll) {
-          totalVIPreds  = viAll.size;
-          verifiedCount = viAll.docs.filter(d => d.data().verification7d || d.data().verification30d).length;
-        }
-      } catch(e) {}
+        const scan    = await auditCollectAll(VI_COL);
+        totalVIPreds  = scan.count;
+        countsComplete = scan.complete;
+        verifiedCount = scan.docs.filter(d => d.verification7d || d.verification30d).length;
+      } catch(e) { countsComplete = false; }
 
       // Has verified predictions — neutral (25 pts) if brain is too young for any window to close
       const tooYoungToVerify = brainAgeDays !== null && brainAgeDays < 7;
@@ -2426,6 +2468,8 @@ app.get('/api/brain-integrity', rlAudit, async (req, res) => {
       catalystSymbols:   catActive,
       viPredictions:     totalVIPreds,
       verifiedCount,
+      // false = the two counts above are lower bounds, not totals.
+      countsComplete,
       patternCount:      brainDiag?.loadedPatterns || null,
       evalRate:          brainDiag?.activePercent  || null,
       registryEntries:   (registry.entries || []).length,
@@ -2503,9 +2547,9 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
 
   try {
     // ── 1. vi_predictions — duplicates + missing dates ──
-    const predSnap = await db.collection(VI_COL).limit(500).get();
-    const preds = predSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    counts.vi_predictions = preds.length;
+    const predScan = await auditCollectAll(VI_COL);
+    const preds = predScan.docs;
+    counts.vi_predictions = { count: predScan.count, complete: predScan.complete, pages: predScan.pages };
 
     // Check for duplicate symbol+date combos
     const predKeys = {};
@@ -2536,9 +2580,9 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
     if (missing30d.length) issues.push({ type: 'MISSING_30D_VERIFICATION', count: missing30d.length, samples: missing30d.slice(0,5).map(p => ({ id: p.id, date: p.date, symbol: p.symbol, ageDays: Math.floor((now - p.timestamp)/86400000) })) });
 
     // ── 4. vi_pattern_fires — duplicates ──
-    const patSnap = await db.collection(VI_PAT_COL).limit(1000).get();
-    const pats = patSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    counts.vi_pattern_fires = pats.length;
+    const patScan = await auditCollectAll(VI_PAT_COL);
+    const pats = patScan.docs;
+    counts.vi_pattern_fires = { count: patScan.count, complete: patScan.complete, pages: patScan.pages };
 
     const patKeys = {};
     const patDuplicates = [];
@@ -2554,14 +2598,30 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
     if (patMissing7d.length) issues.push({ type: 'PATTERN_FIRE_MISSING_7D', count: patMissing7d.length });
 
     // ── 5. Orphan pattern fires — symbol+date with no matching prediction ──
+    // Only meaningful when BOTH collections were read in full. Comparing a
+    // pattern sample against a prediction sample manufactures orphans.
+    const orphanMeasurable = predScan.complete && patScan.complete;
     const predDateSet = new Set(preds.map(p => `${p.symbol}_${p.date}`));
     const orphanFires = pats.filter(p => !predDateSet.has(`${p.symbol}_${p.date}`));
-    if (orphanFires.length) issues.push({ type: 'ORPHAN_PATTERN_FIRES', count: orphanFires.length, note: 'Pattern fires with no matching vi_prediction for that symbol+date', samples: orphanFires.slice(0,5).map(p => ({ id: p.id, symbol: p.symbol, date: p.date, pattern: p.patternId })) });
+    if (!orphanMeasurable) {
+      issues.push({
+        type: 'ORPHAN_PATTERN_FIRES_UNMEASURABLE', count: null, measurable: false,
+        note: 'One or both collections exceeded the audit traversal cap. Orphan count withheld rather than reported from partial data.',
+        predictionsComplete: predScan.complete, patternFiresComplete: patScan.complete,
+      });
+    } else if (orphanFires.length) {
+      issues.push({
+        type: 'ORPHAN_PATTERN_FIRES', count: orphanFires.length, measurable: true,
+        note: 'Pattern fires with no matching vi_prediction for that symbol+date. Full-scan comparison.',
+        samples: orphanFires.slice(0,5).map(p => ({ id: p.id, symbol: p.symbol, date: p.date, pattern: p.patternId })),
+      });
+    }
 
     // ── 6. signalPerformance — check all 19 expected signals exist ──
     const sigSnap = await db.collection('signalPerformance').get();
     const sigDocs = sigSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    counts.signalPerformance = sigDocs.length;
+    // Bounded collection (19 expected docs), read in full — no cap to declare.
+    counts.signalPerformance = { count: sigDocs.length, complete: true, pages: 1 };
 
     const expectedSignals = ['SMA_UPTREND','SMA_DOWNTREND','MACD_BULLISH','MACD_BEARISH',
       'RSI_DEEPLY_OVERSOLD','RSI_OVERSOLD','RSI_MILD_BULLISH','RSI_SEVERELY_OVERBOUGHT',
@@ -2577,9 +2637,10 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
     if (zeroUseSigs.length) issues.push({ type: 'SIGNALS_ZERO_USES', count: zeroUseSigs.length, signals: zeroUseSigs.map(s => s.id), note: 'Expected if signal rarely fires or system is young' });
 
     // ── 7. catalyst_performance — check for double-processing artifacts ──
-    const catSnap = await db.collection('catalyst_performance').limit(50).get();
+    // One doc per event type — small, bounded collection. Read in full.
+    const catSnap = await db.collection('catalyst_performance').get();
     const catDocs = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    counts.catalyst_performance = catDocs.length;
+    counts.catalyst_performance = { count: catDocs.length, complete: true, pages: 1 };
 
     const catIssues = [];
     catDocs.forEach(c => {
@@ -2606,8 +2667,11 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
     const tsIssues = [];
     preds.forEach(p => {
       if (!p.timestamp || !p.date) return;
-      const tsDate = new Date(p.timestamp).toISOString().split('T')[0];
-      if (tsDate !== p.date) tsIssues.push({ id: p.id, timestamp: new Date(p.timestamp).toISOString(), date: p.date, mismatch: 'timestamp date != date field' });
+      // Must compare in ET. The `date` field is the ET trading date; deriving
+      // the comparison date in UTC would flag every correctly-stamped record
+      // written after 20:00 ET — i.e. every row the pipeline produces.
+      const tsDate = getTradingDate(new Date(p.timestamp));
+      if (tsDate !== p.date) tsIssues.push({ id: p.id, timestamp: new Date(p.timestamp).toISOString(), etTradingDate: tsDate, date: p.date, mismatch: 'ET trading date of timestamp != date field' });
     });
     // Verification timestamps should be after prediction timestamp
     preds.forEach(p => {
@@ -2633,8 +2697,12 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
     });
 
     // ── 10. Integrity Score ──
+    // Unchanged weighting. Issues with a null count (withheld as unmeasurable)
+    // cannot move the score — a number we refused to report must not be
+    // laundered into one via arithmetic.
     let score = 100;
     issues.forEach(i => {
+      if (typeof i.count !== 'number') return;
       if (i.type.includes('DUPLICATE'))     score -= Math.min(15, i.count * 3);
       if (i.type.includes('MISSING_7D'))    score -= Math.min(20, i.count * 2);
       if (i.type.includes('MISSING_30D'))   score -= Math.min(10, i.count);
@@ -2647,10 +2715,16 @@ app.get('/api/db-integrity', rlAudit, async (req, res) => {
     score = Math.max(0, score);
     const status = score >= 90 ? 'HEALTHY' : score >= 70 ? 'MINOR_ISSUES' : score >= 50 ? 'NEEDS_ATTENTION' : 'CRITICAL';
 
+    // A score derived from partial data is a guess. Say so.
+    const complete = predScan.complete && patScan.complete;
+
     res.json({
       ok: true,
       integrityScore: score,
       status,
+      scoreBasis: complete ? 'complete' : 'provisional',
+      auditComplete: complete,
+      ...(complete ? {} : { auditNote: `Traversal cap of ${AUDIT_MAX_DOCS} documents reached; counts below are lower bounds, not totals.` }),
       collections: counts,
       symbolCoverage,
       issueCount: issues.length,
