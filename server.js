@@ -1825,7 +1825,11 @@ async function runV2ShadowCapture({ dryRun = false, symbols = null } = {}) {
   return telem;
 }
 
-app.get('/api/v2-capture/run', async (req, res) => {
+// Manual trigger for the 21:45 ET cron. Throttled: each call performs five live
+// MI computations (Alpaca + external providers) and up to five Firestore writes,
+// so an unthrottled public GET could burn API quota. The work itself is
+// idempotent — repeat calls return 'already_valid'.
+app.get('/api/v2-capture/run', rlAudit, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const telemetry = await runV2ShadowCapture({ dryRun: req.query.dryRun === '1' });
@@ -1884,7 +1888,7 @@ app.get('/api/journal/run', async (req, res) => {
 });
 
 // Resolve aged pending journal entries. ?dryRun=1 reports intended writes only.
-app.get('/api/journal/resolve', async (req, res) => {
+app.get('/api/journal/resolve', rlAudit, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const result = await runJournalResolver({ dryRun: req.query.dryRun === '1' });
