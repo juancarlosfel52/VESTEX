@@ -80,14 +80,20 @@ function makeDb(store) {
 // lines are still extracted above, which keeps this test bound to the real
 // wiring: if server.js stops delegating, the grab() assertion fires.
 const { VI_CLASS, classifyDualEngine } = require('../viRecord');
+// Economic Scoreboard V1 is an additive second metric that the resolver now also
+// attaches. Injected the same way as the comparability helpers, so this test
+// stays bound to the real wiring rather than a copy.
+const { buildEconomicBlock, buildEconomicScoreboard } = require('../journalEconomics');
 
 function load(store) {
   const admin = makeDb(store);
-  const factory = new Function('admin', 'console', 'VI_CLASS', 'classifyDualEngine', `
+  const factory = new Function('admin', 'console', 'VI_CLASS', 'classifyDualEngine',
+                               'buildEconomicBlock', 'buildEconomicScoreboard', `
     ${PARTS}
     return { runJournalResolver, JOURNAL_CLASS, journalDualEngineClass, buildJournalValidatedScoreboard };
   `);
-  return factory(admin, { warn() {}, log() {} }, VI_CLASS, classifyDualEngine);
+  return factory(admin, { warn() {}, log() {} }, VI_CLASS, classifyDualEngine,
+                 buildEconomicBlock, buildEconomicScoreboard);
 }
 
 // ── Fixtures ──

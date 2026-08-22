@@ -12,6 +12,12 @@ const { getTradingDate, getTradingDays, isTradingDay }  = require('./marketDate'
 const {
   VI_CLASS, V2_SHADOW_FIELDS, classifyDualEngine, buildViPredictionRecord,
 } = require('./viRecord');
+// Economic Scoreboard V1 — a SECOND, additive evaluation metric. It never
+// touches JOURNAL_COMPARISON_RULES or the journalIsCorrect / journalHypothetical
+// Return / journalDetermineWinner trio, which remain the original experiment.
+const {
+  ECON_RULES, buildEconomicBlock, buildEconomicScoreboard, buildEconomicPartitions,
+} = require('./journalEconomics');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -1546,6 +1552,12 @@ async function runResearchJournal() {
         // ── Verification (merged later, never overwritten once final) ──
         verification7d:  build7d,
         verification30d: build30d,
+        // ── Economic Scoreboard V1 (ADDITIVE — separate metric, separate rules) ──
+        // Derived from the verification block above; recomputed freely because it
+        // is a pure function of data that is already locked. Never nested inside
+        // verification7d, so the original result cannot be disturbed.
+        economic7d:  buildEconomicBlock(build7d,  v1Decision, v2Decision),
+        economic30d: buildEconomicBlock(build30d, v1Decision, v2Decision),
       };
     }
 
@@ -1557,6 +1569,9 @@ async function runResearchJournal() {
     // Build scoreboards from entries (7d winner = primary horizon)
     const scoreboard          = buildJournalScoreboard(entries);
     const validatedScoreboard = buildJournalValidatedScoreboard(entries);
+    // Second metric, tallied separately under distinct keys so the two can
+    // never be silently merged by a consumer.
+    const economicScoreboard  = buildEconomicScoreboard(entries);
 
     const now = Date.now();
     const journalDoc = {
@@ -1564,10 +1579,12 @@ async function runResearchJournal() {
       journalSchemaVersion: JOURNAL_SCHEMA_VERSION,
       sourcePredictionIds,
       comparisonRules: JOURNAL_COMPARISON_RULES,
+      economicRules: ECON_RULES,
       symbolCount: Object.keys(entries).length,
       entries,
       scoreboard,
       validatedScoreboard,
+      economicScoreboard,
       updatedAt: now,
     };
 
@@ -1657,10 +1674,12 @@ async function runJournalResolver({ dryRun = false } = {}) {
 
         if (!w7Locked && p.verification7d) {
           updated.verification7d = buildJournalVerificationBlock(p.verification7d, v1Decision, v2Decision);
+          updated.economic7d     = buildEconomicBlock(updated.verification7d, v1Decision, v2Decision);
           telem.resolved7d++; touched = true;
         }
         if (!w30Locked && p.verification30d) {
           updated.verification30d = buildJournalVerificationBlock(p.verification30d, v1Decision, v2Decision);
+          updated.economic30d     = buildEconomicBlock(updated.verification30d, v1Decision, v2Decision);
           telem.resolved30d++; touched = true;
         }
 
@@ -1683,6 +1702,7 @@ async function runJournalResolver({ dryRun = false } = {}) {
           entries: nextEntries,
           scoreboard:          buildJournalScoreboard(nextEntries),
           validatedScoreboard: buildJournalValidatedScoreboard(nextEntries),
+          economicScoreboard:  buildEconomicScoreboard(nextEntries),
           resolverRanAt: Date.now(),
           updatedAt:     Date.now(),
         });
@@ -1695,6 +1715,100 @@ async function runJournalResolver({ dryRun = false } = {}) {
   }
 
   console.log(`[JOURNAL-RESOLVE] ${JSON.stringify(telem)}`);
+  return telem;
+}
+
+// ── Economic Scoreboard backfill ───────────────────────────────────────────
+// The resolver only ever visits entries whose ORIGINAL verification is still
+// pending, so an already-resolved row is never revisited and would never
+// receive an economic block. This pass is the one-time (and re-runnable)
+// counterpart: it derives the economic metric for every journal entry whose
+// verification already exists.
+//
+// Safety properties:
+//  - Reads only data already stored. Fetches no market data. Recomputes no price.
+//  - Writes ONLY `entries.<sym>.economic7d/economic30d`, `economicScoreboard`
+//    and `economicRules`. Touches no prediction, no verification, no original
+//    scoreboard, no decision, no score.
+//  - Idempotent: a block is rewritten only when absent or produced by an older
+//    ruleVersion, so repeated runs converge.
+//  - dryRun reads Firestore fully and reports what it WOULD write, writing
+//    nothing. (Deliberately unlike runV2ShadowCapture's dry run, which returns
+//    early and mislabels outcomes — S19 §7.3.)
+async function runEconomicBackfill({ dryRun = false, limitDocs = null } = {}) {
+  const telem = {
+    dryRun, ruleVersion: ECON_RULES.version,
+    docsScanned: 0, docsEligible: 0, docsUpdated: 0, writeFailures: 0,
+    entriesScanned: 0, blocks7dWritten: 0, blocks30dWritten: 0,
+    alreadyCurrent: 0, noVerification: 0,
+    winners: { v1_econ_better: 0, v2_econ_better: 0, econ_equal: 0,
+               econ_pending: 0, econ_not_comparable: 0 },
+    byDate: {},
+  };
+
+  for await (const { docs } of viPaginate(JOURNAL_COL)) {
+    for (const jdoc of docs) {
+      if (limitDocs && telem.docsScanned >= limitDocs) break;
+      telem.docsScanned++;
+      const data    = jdoc.data();
+      const entries = data.entries || {};
+      const syms    = Object.keys(entries);
+      if (syms.length === 0) continue;
+
+      const nextEntries = { ...entries };
+      let changed = false;
+
+      for (const sym of syms) {
+        const e = entries[sym];
+        telem.entriesScanned++;
+        const v1 = e.decisionV1 ?? null;
+        const v2 = e.decisionV2 ?? null;
+
+        const stale = (blk) => !blk || blk.ruleVersion !== ECON_RULES.version;
+        const upd   = { ...e };
+        let touched = false;
+
+        if (stale(e.economic7d)) {
+          upd.economic7d = buildEconomicBlock(e.verification7d, v1, v2);
+          telem.blocks7dWritten++; touched = true;
+        } else telem.alreadyCurrent++;
+
+        if (stale(e.economic30d)) {
+          upd.economic30d = buildEconomicBlock(e.verification30d, v1, v2);
+          telem.blocks30dWritten++; touched = true;
+        }
+
+        if (!e.verification7d) telem.noVerification++;
+
+        const w = (upd.economic7d || e.economic7d)?.winner;
+        if (w && telem.winners[w] !== undefined &&
+            e.comparabilityClass === VI_CLASS.COMPLETE_DUAL_ENGINE) telem.winners[w]++;
+
+        if (touched) { nextEntries[sym] = upd; changed = true; }
+      }
+
+      if (!changed) continue;
+      telem.docsEligible++;
+      telem.byDate[data.date] = buildEconomicScoreboard(nextEntries);
+
+      if (dryRun) continue;
+
+      try {
+        await jdoc.ref.update({
+          entries: nextEntries,
+          economicScoreboard: buildEconomicScoreboard(nextEntries),
+          economicRules: ECON_RULES,
+          economicBackfilledAt: Date.now(),
+        });
+        telem.docsUpdated++;
+      } catch (err) {
+        telem.writeFailures++;
+        console.warn(`[ECON-BACKFILL] ${data.date} update failed:`, err.message);
+      }
+    }
+  }
+
+  console.log(`[ECON-BACKFILL] ${JSON.stringify({ ...telem, byDate: undefined })}`);
   return telem;
 }
 
@@ -1864,7 +1978,29 @@ app.get('/api/journal', async (req, res) => {
       });
     });
 
-    res.json({ ok: true, count: docs.length, totals, validatedTotals, days: docs });
+    // ── Economic Scoreboard V1 — reported ALONGSIDE, never merged ──
+    // Distinct key names (v1_econ_better vs v1_better) make an accidental
+    // merge impossible. economicPartitions carries the beta safeguard: an
+    // aggregate economic lead is not interpretable without it, so the two
+    // always travel together in the same response.
+    const economicTotals = { v1_econ_better: 0, v2_econ_better: 0, econ_equal: 0,
+                             econ_pending: 0, econ_not_comparable: 0,
+                             excluded: 0, comparableObservations: 0 };
+    const econBlocks = [];
+    docs.forEach(d => {
+      const es = d.economicScoreboard;
+      if (es) Object.keys(economicTotals).forEach(k => { economicTotals[k] += es[k] || 0; });
+      Object.values(d.entries || {}).forEach(e => {
+        if (e.comparabilityClass === VI_CLASS.COMPLETE_DUAL_ENGINE && e.economic7d) {
+          econBlocks.push(e.economic7d);
+        }
+      });
+    });
+    const economicPartitions = buildEconomicPartitions(econBlocks);
+
+    res.json({ ok: true, count: docs.length, totals, validatedTotals,
+               economicRules: ECON_RULES, economicTotals, economicPartitions,
+               days: docs });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -1892,6 +2028,17 @@ app.get('/api/journal/resolve', rlAudit, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const result = await runJournalResolver({ dryRun: req.query.dryRun === '1' });
+    res.json({ ok: true, ...result });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+
+// Economic Scoreboard V1 backfill. ?dryRun=1 reports intended writes only.
+// Additive metric only — cannot alter predictions, verifications or the
+// original scoreboard. See runEconomicBackfill for the safety properties.
+app.get('/api/journal/econ-backfill', rlAudit, async (req, res) => {
+  if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
+  try {
+    const result = await runEconomicBackfill({ dryRun: req.query.dryRun === '1' });
     res.json({ ok: true, ...result });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
