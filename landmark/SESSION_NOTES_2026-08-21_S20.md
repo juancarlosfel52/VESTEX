@@ -226,7 +226,7 @@ regression in `.audit/v1v2-regression.js` is that proof.
 | # | Work | Status |
 |---|---|---|
 | 1 | S20 audit documented | this file |
-| 2 | Design the economic-outcome metric (§8) — design only, no code | next |
+| 2 | Economic Scoreboard V1 — built, deployed `c17a0a7`, backfilled | **DONE — see §14** |
 | 3 | Lock down public mutating endpoints (`/api/v2-capture/run`, `/api/journal/resolve`, `/api/journal/run`, `/api/v2-repair`) — the §7.1 problem from S19: the express-rate-limit in-memory store does not survive Railway's replica distribution, so these are effectively unprotected. Move behind a secret. | queued |
 | 4 | Fix journal cron ordering so it runs after the pipeline (§5). No historical rewrites. | queued |
 | 5 | Cosmetic bundle S19 §7.2 / §7.3 / §7.4 | deferred — lowest priority |
@@ -264,3 +264,119 @@ missing 08-20 doc from a suspicion into a finding.
   which one you are looking at.
 - **A defect can hide behind an accident.** The journal ordering bug was invisible until a
   browser write on 08-19 produced one same-day doc among a run of backfilled ones.
+
+---
+
+## §14 — Economic Scoreboard V1 — BUILT, DEPLOYED, BACKFILLED (2026-08-22)
+
+**Deployed SHA `c17a0a7`** (from `5dc4ef8`). Fingerprint used to confirm the deploy:
+`/api/journal` now returns `economicRules` — absent in `5dc4ef8`. Not assumed; verified.
+
+### What it is
+A second, independent metric. The original asks *"was the decision classified
+correctly?"*; this asks *"exposed to the move, or in cash?"* Both are reported, neither
+overwrites the other, and the key names are deliberately different (`v1_econ_better` vs
+`v1_better`) so no consumer can merge them by accident.
+
+Frozen action model — long/cash only, `journalEconomics.js` `ECON_RULES` v1:
+
+```
+EXPOSED  STRONG BUY, BUY, BUY SMALL, HOLD  ->  captured = +returnPct
+CASH     WAIT, SELL, STRONG SELL           ->  captured = 0
+```
+
+**SELL = 0, not −returnPct.** The original rule models SELL as a short. This one models it
+as exiting a long to cash, because VESTEX is being evaluated as a beginner-oriented
+long/cash system. The two metrics genuinely disagree here and both stay on the record.
+
+`spyRelative = capturedReturn − spyReturn`, applied identically to both exposure classes:
+sitting in cash while SPY rose 2% scores −2, because sitting out a rising benchmark *is*
+underperforming it. **Documented limitation:** subtracting the same `spyReturn` from two
+actions on the same symbol is order-preserving, so SPY-relative cannot neutralise exposure
+bias. Only the regime partition can. Test R3 pins this so nobody re-derives it later.
+
+SPY flat band **±0.5%, reused not invented** — `pipeline.js:417-422` (canonical, same
+verification path that produces `returnPct`); `backtest.js:26` agrees in fraction units.
+
+### First result — the ruler now has markings
+
+| Metric | Reads |
+|---|---|
+| Original (`validatedTotals`) | `v1_better 0, v2_better 0` — undecidable |
+| Economic (`economicTotals`) | **V1 1, V2 3**, 4 comparable divergences |
+
+| Date | Sym | V1 → V2 | ret | SPY | regime | V1 cap | V2 cap | econ winner |
+|---|---|---|---|---|---|---|---|---|
+| 08-13 | GOOGL | WAIT→HOLD | −1.66% | −1.94% | DOWN | 0% | −1.66% | **v1_econ_better** |
+| 08-12 | TSLA  | WAIT→HOLD | +6.01% | −1.27% | DOWN | 0% | +6.01% | v2_econ_better |
+| 08-12 | AAPL  | WAIT→HOLD | +3.01% | −1.27% | DOWN | 0% | +3.01% | v2_econ_better |
+| 07-31 | AMZN  | WAIT→HOLD | +7.49% | +4.12% | UP   | 0% | +7.49% | v2_econ_better |
+
+**Correction to §1 of this document:** the 08-12 window was a *falling* SPY tape
+(−1.27%), not a rising one. Three of the four resolved divergences sit in SPY_DOWN, where
+V2 still leads 2–1 with +7.36% cumulative captured. That is better evidence for V2 than a
+purely rising sample would have been.
+
+**08-13 GOOGL is new** — it was `pending` during the 08-21 audit and resolved overnight. It
+is the **first observation where V1 beat V2 on anything**, and it arrived from the one
+mechanism that can produce it: WAIT staying in cash through a decline.
+
+### The safeguard is firing — read this before believing the 3–1
+
+`betaWarning: true` — *"exposure profile is one-sided (V2 took more market exposure on
+every divergence) — the metric is measuring exposure, not selection."*
+
+`exposureProfile: { v2MoreExposed: 4, v1MoreExposed: 0, sameExposure: 0, oneSided: true }`
+
+V2 has **never once** been less exposed than V1. That is the +5.49 signature: V2 only ever
+converts WAIT→HOLD, so this metric is currently measuring *"does holding beat cash"*, which
+in a generally rising market is close to asking *"does the market go up"*. The warning
+clears only when V2 is observed taking **less** exposure than V1 on some row — i.e. a
+HOLD→WAIT or anything→SELL divergence. None exist yet.
+
+So: **V2 leads 3–1 and that lead is not yet evidence of intelligence.** Both facts must
+travel together, which is why `economicPartitions` ships in the same API response as
+`economicTotals`.
+
+### Freeze proof
+- `brain.js`, `masterIntelligence.js`, `viRecord.js`, `pipeline.js`, `winRateRegistry.js`,
+  `signalPerformance.js`, `catalystEngine.js`, `marketDate.js` — **SHA256 identical** to `5dc4ef8`.
+- `JOURNAL_COMPARISON_RULES`, `journalIsCorrect`, `journalHypotheticalReturn`,
+  `journalDetermineWinner` — **zero-diff**.
+- `server.js`: +149/−1. The single deleted line is the `/api/journal` `res.json`, extended
+  while retaining `totals`, `validatedTotals` and `days` verbatim.
+- **170/170 tests** (117 original unchanged + 53 new). V1/V2 regression **zero differing
+  paths** across 250 fixtures *with the clock frozen* — unfrozen it reports 11 false
+  `generatedAt` diffs, exactly as §12 warns. Day 0 assertion still **15/15**.
+- Live `validatedTotals` before and after the backfill: identical.
+
+### Backfill
+`GET /api/journal/econ-backfill` (`?dryRun=1`). Derives from stored values only — fetches
+no market data, recomputes no price. Writes only `entries.<sym>.economic7d/economic30d`,
+`economicScoreboard`, `economicRules`, `economicBackfilledAt`.
+
+Dry run (deployed) → `docsUpdated: 0`, verdict 1/3/0/8/28, matching the local read-only run
+`.audit/econ-dryrun.js` exactly. Real run → **21/21 docs, 0 write failures**. Second run →
+`docsEligible: 0, alreadyCurrent: 105` — idempotent, converges.
+
+Note this dry run reads Firestore fully before reporting, deliberately unlike
+`runV2ShadowCapture`'s dry run which returns early and mislabels outcomes (§7.3).
+
+### Why the resolver alone was not enough
+`runJournalResolver` only visits entries whose *original* verification is still pending, so
+an already-resolved row is never revisited and would never have received an economic block.
+Hence the separate backfill pass. Both writers now attach the metric, and
+`test/journal-resolver.test.js` injects the real module rather than a copy — if the resolver
+stops attaching it, that test breaks.
+
+### Still open after this sprint
+1. **§7.1 security** — `/api/v2-capture/run`, `/api/journal/resolve`, `/api/journal/run`,
+   `/api/v2-repair`, and now `/api/journal/econ-backfill` are publicly reachable and mutate
+   data. `rlAudit` is attached but express-rate-limit's in-memory store does not survive
+   Railway's replicas, so it protects nothing. The econ-backfill endpoint is idempotent and
+   additive, so the exposure it adds is quota/noise, not corruption — but this is the next
+   item.
+2. **§5 journal cron ordering** — still 18:30 ET reading a 21:00 ET pipeline.
+3. **§7.2 / §7.3 / §7.4** cosmetic bundle — still deferred.
+4. **30d economic blocks** are written but every one is `econ_pending`; no 30d verification
+   has matured for a dual-engine row yet.
