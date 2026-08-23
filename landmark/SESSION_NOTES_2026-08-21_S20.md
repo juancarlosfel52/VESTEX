@@ -227,7 +227,7 @@ regression in `.audit/v1v2-regression.js` is that proof.
 |---|---|---|
 | 1 | S20 audit documented | this file |
 | 2 | Economic Scoreboard V1 — built, deployed `c17a0a7`, backfilled | **DONE — see §14** |
-| 3 | Lock down public mutating endpoints (`/api/v2-capture/run`, `/api/journal/resolve`, `/api/journal/run`, `/api/v2-repair`) — the §7.1 problem from S19: the express-rate-limit in-memory store does not survive Railway's replica distribution, so these are effectively unprotected. Move behind a secret. | queued |
+| 3 | Lock down public mutating endpoints (`/api/v2-capture/run`, `/api/journal/resolve`, `/api/journal/run`, `/api/v2-repair`) — the §7.1 problem from S19: the express-rate-limit in-memory store does not survive Railway's replica distribution, so these are effectively unprotected. Move behind a secret. | **DONE — see §15** |
 | 4 | Fix journal cron ordering so it runs after the pipeline (§5). No historical rewrites. | queued |
 | 5 | Cosmetic bundle S19 §7.2 / §7.3 / §7.4 | deferred — lowest priority |
 | 6 | Freeze and collect. Another month of market behavior. | standing |
@@ -380,3 +380,97 @@ stops attaching it, that test breaks.
 3. **§7.2 / §7.3 / §7.4** cosmetic bundle — still deferred.
 4. **30d economic blocks** are written but every one is `econ_pending`; no 30d verification
    has matured for a dual-engine row yet.
+
+---
+
+## §15 — Ops endpoints locked — DEPLOYED (2026-08-22)
+
+Commit `c8c7dc0`. `server.js` + `test/ops-auth.test.js` only. Closes §10 row 3 / S19 §7.1.
+
+### The exposure, confirmed not assumed
+
+Before the fix, an unauthenticated request from the open internet to
+`/api/journal/econ-backfill?dryRun=1` returned **HTTP 200** with a full telemetry body.
+That is the proof the endpoints were live, not a code reading. `rlAudit` was attached, but
+express-rate-limit's default store is per-process memory: Railway's replicas each get a
+fresh counter, so a 5/min cap becomes 5/min/replica and authenticates nobody.
+
+### A second bug found while fixing the first
+
+`/api/pipeline/run` and `/api/sentiment/refresh` already had guards, written as
+
+```js
+if (req.headers['x-pipeline-secret'] !== process.env.PIPELINE_SECRET) return 401;
+```
+
+With `PIPELINE_SECRET` unset that is `undefined !== undefined` → `false` → **allow**. An
+unset env var silently published the pipeline trigger. These were the two endpoints that
+looked protected and were not.
+
+### What shipped
+
+One middleware, `requireOpsSecret`, reusing the `x-pipeline-secret` / `PIPELINE_SECRET`
+convention already in the file rather than inventing a second scheme.
+
+- **Fail-closed by design.** Unconfigured secret → **503, endpoint disabled**. This is the
+  deliberate inversion of the bug above: a missing secret must never unlock anything.
+- `crypto.timingSafeEqual` with a length pre-check. Non-string and length-mismatched input
+  return 401 rather than throwing (`timingSafeEqual` throws on unequal lengths).
+- Header preferred; `?secret=` accepted for hand-run audits — it lands in access logs, so
+  rotate if used that way.
+
+Seven routes now guarded: `/api/v2-capture/run`, `/api/journal/run`,
+`/api/journal/resolve`, `/api/journal/econ-backfill`, `/api/v2-repair`,
+`/api/pipeline/run`, `/api/sentiment/refresh`.
+
+### Why this could not break automation
+
+All seven crons call their functions **in-process** (`runPipeline`, `runV2ShadowCapture`,
+`verifyPredictions`, `runVIVerification`, `runResearchJournal`, `runJournalResolver`,
+`refreshSentimentCache`). None traverses HTTP, so locking the HTTP surface cannot stop a
+scheduled job. Asserted in tests D1–D3, not merely reasoned about. `index.html` references
+none of the seven routes, so no UI path breaks either.
+
+### Verified in production after deploy
+
+| Check | Result |
+|---|---|
+| 7 mutating routes, unauthenticated | **401 on all 7** |
+| `/api/journal`, `/predictions`, `/accuracy`, `/win-rates`, `/market-health` | **200 on all 5** |
+| `validatedTotals` | unchanged: 0/0/2/2, tie 11, pending 25, excluded 65 |
+| `economicTotals` | unchanged: 1/3/0, pending 8, notcomp 28 |
+| `betaWarning` | still `true`, still one-sided (v2MoreExposed 4 / v1 0) |
+
+**401 rather than 503 proved `PIPELINE_SECRET` was already configured in Railway** — no env
+var had to be added. That distinction is the reason the guard returns two different codes.
+
+### Freeze proof
+
+Nine intelligence/measurement modules (`brain.js`, `masterIntelligence.js`, `viRecord.js`,
+`winRateRegistry.js`, `signalPerformance.js`, `catalystEngine.js`, `marketDate.js`,
+`pipeline.js`, `journalEconomics.js`) and `index.html` are **zero-diff vs `c17a0a7`**.
+`JOURNAL_COMPARISON_RULES` and the `journalIsCorrect` / `journalHypotheticalReturn` /
+`journalDetermineWinner` trio are byte-identical. `server.js` was the only file changed.
+Suite **197/197** (170 baseline + 27 new).
+
+### Test note worth keeping
+
+`test/ops-auth.test.js` extracts the real guard from `server.js` via regex + `new Function`,
+the same technique as `journal-resolver.test.js`, so it stays bound to shipped wiring rather
+than a copy. Two gotchas hit while writing it:
+
+1. `require` is not in scope inside `new Function` — it must be injected as a parameter,
+   exactly as that file injects `admin` / `console`.
+2. Assertion C8 (the fail-open idiom must be gone) initially failed on the *comment* inside
+   `requireOpsSecret` that documents the old bug verbatim. Fixed by stripping `//` lines
+   before matching, then **negative-controlled**: the regex fires on reintroduced code and
+   ignores the comment. A regression lock that cannot fail is not a lock.
+
+### Still open
+
+1. **§5 journal cron ordering** — 18:30 ET still reads a 21:00 ET pipeline. Next item.
+2. **§7.2 / §7.3 / §7.4** cosmetic bundle — still deferred.
+3. **30d economic blocks** — all written, all `econ_pending`.
+4. Rate limiting remains per-replica. Now largely moot on the mutating routes (the secret
+   does the real work), but `/api/live-quotes`, `/api/chart` etc. are still only softly
+   capped against scrapers. Not urgent, worth knowing.
