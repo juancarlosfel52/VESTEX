@@ -45,6 +45,50 @@ const rlAudit   = _rl(5);    // /api/brain-integrity, /api/brain-diagnostics
 // VI write: one write per symbol per day from the browser
 const rlVI      = _rl(10);   // /api/vi/log
 
+// ── Ops authorization — protects every endpoint that MUTATES the experiment ──
+//
+// Rate limiting alone protects nothing here: express-rate-limit's default store
+// is per-process memory, so Railway's edge/replicas each get a fresh counter.
+// A 5/min limit becomes 5/min/replica, and it never authenticates anyone.
+//
+// This reuses the secret convention already in the codebase
+// (x-pipeline-secret / PIPELINE_SECRET, used by /api/sentiment/refresh and
+// /api/pipeline/run) rather than inventing a second scheme.
+//
+// FAIL-CLOSED, on purpose. The pre-existing inline checks were written as
+//   req.headers['x-pipeline-secret'] !== process.env.PIPELINE_SECRET
+// which passes when BOTH sides are undefined — i.e. an unset PIPELINE_SECRET
+// silently opened the endpoint to the public. Here, a missing secret disables
+// the endpoint instead of unlocking it.
+//
+// No scheduled job goes through this. All seven crons call their functions
+// directly in-process (runPipeline, runV2ShadowCapture, verifyPredictions,
+// runVIVerification, runResearchJournal, runJournalResolver,
+// refreshSentimentCache), so locking the HTTP surface cannot break automation.
+const crypto = require('crypto');
+
+const _secretEq = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ba = Buffer.from(a), bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;           // length is not secret here
+  return crypto.timingSafeEqual(ba, bb);
+};
+
+function requireOpsSecret(req, res, next) {
+  const expected = process.env.PIPELINE_SECRET;
+  if (!expected) {
+    return res.status(503).json({ ok: false,
+      error: 'Ops endpoint disabled — PIPELINE_SECRET is not configured on this deployment.' });
+  }
+  // Header is preferred. Query is accepted because these are GETs triggered by
+  // hand during audits; it will appear in access logs, so rotate if used.
+  const offered = req.headers['x-pipeline-secret'] ?? req.query.secret;
+  if (!_secretEq(String(offered ?? ''), expected)) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+  return next();
+}
+
 // ── Firebase Admin init — only if env vars present ──
 let pipelineReady = false;
 let runPipeline, verifyPredictions, SYMBOLS;
@@ -514,19 +558,15 @@ app.get('/api/news/headlines', async (req, res) => {
 });
 
 // ── API: Refresh sentiment now ──
-app.post('/api/sentiment/refresh', async (req, res) => {
+app.post('/api/sentiment/refresh', rlAudit, requireOpsSecret, async (req, res) => {
   if (!process.env.CLAUDE_API_KEY) return res.json({ ok: false, error: 'CLAUDE_API_KEY not set' });
-  if (req.headers['x-pipeline-secret'] !== process.env.PIPELINE_SECRET)
-    return res.status(401).json({ ok: false, error: 'Unauthorized' });
   res.json({ ok: true, message: 'Sentiment refresh started' });
   refreshSentimentCache();
 });
 
 // ── API: Manual pipeline trigger ──
-app.post('/api/pipeline/run', async (req, res) => {
+app.post('/api/pipeline/run', rlAudit, requireOpsSecret, async (req, res) => {
   if (!pipelineReady) return notReady(res);
-  if (req.headers['x-pipeline-secret'] !== process.env.PIPELINE_SECRET)
-    return res.status(401).json({ ok: false, error: 'Unauthorized' });
   res.json({ ok: true, message: 'Pipeline started' });
   runPipeline().catch(console.error);
 });
@@ -1943,7 +1983,7 @@ async function runV2ShadowCapture({ dryRun = false, symbols = null } = {}) {
 // MI computations (Alpaca + external providers) and up to five Firestore writes,
 // so an unthrottled public GET could burn API quota. The work itself is
 // idempotent — repeat calls return 'already_valid'.
-app.get('/api/v2-capture/run', rlAudit, async (req, res) => {
+app.get('/api/v2-capture/run', rlAudit, requireOpsSecret, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const telemetry = await runV2ShadowCapture({ dryRun: req.query.dryRun === '1' });
@@ -2015,7 +2055,7 @@ app.get('/api/journal/today', async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
-app.get('/api/journal/run', async (req, res) => {
+app.get('/api/journal/run', rlAudit, requireOpsSecret, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const result = await runResearchJournal();
@@ -2024,7 +2064,7 @@ app.get('/api/journal/run', async (req, res) => {
 });
 
 // Resolve aged pending journal entries. ?dryRun=1 reports intended writes only.
-app.get('/api/journal/resolve', rlAudit, async (req, res) => {
+app.get('/api/journal/resolve', rlAudit, requireOpsSecret, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const result = await runJournalResolver({ dryRun: req.query.dryRun === '1' });
@@ -2035,7 +2075,7 @@ app.get('/api/journal/resolve', rlAudit, async (req, res) => {
 // Economic Scoreboard V1 backfill. ?dryRun=1 reports intended writes only.
 // Additive metric only — cannot alter predictions, verifications or the
 // original scoreboard. See runEconomicBackfill for the safety properties.
-app.get('/api/journal/econ-backfill', rlAudit, async (req, res) => {
+app.get('/api/journal/econ-backfill', rlAudit, requireOpsSecret, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const result = await runEconomicBackfill({ dryRun: req.query.dryRun === '1' });
@@ -2044,7 +2084,7 @@ app.get('/api/journal/econ-backfill', rlAudit, async (req, res) => {
 });
 
 // ── V2 shadow repair: fetch live MI, merge V2 fields into today's pipeline docs ──
-app.get('/api/v2-repair', async (req, res) => {
+app.get('/api/v2-repair', rlAudit, requireOpsSecret, async (req, res) => {
   if (!pipelineReady) return res.json({ ok: false, error: 'Firestore not configured' });
   try {
     const axios   = require('axios');
