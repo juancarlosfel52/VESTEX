@@ -1,10 +1,16 @@
 # VESTEX — Session Notes S20
 ## The 08-19 milestone audit: Day 0 matured, and the ruler was found to be broken
 
-**Date:** 2026-08-21 (ET)
-**Deployed SHA:** `5dc4ef8` (unchanged) · **Rollback SHA:** `b68b429`
-**Code touched this session:** none. Read-only audit.
-**Outcome:** `EXPERIMENT HEALTHY — MEASUREMENT SYSTEM INADEQUATE — PROMOTION GATE REDEFINED`
+**Date:** 2026-08-21 → 2026-08-22 (ET). Opened as a read-only audit, then two sprints shipped.
+**Deployed SHA:** `c8c7dc0` · **Rollback SHA:** `b68b429` · audit-only baseline was `5dc4ef8`
+**Code touched:** `journalEconomics.js` (new, §14) · `server.js` (§14 + §15) · 2 new test files.
+Intelligence modules: **zero-diff throughout.**
+**Outcome:** `EXPERIMENT HEALTHY — SECOND RULER BUILT — OPS SURFACE LOCKED — GATE REDEFINED`
+
+> **This file grew past its own opening.** §0 below is the audit as it stood on 08-21. Two
+> sprints landed after it was written: **§14** (Economic Scoreboard V1, `c17a0a7`) and
+> **§15** (ops endpoints locked, `c8c7dc0`). Read §0 → §14 → §15 in that order; §0's work
+> order is historical, the live one is §10.
 
 ---
 
@@ -25,6 +31,30 @@ Four facts:
 Work order set by the owner, this session forward: **S20 doc → evaluation protocol design →
 security endpoints → journal timing → freeze and collect.** No V3. No new Brain mathematics.
 No threshold changes.
+
+### Status of that work order as of 2026-08-22 (end of session)
+
+| Step | State |
+|---|---|
+| S20 doc | done — this file |
+| Evaluation protocol (the second ruler) | **done, deployed `c17a0a7`, backfilled → §14** |
+| Security endpoints | **done, deployed `c8c7dc0` → §15** |
+| Journal timing (18:30 ET reads a 21:00 ET pipeline) | **← NEXT ITEM.** §5 + §10 row 4 |
+| Freeze and collect | standing |
+
+**If you are picking this up cold, start here:**
+
+- Deployed is `c8c7dc0`. Suite is **197/197** (`for f in test/*.test.js; do node $f; done`).
+- The ruler now returns a verdict where the original cannot: original `validatedTotals`
+  reads **0–0**, economic reads **V1 1 / V2 3**. Both are live on `/api/journal`, side by
+  side, never merged.
+- **`betaWarning` is `true` and that is load-bearing.** V2 has never once been *less*
+  exposed than V1 (`v2MoreExposed 4 / v1MoreExposed 0`), so the 3–1 is currently measuring
+  "holding beat cash," not selection skill. Do not quote the 3–1 without it. It clears only
+  when a HOLD→WAIT or HOLD→SELL divergence appears. See §14.
+- Fact 3 below is now *fixed, not open* — §14 is the fix. Fact 3 explains why it was needed.
+- The 7 mutating endpoints need `x-pipeline-secret` (or `?secret=`). `PIPELINE_SECRET` is
+  already set in Railway. Read-only endpoints stayed public. See §15.
 
 ---
 
@@ -190,7 +220,12 @@ Verdict handling, decided in advance so the result cannot be rationalized later:
 
 ---
 
-## §8 — Next: second metric, additive (DESIGNED NEXT SESSION, NOT BUILT)
+## §8 — Second metric, additive — **DESIGN SPEC. Built in §14, deployed `c17a0a7`.**
+
+> Kept as written for the record: this is the spec the build was held to. For what actually
+> shipped and how it behaves on real data, read **§14**. Every rule below survived
+> implementation except one clarification — SELL maps to cash `0`, never `−returnPct`,
+> because VESTEX is evaluated as a long/cash system that never shorts.
 
 Rule: **do not retroactively change the original grading.** `comparisonRules.version 1`
 stays exactly as it is, and every existing verification stays exactly as it is. The
@@ -264,6 +299,13 @@ missing 08-20 doc from a suspicion into a finding.
   which one you are looking at.
 - **A defect can hide behind an accident.** The journal ordering bug was invisible until a
   browser write on 08-19 produced one same-day doc among a run of backfilled ones.
+
+---
+
+## §13 — (intentionally unused)
+
+Numbering jumped §12 → §14. Nothing is missing; §14 was written as the closure record for
+the §8 spec and the number stuck. Left as-is so existing references to §14/§15 stay valid.
 
 ---
 
