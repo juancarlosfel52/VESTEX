@@ -200,5 +200,104 @@ check('T10 topPatterns is an output-only projection (no scoring field mutated)',
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  PHASE B.1 — the verification explainer must describe the REAL grader.
+//
+//  This is a source-contract test, not a string snapshot. The thresholds are
+//  parsed out of server.js and the copy is then required to state THOSE
+//  numbers. If anyone changes the grader without updating the explainer (or
+//  vice versa), these fail. Hardcoding "1" and "5" here would let the two
+//  drift apart silently again, which is the exact defect being fixed.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Thresholds, read from the production source ──
+const RULES_SRC = SERVER.slice(
+  SERVER.indexOf('const JOURNAL_COMPARISON_RULES'),
+  SERVER.indexOf('};', SERVER.indexOf('const JOURNAL_COMPARISON_RULES')));
+const num = (re, label) => {
+  const m = RULES_SRC.match(re);
+  assert.ok(m, `could not parse ${label} from JOURNAL_COMPARISON_RULES`);
+  return Number(m[1]);
+};
+const BUY_T     = num(/buyCorrectThreshold:\s*(-?[\d.]+)/,  'buyCorrectThreshold');
+const SELL_T    = num(/sellCorrectThreshold:\s*(-?[\d.]+)/, 'sellCorrectThreshold');
+const NEUTRAL_T = num(/neutralBandPct:\s*(-?[\d.]+)/,       'neutralBandPct');
+
+// ── The verifier that actually writes verification7d/30d ──
+const IS_CORRECT = SERVER.slice(
+  SERVER.indexOf('function isCorrect(decision, ret) {'),
+  SERVER.indexOf('function isDirectional('));
+
+// ── The user-facing explainer panel ──
+const PANEL = UI.slice(UI.indexOf('How We Score Ourselves'),
+                       UI.indexOf('<!-- VERIFICATION INTELLIGENCE'))
+                .replace(/\u2212/g, '-');   // normalise U+2212 MINUS SIGN
+assert.ok(PANEL.length > 200, 'explainer panel not found — test would be vacuous');
+
+check('T11 production grader thresholds are unchanged and the two graders agree', () => {
+  assert.strictEqual(BUY_T,     1,  'buy threshold moved');
+  assert.strictEqual(SELL_T,    -1, 'sell threshold moved');
+  assert.strictEqual(NEUTRAL_T, 5,  'neutral band moved');
+  // isCorrect() must use the identical numbers, or the UI cannot describe both.
+  assert.ok(new RegExp(`return ret > ${BUY_T}\\b`).test(IS_CORRECT),
+    'isCorrect BUY threshold no longer matches JOURNAL_COMPARISON_RULES');
+  assert.ok(new RegExp(`return ret < ${SELL_T}\\b`).test(IS_CORRECT),
+    'isCorrect SELL threshold no longer matches JOURNAL_COMPARISON_RULES');
+  assert.ok(new RegExp(`Math\\.abs\\(ret\\) <= ${NEUTRAL_T}\\b`).test(IS_CORRECT),
+    'isCorrect neutral band no longer matches JOURNAL_COMPARISON_RULES');
+  // Same decision families on both sides.
+  assert.ok(IS_CORRECT.includes("['STRONG BUY','BUY','BUY SMALL']"), 'buy family changed');
+  assert.ok(IS_CORRECT.includes("['SELL','STRONG SELL']"),           'sell family changed');
+});
+
+check('T12 explainer no longer claims the flat band is 0.5%', () => {
+  assert.ok(!/0\.5%/.test(PANEL),
+    'the false 0.5% verification rule is back in the explainer');
+  assert.ok(!/moved less than 0\.5% either way/.test(PANEL), 'stale flat rule present');
+  // The backtest note legitimately uses 0.5% (backtest.js MIN_MOVE_PCT) — it must
+  // survive, so we are not just deleting every mention of the number.
+  assert.ok(/±0\.5% move to classify UP\/DOWN/.test(UI),
+    'the truthful backtest 0.5% note was removed by mistake');
+});
+
+check('T13 explainer states the real BUY rule', () => {
+  assert.ok(new RegExp(`BUY[^.]*above \\+${BUY_T}%`).test(PANEL),
+    `explainer must say a BUY needs a return above +${BUY_T}%`);
+  // "closed higher" is not the rule — any gain under the threshold is wrong.
+  assert.ok(!/price closed higher after 7 days/.test(PANEL),
+    'explainer still implies any gain counts as correct');
+});
+
+check('T14 explainer states the real SELL rule', () => {
+  assert.ok(new RegExp(`SELL[^.]*below ${SELL_T}%`).test(PANEL),
+    `explainer must say a SELL needs a return below ${SELL_T}%`);
+});
+
+check('T15 explainer states the real HOLD/WAIT rule', () => {
+  assert.ok(new RegExp(`±${NEUTRAL_T}%`).test(PANEL),
+    `explainer must state the ±${NEUTRAL_T}% neutral band`);
+  assert.ok(/HOLD and WAIT/.test(PANEL), 'explainer must name both neutral decisions');
+  assert.ok(/no large move/.test(PANEL),
+    'HOLD/WAIT must not be presented as a direction call');
+});
+
+check('T16 explainer headings no longer claim HOLD/WAIT is a direction call', () => {
+  assert.ok(!/Direction was right/.test(PANEL), 'stale CORRECT heading');
+  assert.ok(!/Direction was off/.test(PANEL),   'stale WRONG heading');
+  assert.ok(/CORRECT — Verified outcome matched the call/.test(PANEL), 'CORRECT heading missing');
+  assert.ok(/WRONG — Verified outcome missed the call/.test(PANEL),   'WRONG heading missing');
+});
+
+check('T17 patch did not alter the production verification implementation', () => {
+  // Guards against "fixing" the grader to match old copy.
+  assert.ok(IS_CORRECT.includes('return Math.abs(ret) <= 5;'), 'isCorrect fallthrough changed');
+  assert.ok(/version: 1,/.test(RULES_SRC), 'comparison rules version bumped');
+  assert.ok(SERVER.includes('correct: isCorrect(e.decision, retPct),'),
+    'verification write path changed');
+  // 7d and 30d must still share ONE verif object built from ONE isCorrect call.
+  assert.strictEqual((SERVER.match(/correct: isCorrect\(/g) || []).length, 1,
+    '7d/30d must be graded by a single shared call');
+});
+
 console.log(failures === 0 ? '\nALL PASS\n' : `\n${failures} FAILURE(S)\n`);
 process.exit(failures === 0 ? 0 : 1);

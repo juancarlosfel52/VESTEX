@@ -2723,11 +2723,11 @@ canvas{max-height:300px;}
         <div class="pb" style="display:flex;flex-direction:column;gap:14px;">
           <div style="display:flex;gap:14px;align-items:start;">
             <div style="width:32px;height:32px;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;">✓</div>
-            <div><div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dark);margin-bottom:3px;">CORRECT — Direction was right</div><div style="font-size:11px;color:var(--gray);line-height:1.6;">We said "Going Up" and the price closed higher after 7 days. Or we said "Going Down" and it fell. Flat is correct if the price moved less than 0.5% either way.</div></div>
+            <div><div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dark);margin-bottom:3px;">CORRECT — Verified outcome matched the call</div><div style="font-size:11px;color:var(--gray);line-height:1.6;">Measured against the price 7 days later. A BUY is correct if the return is above +1%. A SELL is correct if the return is below −1%. HOLD and WAIT are correct if the price stayed within ±5% either way — they are scored as "no large move", not as direction calls.</div></div>
           </div>
           <div style="display:flex;gap:14px;align-items:start;">
             <div style="width:32px;height:32px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;">✗</div>
-            <div><div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dark);margin-bottom:3px;">WRONG — Direction was off</div><div style="font-size:11px;color:var(--gray);line-height:1.6;">We said "Going Up" but the price fell more than 0.5%. Every wrong call makes us improve the model for next week.</div></div>
+            <div><div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dark);margin-bottom:3px;">WRONG — Verified outcome missed the call</div><div style="font-size:11px;color:var(--gray);line-height:1.6;">A BUY that failed to gain more than 1%, a SELL that failed to fall more than 1%, or a HOLD/WAIT that moved beyond ±5%. A BUY that simply went flat counts as wrong. Every wrong call makes us improve the model for next week.</div></div>
           </div>
           <div style="display:flex;gap:14px;align-items:start;">
             <div style="width:32px;height:32px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;">◷</div>
