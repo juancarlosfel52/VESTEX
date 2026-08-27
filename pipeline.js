@@ -580,7 +580,12 @@ async function runPipeline() {
             patternId:      p.pattern_id || null,
             direction:      p.direction || null,
             winRate:        p.win_rate || null,
-            winRateSource:  p.win_rate_source || null,
+            // Same provenance mapping fix as masterIntelligence.js: brain.js emits
+            // camelCase. Applies to newly created rows only — no historical row is
+            // rewritten and no field changes meaning.
+            winRateResolved: p._resolvedRate != null ? +(p._resolvedRate * 100).toFixed(1) : null,
+            winRateSource:  p.winRateSource || null,
+            winRateUses:    p.winRateUses   ?? null,
           }));
           const record = buildViPredictionRecord({
             symbol,

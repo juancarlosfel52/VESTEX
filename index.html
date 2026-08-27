@@ -2548,38 +2548,50 @@ canvas{max-height:300px;}
 
       <!-- HERO ACCURACY BAR -->
       <div class="prog-hero">
-        <div class="prog-hero-label">Overall Prediction Accuracy This Week</div>
+        <div class="prog-hero-label">Overall Verified Outcome Accuracy</div>
         <div class="prog-hero-pct" id="prog-pct">—<span>%</span></div>
         <div class="prog-hero-sub" id="prog-sub">Tracking begins once the pipeline is active</div>
         <div class="prog-bar-wrap">
           <div class="prog-bar-track">
             <div class="prog-bar-fill" id="prog-fill" style="width:0%"></div>
           </div>
+          <!-- No 50% "coin flip" marker here: this metric includes HOLD/WAIT outcomes,
+               which are graded as "no large move", not as a direction call. The coin-flip
+               reference belongs only to the directional BUY/SELL figure below. -->
           <div class="prog-bar-labels">
             <span class="prog-bar-lbl">0%</span>
-            <span class="prog-bar-lbl">50% — Coin Flip</span>
-            <span class="prog-bar-lbl">70% — Good</span>
-            <span class="prog-bar-lbl">90% — Excellent</span>
+            <span class="prog-bar-lbl">50%</span>
+            <span class="prog-bar-lbl">70%</span>
+            <span class="prog-bar-lbl">90%</span>
           </div>
         </div>
+        <div class="prog-hero-sub" style="margin-top:6px;opacity:.75;">
+          All decision types (BUY · SELL · HOLD · WAIT) graded under the 7-day verification rules.
+          HOLD and WAIT are scored as "no large move", not as direction calls — see the split below.
+        </div>
       </div>
+
+      <!-- ACCURACY DECOMPOSITION — derived client-side from /api/accuracy byDecision.
+           Backend mathematics unchanged; this only separates metrics that were
+           previously collapsed into one headline number. -->
+      <div class="prog-grid" id="prog-decomp"></div>
 
       <!-- STATS GRID -->
       <div class="prog-grid">
         <div class="prog-stat">
-          <div class="prog-stat-lbl">Predictions Made</div>
+          <div class="prog-stat-lbl">Predictions Logged</div>
           <div class="prog-stat-val" id="prog-total">0</div>
-          <div class="prog-stat-note">This week</div>
+          <div class="prog-stat-note">Most recent records</div>
         </div>
         <div class="prog-stat">
-          <div class="prog-stat-lbl">Correct Calls</div>
+          <div class="prog-stat-lbl">Correct Outcomes</div>
           <div class="prog-stat-val" id="prog-correct" style="color:var(--green)">0</div>
-          <div class="prog-stat-note">Direction was right</div>
+          <div class="prog-stat-note">All decision types</div>
         </div>
         <div class="prog-stat">
-          <div class="prog-stat-lbl">Wrong Calls</div>
+          <div class="prog-stat-lbl">Incorrect Outcomes</div>
           <div class="prog-stat-val" id="prog-wrong" style="color:var(--red)">0</div>
-          <div class="prog-stat-note">Direction was wrong</div>
+          <div class="prog-stat-note">All decision types</div>
         </div>
         <div class="prog-stat">
           <div class="prog-stat-lbl">Pending Verification</div>
@@ -4097,9 +4109,12 @@ async function viLogPrediction(d) {
           name:           p.name,
           direction:      p.direction     || null,
           category:       p.category      || null,
-          win_rate:       p.win_rate      ?? null,
-          winRateSource:  p.winRateSource || null,
-          winRateUses:    p.winRateUses   ?? null,
+          // MI exposes winRate (camelCase); win_rate does not exist on the MI object,
+          // so this always serialized null. Record field name kept for schema stability.
+          win_rate:        p.winRate         ?? null,
+          winRateResolved: p.winRateResolved ?? null,
+          winRateSource:   p.winRateSource   || null,
+          winRateUses:     p.winRateUses     ?? null,
         })),
         marketRegime:      d.scoreBreakdown?.regime?.detail?.regime || null,
         // ── Sentiment state at prediction time ──
@@ -4499,6 +4514,43 @@ function renderPredsFull() {
 // ═══════════════════════════════════════════════════════════
 //  MODEL PROGRESS PAGE
 // ═══════════════════════════════════════════════════════════
+
+// Directional decision family — mirrors isDirectional() in server.js. Kept in sync
+// with the verifier so the displayed split uses the same set the grader uses.
+const DIRECTIONAL_DECISIONS = ['STRONG BUY','BUY','BUY SMALL','SELL','STRONG SELL'];
+const NEUTRAL_DECISIONS     = ['HOLD','WAIT'];
+
+// Sums the authoritative /api/accuracy byDecision buckets for a decision family.
+// Returns null accuracy when the family has no verified observations, so an empty
+// bucket renders as "—" instead of NaN.
+function sumDecisionFamily(byDecision, decisions) {
+  let total = 0, correct = 0;
+  for (const d of decisions) {
+    const b = byDecision?.[d];
+    if (!b) continue;
+    total   += Number(b.total)   || 0;
+    correct += Number(b.correct) || 0;
+  }
+  return { total, correct, accuracy: total > 0 ? +(correct / total * 100).toFixed(1) : null };
+}
+
+function renderAccuracyDecomposition(byDecision) {
+  const el = document.getElementById('prog-decomp');
+  if (!el) return;
+  const dir  = sumDecisionFamily(byDecision, DIRECTIONAL_DECISIONS);
+  const neut = sumDecisionFamily(byDecision, NEUTRAL_DECISIONS);
+  if (dir.total === 0 && neut.total === 0) { el.innerHTML = ''; return; }
+  const cell = (lbl, s, note) => `
+    <div class="prog-stat">
+      <div class="prog-stat-lbl">${lbl}</div>
+      <div class="prog-stat-val">${s.accuracy != null ? s.accuracy + '%' : '—'}</div>
+      <div class="prog-stat-note">${s.total > 0 ? s.correct + ' / ' + s.total + ' · ' + note : 'No verified observations yet'}</div>
+    </div>`;
+  el.innerHTML =
+    cell('Directional BUY/SELL Accuracy', dir,  'direction calls — 50% is a coin flip') +
+    cell('HOLD/WAIT Outcome Accuracy',    neut, 'graded as "no large move", not direction');
+}
+
 async function renderProgress() {
   // Week label
   const now  = new Date();
@@ -4517,7 +4569,7 @@ async function renderProgress() {
   } catch(e) {}
 
   // ── Load real accuracy from vi_predictions (unified source) ──
-  let total=0, totalVerified=0, pending=0, correct=0, accuracy=null, recent=[], firstExpected=null;
+  let total=0, totalVerified=0, pending=0, correct=0, accuracy=null, recent=[], firstExpected=null, byDecision={};
   try {
     const res  = await fetch('/api/accuracy');
     const data = await res.json();
@@ -4529,10 +4581,18 @@ async function renderProgress() {
       accuracy      = data.accuracy      ?? null;   // null until first verified
       recent        = data.recent        || [];
       firstExpected = data.firstExpected || null;
+      byDecision    = data.byDecision    || {};
     }
   } catch(e) {}
 
   const wrong = totalVerified > 0 ? totalVerified - correct : 0;
+
+  // ── Accuracy decomposition (display only) ──
+  // Overall accuracy mixes direction calls with HOLD/WAIT, which the verifier grades
+  // as "no large move" (|return| <= 5%), not as a direction. Split them so the
+  // headline cannot be read as directional skill. Derived entirely from the
+  // authoritative byDecision counts — no metric is recomputed here.
+  renderAccuracyDecomposition(byDecision);
 
   // ── Hero accuracy bar ──
   document.getElementById('prog-pct').innerHTML = accuracy !== null
@@ -7792,6 +7852,29 @@ function miRenderCard(d) {
   })() : '';
 
   // ── Phase 5: Patterns with history ──
+  // Win rate provenance: show the resolved rate actually used by scoring, together
+  // with its tier. winRateResolved is only a *measured* rate when source=VERIFIED;
+  // HAND_CODED and DEFAULT are developer seed / fallback values, so the tier is
+  // always rendered next to the number. Values are coerced to numbers before
+  // interpolation — no provenance string is ever injected into the markup.
+  const wrProvenanceHtml = (p) => {
+    const resolved = typeof p.winRateResolved === 'number' ? p.winRateResolved : null;
+    const seed     = typeof p.winRate         === 'number' ? p.winRate         : null;
+    const val      = resolved != null ? resolved : seed;
+    if (val == null) return '';
+    const uses  = Number(p.winRateUses);
+    const src   = p.winRateSource;
+    const badge = src === 'VERIFIED'
+      ? `<span style="color:var(--green2);font-weight:700;">✓ VERIFIED${uses > 0 ? ' · ' + uses + ' obs' : ''}</span>`
+      : src === 'HAND_CODED'
+      ? `<span style="color:var(--gold);">HAND-CODED</span>`
+      : src === 'DEFAULT'
+      ? `<span style="opacity:.7;">DEFAULT</span>`
+      : `<span style="opacity:.7;">UNRESOLVED SEED</span>`;
+    const shown = (+val.toFixed(1)).toString();
+    return `<div style="color:#22A05A;font-weight:600;">${shown}% win rate</div>
+            <div style="font-size:8px;letter-spacing:.5px;">${badge}</div>`;
+  };
   const patternsHtml = d.topPatterns?.length
     ? d.topPatterns.map(p=>`<div class="mi-pattern-row" style="align-items:flex-start;">
         <span class="mi-pattern-check">✓</span>
@@ -7801,7 +7884,7 @@ function miRenderCard(d) {
           ${p.reason ? `<div style="font-size:9px;color:var(--gray);margin-top:2px;">${p.reason}</div>` : ''}
         </div>
         <div style="text-align:right;font-size:9px;color:var(--gray);line-height:1.7;">
-          ${p.winRate  != null ? `<div style="color:#22A05A;font-weight:600;">${p.winRate.toFixed?.(0)||p.winRate}% win rate</div>` : ''}
+          ${wrProvenanceHtml(p)}
           ${p.avgReturn!= null ? `<div>Avg return: +${p.avgReturn}%</div>` : ''}
           ${p.uses     != null ? `<div>Uses: ${p.uses}</div>` : ''}
         </div>

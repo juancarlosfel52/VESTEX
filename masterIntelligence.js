@@ -540,9 +540,15 @@ function buildMasterIntelligence(symbol, indicators, brainResult, signals, senti
     category:         p.category,
     patternId:        p.pattern_id      || null,
     direction:        p.direction       || null,
-    winRate:          p.win_rate        || null,
-    winRateSource:    p.win_rate_source || null,
-    winRateUses:      p.win_rate_uses   || null,
+    winRate:          p.win_rate        || null,   // seed/hand-coded rate — schema unchanged
+    // Provenance: brain.js emits camelCase (winRateSource/winRateUses/_resolvedRate).
+    // These were previously read as snake_case, which does not exist, so every row
+    // serialized null and the UI fell through to a "DEFAULT" label. Display only —
+    // nothing downstream of this map is scored. _resolvedRate is decimal; winRate is
+    // a percentage, so scale it to match for the UI.
+    winRateResolved:  p._resolvedRate != null ? +(p._resolvedRate * 100).toFixed(1) : null,
+    winRateSource:    p.winRateSource   || null,
+    winRateUses:      p.winRateUses     ?? null,
     confidenceImpact: p.score           || null,
     impact:           p.score           || null,
     reason:           p.reason          || '',
