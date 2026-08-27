@@ -7061,9 +7061,13 @@ async function fetchHistory(sym, per) {
       const prices = [], labels = [], highs = [], lows = [];
       toUse.forEach(bar => {
         const d   = new Date(bar.time);
+        // Alpaca stamps daily bars at ET midnight (04:00Z EDT / 05:00Z EST), so a
+        // bar's ET calendar day IS its market session day. Formatting browser-local
+        // labelled every candle one day early for any viewer west of Eastern
+        // (Aug 27 session read "Aug 26" in Chicago/Denver/Los Angeles). Pin to ET.
         const lbl = days <= 7
-          ? d.toLocaleDateString('en-US', { weekday: 'short' })
-          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          ? d.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
+          : d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
         labels.push(lbl);
         prices.push(+parseFloat(bar.close).toFixed(2));
         highs.push(+parseFloat(bar.high).toFixed(2));
